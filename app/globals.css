@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-playfair), ui-serif, Georgia, "Times New Roman", serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +39,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-act-red: var(--act-red);
+  --color-act-charcoal: var(--act-charcoal);
+  --color-act-banner: var(--act-banner);
+  --color-act-banner-foreground: var(--act-banner-foreground);
+  --color-act-nav-accent: var(--act-nav-accent);
+  --color-act-action: var(--act-action);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,14 +55,26 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Brand navy for dark mode page shell (and surfaces derived in `.dark`) */
+  --act-brand-navy-dark: #001138;
+  --act-brand-navy-dark-elevated: #0f234e;
+  --act-brand-navy-dark-sidebar: #000a24;
+  --act-red: oklch(0.5 0.19 25);
+  --act-charcoal: oklch(0.28 0.02 260);
+  --act-banner: oklch(0.94 0.03 230);
+  --act-banner-foreground: oklch(0.42 0.08 230);
+  /* Positive / funding progress / success actions (replaces red for campaign UI accents) */
+  --act-action: oklch(0.52 0.16 155);
+  --background: oklch(0.985 0.008 240);
+  --foreground: oklch(0.2 0.02 260);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.3 0.09 264);
+  --primary-foreground: oklch(0.99 0 0);
+  /* Header & main nav emphasized links (matches primary navy) */
+  --act-nav-accent: var(--primary);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -84,37 +102,39 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: var(--act-brand-navy-dark);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: var(--act-brand-navy-dark-elevated);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: var(--act-brand-navy-dark-elevated);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  /* Nav: same navy hue as light mode, lighter for contrast on dark background */
+  --act-nav-accent: oklch(0.78 0.09 264);
+  --secondary: var(--act-brand-navy-dark-elevated);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: var(--act-brand-navy-dark-elevated);
+  --muted-foreground: oklch(0.75 0.02 240);
+  --accent: #1a355f;
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.65 0.04 250);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: var(--act-brand-navy-dark-sidebar);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: var(--act-brand-navy-dark-elevated);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.65 0.04 250);
 }
 
 @layer base {
@@ -126,5 +146,11 @@
   }
   html {
     @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-family: var(--font-heading);
   }
 }

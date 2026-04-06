@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  super_admin
+  parent
+  student
+  donor_individual
+  donor_business
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      UserRole
+  /// JSON array of portal roles (parent, student, donor_*) this email may access; defaults from `role` when null.
+  roles     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs AuditLog[] @relation("AuditActor")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  actorId     String?
+  actorEmail  String?
+  targetId    String?
+  targetEmail String?
+  metadata    String?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+/// Super-admin–edited legal HTML shown on public /legal/* when a row exists.
+model LegalDocument {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  bodyHtml  String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
