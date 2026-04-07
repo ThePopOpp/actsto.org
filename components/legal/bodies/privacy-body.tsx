@@ -1,14 +1,26 @@
-import { LegalContactBlock } from "@/components/legal/bodies/contact-block";
-
 /** Default privacy policy markup (also rendered to HTML for the admin editor baseline). */
 export function PrivacyDocumentBody() {
   return (
     <>
       <p className="-mt-4 text-base font-medium text-primary">ARIZONA CHRISTIAN TUITION</p>
+      <p className="text-lg font-semibold text-foreground">Privacy Policy</p>
       <p className="text-muted-foreground">
         How Arizona Christian Tuition collects, uses, and protects your personal information
       </p>
-      <LegalContactBlock />
+      <p className="mt-3 text-sm text-muted-foreground">
+        <strong className="text-foreground">Effective Date:</strong> April 1, 2026
+      </p>
+      <p className="mt-2 text-muted-foreground">
+        <strong className="text-foreground">Arizona Christian Tuition</strong> — 501(c)(3) Nonprofit&nbsp;&nbsp;|&nbsp;&nbsp;EIN:
+        39-3034324
+        <br />
+        (602) 421-8301&nbsp;&nbsp;|&nbsp;&nbsp;
+        <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+          hello@actsto.org
+        </a>
+        <br />
+        Domains: actsto.org&nbsp;&nbsp;|&nbsp;&nbsp;arizonachristiantuition.com&nbsp;&nbsp;|&nbsp;&nbsp;my.actsto.org
+      </p>
 
       <section>
         <h2>1. Introduction</h2>
@@ -22,8 +34,8 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>2. Information we collect</h2>
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.1 Information you provide</h3>
+        <h2>2. Information We Collect</h2>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.1 Information You Provide</h3>
         <ul className="text-muted-foreground">
           <li>
             <strong className="text-foreground">Account registration:</strong> name, email address, phone number, mailing
@@ -52,7 +64,7 @@ export function PrivacyDocumentBody() {
             <strong className="text-foreground">Communications:</strong> support inquiries and correspondence sent to ACT.
           </li>
         </ul>
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.2 Information collected automatically</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.2 Information Collected Automatically</h3>
         <ul className="text-muted-foreground">
           <li>
             <strong className="text-foreground">Device and browser data:</strong> IP address, browser type, operating
@@ -67,7 +79,7 @@ export function PrivacyDocumentBody() {
             Section 6).
           </li>
         </ul>
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.3 Information from third parties</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.3 Information from Third Parties</h3>
         <ul className="text-muted-foreground">
           <li>
             <strong className="text-foreground">PayPal:</strong> transaction confirmation, donation amount, donor identity,
@@ -84,7 +96,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>3. How we use your information</h2>
+        <h2>3. How We Use Your Information</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>Process donations and issue tax credit acknowledgment letters as required by Arizona law.</li>
           <li>Create, manage, and display scholarship funding campaigns.</li>
@@ -100,7 +112,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>4. How we share your information</h2>
+        <h2>4. How We Share Your Information</h2>
         <p className="mt-3 text-muted-foreground">
           ACT does not sell, rent, or trade your personal information to third parties for their own marketing purposes.
         </p>
@@ -121,29 +133,29 @@ export function PrivacyDocumentBody() {
             <strong className="text-foreground">Legal process:</strong> court orders, subpoenas, or lawful government
             requests.
           </li>
+          <li>Donors may request anonymous donation status by contacting us prior to donating.</li>
         </ul>
         <p className="mt-3 text-muted-foreground">
-          Donors may request anonymous donation status by contacting us prior to donating. Campaign pages are publicly
-          visible by default. Parents should not include sensitive personal data such as full home addresses or government
-          ID numbers in campaign content.
+          Campaign pages are publicly visible by default. Parents should not include sensitive personal data such as full
+          home addresses or government ID numbers in campaign content.
         </p>
       </section>
 
       <section>
-        <h2>5. Children&apos;s privacy (COPPA)</h2>
+        <h2>5. Children&apos;s Privacy (COPPA)</h2>
         <p className="mt-3 text-muted-foreground">
           ACT does not knowingly collect personal information directly from children under age 13. Campaign and scholarship
           information for minor students is submitted by a parent or legal guardian. If you believe we have inadvertently
           collected information from a child under 13, contact us immediately at{" "}
-          <a href="mailto:hello@arizonachristiantuition.com" className="text-primary underline-offset-4 hover:underline">
-            hello@arizonachristiantuition.com
+          <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+            hello@actsto.org
           </a>{" "}
           and we will delete it promptly.
         </p>
       </section>
 
       <section>
-        <h2>6. Cookies and tracking</h2>
+        <h2>6. Cookies and Tracking</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>
             <strong className="text-foreground">Essential cookies:</strong> required for login and core Platform function.
@@ -174,7 +186,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>7. Payment information</h2>
+        <h2>7. Payment Information</h2>
         <p className="mt-3 text-muted-foreground">
           All donations are processed by PayPal, Inc. ACT does not receive, store, or process your full credit card or bank
           account number. PayPal handles payment data under PCI DSS Level 1 standards. ACT receives only transaction
@@ -192,7 +204,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>8. SMS and voice data</h2>
+        <h2>8. SMS and Voice Data</h2>
         <p className="mt-3 text-muted-foreground">
           ACT uses Twilio, Inc. to deliver SMS and voice communications. Twilio processes mobile phone numbers, message
           content, delivery status, and opt-out records on ACT&apos;s behalf under a Data Processing Addendum. SMS message
@@ -211,7 +223,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>9. Data retention</h2>
+        <h2>9. Data Retention</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>
             <strong className="text-foreground">Donor and financial records:</strong> 7 years minimum (IRS/nonprofit
@@ -238,7 +250,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>10. Data security</h2>
+        <h2>10. Data Security</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>All Platform communications are encrypted via TLS 1.2 or higher (HTTPS).</li>
           <li>Passwords are stored using industry-standard one-way hashing (bcrypt). ACT never stores plaintext passwords.</li>
@@ -252,22 +264,22 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>11. Your privacy rights</h2>
+        <h2>11. Your Privacy Rights</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>
-            <strong className="text-foreground">Right to access:</strong> request a copy of personal information ACT holds
+            <strong className="text-foreground">Right to Access:</strong> request a copy of personal information ACT holds
             about you.
           </li>
           <li>
-            <strong className="text-foreground">Right to correction:</strong> request correction of inaccurate or incomplete
+            <strong className="text-foreground">Right to Correction:</strong> request correction of inaccurate or incomplete
             information.
           </li>
           <li>
-            <strong className="text-foreground">Right to deletion:</strong> request deletion of your personal information,
+            <strong className="text-foreground">Right to Deletion:</strong> request deletion of your personal information,
             subject to legal retention requirements.
           </li>
           <li>
-            <strong className="text-foreground">Right to opt out:</strong> opt out of marketing communications at any time.
+            <strong className="text-foreground">Right to Opt Out:</strong> opt out of marketing communications at any time.
           </li>
         </ul>
         <p className="mt-3 text-muted-foreground">
@@ -281,7 +293,7 @@ export function PrivacyDocumentBody() {
       </section>
 
       <section>
-        <h2>12. Changes to this policy</h2>
+        <h2>12. Changes to This Policy</h2>
         <p className="mt-3 text-muted-foreground">
           ACT may update this Privacy Policy at any time. Material changes will be communicated via email at least 14 days
           before taking effect. Continued use of the Platform after the effective date constitutes acceptance of the revised
@@ -297,20 +309,21 @@ export function PrivacyDocumentBody() {
           Phone: (602) 421-8301
           <br />
           Email:{" "}
-          <a href="mailto:hello@arizonachristiantuition.com" className="text-primary underline-offset-4 hover:underline">
-            hello@arizonachristiantuition.com
+          <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+            hello@actsto.org
           </a>
           <br />
           Web:{" "}
           <a
-            href="https://www.arizonachristiantuition.com"
+            href="https://www.actsto.org"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline-offset-4 hover:underline"
           >
-            https://www.arizonachristiantuition.com
-          </a>{" "}
-          · App:{" "}
+            https://www.actsto.org
+          </a>
+          {" "}&nbsp;|&nbsp;{" "}
+          App:{" "}
           <a
             href="https://my.actsto.org"
             target="_blank"

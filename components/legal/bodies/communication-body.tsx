@@ -1,13 +1,25 @@
-import { LegalContactBlock } from "@/components/legal/bodies/contact-block";
-
 export function CommunicationDocumentBody() {
   return (
     <>
       <p className="-mt-4 text-base font-medium text-primary">ARIZONA CHRISTIAN TUITION</p>
+      <p className="text-lg font-semibold text-foreground">Communication Policy</p>
       <p className="text-muted-foreground">
         Governing SMS, voice, email, and in-app notifications across all ACT platforms
       </p>
-      <LegalContactBlock />
+      <p className="mt-3 text-sm text-muted-foreground">
+        <strong className="text-foreground">Effective Date:</strong> April 1, 2026
+      </p>
+      <p className="mt-2 text-muted-foreground">
+        <strong className="text-foreground">Arizona Christian Tuition</strong> — 501(c)(3) Nonprofit&nbsp;&nbsp;|&nbsp;&nbsp;EIN:
+        39-3034324
+        <br />
+        (602) 421-8301&nbsp;&nbsp;|&nbsp;&nbsp;
+        <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+          hello@actsto.org
+        </a>
+        <br />
+        Domains: actsto.org&nbsp;&nbsp;|&nbsp;&nbsp;arizonachristiantuition.com&nbsp;&nbsp;|&nbsp;&nbsp;my.actsto.org
+      </p>
 
       <section>
         <h2>1. Overview</h2>
@@ -21,8 +33,8 @@ export function CommunicationDocumentBody() {
       </section>
 
       <section>
-        <h2>2. SMS / text message communications</h2>
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.1 A2P 10DLC registration</h3>
+        <h2>2. SMS / Text Message Communications</h2>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.1 A2P 10DLC Registration</h3>
         <p className="mt-3 text-muted-foreground">
           All SMS messages from ACT are sent through Twilio&apos;s registered A2P 10DLC program via The Campaign Registry
           (TCR). ACT operates the following message programs:
@@ -42,7 +54,7 @@ export function CommunicationDocumentBody() {
           </li>
         </ul>
 
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.2 Opt-in consent</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.2 Opt-In Consent</h3>
         <p className="mt-3 text-muted-foreground">
           ACT collects explicit written consent before sending any SMS. The following disclosure appears on all forms where a
           mobile number is collected:
@@ -52,8 +64,13 @@ export function CommunicationDocumentBody() {
           text messages from Arizona Christian Tuition (ACT) at the number provided, including donation receipts, campaign
           updates, and account alerts. Consent is not required to donate or use our services. Message and data rates may
           apply. Message frequency varies. Reply STOP to opt out. Reply HELP for assistance. Privacy Policy:{" "}
-          <a href="/legal/privacy" className="text-primary underline-offset-4 hover:underline">
-            arizonachristiantuition.com/legal/privacy
+          <a
+            href="https://arizonachristiantuition.com/privacy-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            arizonachristiantuition.com/privacy-policy
           </a>
           .&quot;
         </blockquote>
@@ -61,14 +78,17 @@ export function CommunicationDocumentBody() {
           ACT retains records of all opt-in consents including timestamp, IP address, and disclosure version.
         </p>
 
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.3 Opt-out</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.3 Opt-Out</h3>
         <ul className="text-muted-foreground">
-          <li>Reply STOP to any ACT text message. ACT will confirm: &quot;You have been unsubscribed from ACT messages. Contact (602) 421-8301 or hello@arizonachristiantuition.com for support.&quot;</li>
+          <li>
+            Reply STOP to any ACT text message. ACT will confirm: &quot;You have been unsubscribed from ACT messages.
+            Contact (602) 421-8301 or hello@actsto.org for support.&quot;
+          </li>
           <li>Update preferences at my.actsto.org under Communication Settings.</li>
           <li>
             Email{" "}
-            <a href="mailto:hello@arizonachristiantuition.com" className="text-primary underline-offset-4 hover:underline">
-              hello@arizonachristiantuition.com
+            <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+              hello@actsto.org
             </a>{" "}
             with subject &quot;SMS OPT-OUT&quot; and your mobile number.
           </li>
@@ -78,13 +98,13 @@ export function CommunicationDocumentBody() {
           still be sent as required to complete a transaction.
         </p>
 
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.4 HELP response</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.4 HELP Response</h3>
         <p className="mt-3 text-muted-foreground">
-          &quot;ACT Help: Arizona Christian Tuition SMS Program. Support: (602) 421-8301 or hello@arizonachristiantuition.com.
-          Reply STOP to cancel. Msg &amp; Data rates may apply.&quot;
+          &quot;ACT Help: Arizona Christian Tuition SMS Program. Support: (602) 421-8301 or hello@actsto.org. Reply STOP to
+          cancel. Msg &amp; Data rates may apply.&quot;
         </p>
 
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.5 Message frequency</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.5 Message Frequency</h3>
         <ul className="text-muted-foreground">
           <li>
             <strong className="text-foreground">Transactional messages:</strong> sent as triggered by account events.
@@ -98,13 +118,13 @@ export function CommunicationDocumentBody() {
           </li>
         </ul>
 
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.6 Quiet hours</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.6 Quiet Hours</h3>
         <p className="mt-3 text-muted-foreground">
           ACT will not send promotional SMS or initiate outbound calls before 8:00 AM or after 9:00 PM in the
           recipient&apos;s local time zone, or before 9:00 AM on weekends and federal holidays.
         </p>
 
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.7 Prohibited SMS content</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.7 Prohibited SMS Content</h3>
         <p className="mt-3 text-muted-foreground">
           ACT will never send SMS containing financial advice, sexually explicit content, deceptive tax credit claims,
           harassment, or any content violating CTIA guidelines or Twilio&apos;s Acceptable Use Policy.
@@ -112,19 +132,32 @@ export function CommunicationDocumentBody() {
       </section>
 
       <section>
-        <h2>3. Voice communications</h2>
-        <p className="mt-3 text-muted-foreground">
-          ACT may initiate outbound voice calls for donation confirmations, scholarship award notifications, support
-          callbacks, and appointment reminders. ACT does not use autodialers or pre-recorded messages for marketing without
-          prior express written consent. Calls to (602) 421-8301 may be recorded for quality assurance. Callers are notified
-          at the start of the call. Recordings are retained for 24 months. To opt out of voice contact, email
-          hello@arizonachristiantuition.com or update preferences at my.actsto.org.
-        </p>
+        <h2>3. Voice Communications</h2>
+        <ul className="mt-3 text-muted-foreground">
+          <li>
+            ACT may initiate outbound voice calls for donation confirmations, scholarship award notifications, support
+            callbacks, and appointment reminders.
+          </li>
+          <li>
+            ACT does not use autodialers or pre-recorded messages for marketing without prior express written consent.
+          </li>
+          <li>
+            Calls to (602) 421-8301 may be recorded for quality assurance. Callers are notified at the start of the call.
+            Recordings are retained for 24 months.
+          </li>
+          <li>
+            To opt out of voice contact, email{" "}
+            <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+              hello@actsto.org
+            </a>{" "}
+            or update preferences at my.actsto.org.
+          </li>
+        </ul>
       </section>
 
       <section>
-        <h2>4. Email communications</h2>
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">4.1 Email categories</h3>
+        <h2>4. Email Communications</h2>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">4.1 Email Categories</h3>
         <ul className="text-muted-foreground">
           <li>
             <strong className="text-foreground">Transactional:</strong> donation receipts, tax credit letters, scholarship
@@ -135,7 +168,7 @@ export function CommunicationDocumentBody() {
             required compliance notices.
           </li>
           <li>
-            <strong className="text-foreground">Marketing/newsletters:</strong> mission updates, campaign spotlights, donor
+            <strong className="text-foreground">Marketing/Newsletters:</strong> mission updates, campaign spotlights, donor
             impact reports — opt-in only.
           </li>
           <li>
@@ -143,7 +176,7 @@ export function CommunicationDocumentBody() {
             notifications.
           </li>
         </ul>
-        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">4.2 CAN-SPAM compliance</h3>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">4.2 CAN-SPAM Compliance</h3>
         <p className="mt-3 text-muted-foreground">
           All marketing emails include ACT&apos;s legal name and address, a functional unsubscribe link, accurate sender
           information, and an honest subject line. Unsubscribe requests are honored within 10 business days. Transactional and
@@ -152,7 +185,7 @@ export function CommunicationDocumentBody() {
       </section>
 
       <section>
-        <h2>5. In-app notifications</h2>
+        <h2>5. In-App Notifications</h2>
         <p className="mt-3 text-muted-foreground">
           Users of my.actsto.org may receive in-app and push notifications for campaign funding milestones, new donor
           contributions, scholarship status changes, and system announcements. Manage notification preferences at
@@ -161,7 +194,7 @@ export function CommunicationDocumentBody() {
       </section>
 
       <section>
-        <h2>6. Donor tax credit communications</h2>
+        <h2>6. Donor Tax Credit Communications</h2>
         <p className="mt-3 text-muted-foreground">
           As a certified Arizona STO, ACT is required by law to provide the following communications regardless of opt-out
           status:
@@ -172,29 +205,29 @@ export function CommunicationDocumentBody() {
           <li>Notifications of any donation corrections, refunds, or adjustments affecting tax credit claims.</li>
         </ul>
         <p className="mt-3 text-muted-foreground">
-          <strong className="text-foreground">Arizona tax credit notice:</strong> Donations to ACT may qualify for a
+          <strong className="text-foreground">Arizona Tax Credit Notice:</strong> Donations to ACT may qualify for a
           dollar-for-dollar Arizona state income tax credit under A.R.S. § 43-1089 (individuals) and A.R.S. § 43-1183
           (corporations). Consult a qualified tax professional regarding your specific situation. ACT is not a tax advisor.
         </p>
       </section>
 
       <section>
-        <h2>7. User roles and communication</h2>
+        <h2>7. User Roles and Communication</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>
             <strong className="text-foreground">Parents:</strong> campaign updates, award notices, deadline reminders, tax
             credit letters.
           </li>
           <li>
-            <strong className="text-foreground">Students (18+):</strong> account and scholarship status notifications with
+            <strong className="text-foreground">Students (16+):</strong> account and scholarship status notifications with
             verifiable consent.
           </li>
           <li>
-            <strong className="text-foreground">Individual donors:</strong> donation receipts, tax credit reminders,
+            <strong className="text-foreground">Individual Donors:</strong> donation receipts, tax credit reminders,
             opted-in campaign updates.
           </li>
           <li>
-            <strong className="text-foreground">Business donors:</strong> organizational contact communications, tax credit
+            <strong className="text-foreground">Business Donors:</strong> organizational contact communications, tax credit
             documentation.
           </li>
         </ul>
@@ -205,7 +238,7 @@ export function CommunicationDocumentBody() {
       </section>
 
       <section>
-        <h2>8. Data retention — communication records</h2>
+        <h2>8. Data Retention — Communication Records</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>SMS message logs: 24 months.</li>
           <li>Voice call logs: 24 months.</li>
@@ -215,16 +248,18 @@ export function CommunicationDocumentBody() {
       </section>
 
       <section>
-        <h2>9. Violations and complaints</h2>
+        <h2>9. Violations and Complaints</h2>
         <p className="mt-3 text-muted-foreground">
-          Users who believe they have received communications that violate this Policy should email
-          hello@arizonachristiantuition.com with subject &quot;Communication Complaint.&quot; ACT will investigate within 10
-          business days.
+          Users who believe they have received communications that violate this Policy should email{" "}
+          <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+            hello@actsto.org
+          </a>{" "}
+          with subject &quot;Communication Complaint.&quot; ACT will investigate within 10 business days.
         </p>
       </section>
 
       <section>
-        <h2>10. Policy updates and contact</h2>
+        <h2>10. Policy Updates and Contact</h2>
         <p className="mt-3 text-muted-foreground">
           ACT may update this Policy at any time. Material changes will be communicated via email at least 14 days before
           taking effect.
@@ -232,21 +267,21 @@ export function CommunicationDocumentBody() {
         <p className="mt-4 text-muted-foreground">
           <strong className="text-foreground">Arizona Christian Tuition</strong>
           <br />
-          Phone: (602) 421-8301 · Email:{" "}
-          <a href="mailto:hello@arizonachristiantuition.com" className="text-primary underline-offset-4 hover:underline">
-            hello@arizonachristiantuition.com
+          Phone: (602) 421-8301&nbsp;&nbsp;|&nbsp;&nbsp;Email:{" "}
+          <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+            hello@actsto.org
           </a>
           <br />
           Web:{" "}
           <a
-            href="https://www.arizonachristiantuition.com"
+            href="https://www.actsto.org"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline-offset-4 hover:underline"
           >
-            https://www.arizonachristiantuition.com
-          </a>{" "}
-          · App:{" "}
+            https://www.actsto.org
+          </a>
+          &nbsp;&nbsp;|&nbsp;&nbsp;App:{" "}
           <a
             href="https://my.actsto.org"
             target="_blank"

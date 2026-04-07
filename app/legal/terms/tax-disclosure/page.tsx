@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LegalPageShell } from "@/components/legal/legal-page-shell";
+import { TaxDisclosureAdorTable } from "@/components/legal/tax-disclosure-ador-table";
 
 export const metadata: Metadata = { title: "Tax credit disclosure" };
 
@@ -93,7 +94,28 @@ export default function TaxDisclosurePage() {
       </section>
 
       <section>
-        <h2>9. Contact</h2>
+        <h2>9. Official ADOR forms and instructions</h2>
+        <p className="mt-3 text-muted-foreground">
+          Selected Arizona Department of Revenue publications for recent tax years are available below as
+          PDFs (form and instructions). ACT hosts copies for donor convenience; the authoritative versions
+          are published by the{" "}
+          <a
+            href="https://azdor.gov/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Arizona Department of Revenue
+          </a>
+          .
+        </p>
+        <div className="mt-6">
+          <TaxDisclosureAdorTable />
+        </div>
+      </section>
+
+      <section>
+        <h2>10. Contact</h2>
         <p className="mt-3 text-muted-foreground">
           For questions about donations, receipts, or program administration, use our{" "}
           <Link href="/contact" className="text-primary underline-offset-4 hover:underline">

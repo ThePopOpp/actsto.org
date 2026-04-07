@@ -192,15 +192,18 @@ function FormField({
   htmlFor,
   children,
   className,
+  labelClassName,
 }: {
   label: string;
   htmlFor?: string;
   children: React.ReactNode;
   className?: string;
+  /** e.g. whitespace-nowrap so short columns don’t wrap the label */
+  labelClassName?: string;
 }) {
   return (
     <div className={cn("space-y-2", className)}>
-      <Label htmlFor={htmlFor} className="text-sm font-medium">
+      <Label htmlFor={htmlFor} className={cn("text-sm font-medium", labelClassName)}>
         {label}
       </Label>
       {children}
@@ -264,7 +267,7 @@ function TaxCreditBreakdownCard({
       <div className="border-b border-border/60 bg-card px-3 py-2.5">
         <div className="flex justify-between font-semibold text-foreground">
           <span>Total Donation</span>
-          <span className="tabular-nums">${donationAmount.toFixed(2)}</span>
+          <span className="tabular-nums">{formatCheckoutUsd(donationAmount)}</span>
         </div>
         <p className="text-xs text-muted-foreground">Amount being processed</p>
       </div>
@@ -278,17 +281,21 @@ function TaxCreditBreakdownCard({
           <p className="font-semibold">{taxYear} Tax Credit</p>
           <p className="text-xs opacity-90">Claimed on your {taxYear} AZ return</p>
         </div>
-        <span className="shrink-0 font-semibold tabular-nums">${eligibleCredit.toFixed(2)}</span>
+        <span className="shrink-0 font-semibold tabular-nums">{formatCheckoutUsd(eligibleCredit)}</span>
       </div>
       {futureCarryForward > 0 ? (
         <div className="flex items-start justify-between gap-3 bg-orange-50 px-3 py-2.5 text-orange-950 dark:bg-orange-950/30 dark:text-orange-100">
-          <div className="min-w-0">
+          <div className="min-w-0 space-y-2">
             <p className="font-semibold">Future Tax Credit</p>
             <p className="text-xs leading-snug opacity-90">
-              Exceeds this year&apos;s credit limit — carried forward up to 5 years (A.R.S. § 43-1089)
+              Total donated this tax year exceeds this credit maximum. This excess amount may be
+              treated as a tax deductible donation or carried forward as a tax credit up to 5 years
+              (A.R.S. 43-1089).
             </p>
           </div>
-          <span className="shrink-0 font-semibold tabular-nums">${futureCarryForward.toFixed(2)}</span>
+          <span className="shrink-0 font-semibold tabular-nums">
+            {formatCheckoutUsd(futureCarryForward)}
+          </span>
         </div>
       ) : null}
     </div>
@@ -351,7 +358,7 @@ function TaxCreditLimitsSummaryCard({
               <p className="text-xs text-muted-foreground">Original tuition tax credit component</p>
             </div>
             <span className="shrink-0 font-semibold tabular-nums text-foreground">
-              ${row.original.toFixed(2)}
+              {formatCheckoutUsd(row.original)}
             </span>
           </div>
         </div>
@@ -364,7 +371,7 @@ function TaxCreditLimitsSummaryCard({
                 Overflow component toward your combined annual cap
               </p>
             </div>
-            <span className="shrink-0 font-semibold tabular-nums">${row.overflow.toFixed(2)}</span>
+            <span className="shrink-0 font-semibold tabular-nums">{formatCheckoutUsd(row.overflow)}</span>
           </div>
         </div>
 
@@ -373,7 +380,7 @@ function TaxCreditLimitsSummaryCard({
             <p className="font-semibold">Combined total</p>
             <p className="text-xs opacity-90">Maximum combined credit for {taxYear}</p>
           </div>
-          <span className="shrink-0 font-semibold tabular-nums">${row.combined.toFixed(2)}</span>
+          <span className="shrink-0 font-semibold tabular-nums">{formatCheckoutUsd(row.combined)}</span>
         </div>
       </div>
 
@@ -562,10 +569,15 @@ export function TaxCreditWizard({
                 embedInDialog && "sm:gap-x-6 sm:gap-y-3"
               )}
             >
-              <FormField label="First name" htmlFor="fn" className="sm:col-span-5">
+              <FormField label="First name" htmlFor="fn" className="sm:col-span-4">
                 <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
               </FormField>
-              <FormField label="Middle name" htmlFor="mn" className="sm:col-span-2">
+              <FormField
+                label="Middle name"
+                htmlFor="mn"
+                className="sm:col-span-4"
+                labelClassName="whitespace-nowrap"
+              >
                 <Input
                   id="mn"
                   placeholder="Optional"
@@ -573,7 +585,7 @@ export function TaxCreditWizard({
                   onChange={(e) => setMiddleName(e.target.value)}
                 />
               </FormField>
-              <FormField label="Last name" htmlFor="ln" className="sm:col-span-5">
+              <FormField label="Last name" htmlFor="ln" className="sm:col-span-4">
                 <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               </FormField>
             </div>
@@ -764,8 +776,8 @@ export function TaxCreditWizard({
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                 <ChoiceLegend>Tax year {taxYear}</ChoiceLegend>
                 <span className="text-muted-foreground">
-                  Single ${TAX_CREDIT_MAX[taxYear].single.toLocaleString()} · Married $
-                  {TAX_CREDIT_MAX[taxYear].married.toLocaleString()}
+                  Single {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].single)} · Married{" "}
+                  {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].married)}
                 </span>
               </div>
               <TogglePair
@@ -783,11 +795,11 @@ export function TaxCreditWizard({
               <p className="text-sm text-muted-foreground">
                 Annual credit limit — Single{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  ${TAX_CREDIT_MAX[taxYear].single.toFixed(2)}
+                  {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].single)}
                 </span>{" "}
                 · Married{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  ${TAX_CREDIT_MAX[taxYear].married.toFixed(2)}
+                  {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].married)}
                 </span>
               </p>
               <ChoiceLegend>Select Your Tax Filing Status</ChoiceLegend>
@@ -804,13 +816,17 @@ export function TaxCreditWizard({
               {embedInDialog ? (
                 <div className="rounded-lg bg-act-banner/80 px-3 py-2.5 text-sm text-act-banner-foreground">
                   Your {taxYear} credit limit:{" "}
-                  <span className="font-semibold tabular-nums">${maxForSelection.toFixed(2)}</span>
+                  <span className="font-semibold tabular-nums">{formatCheckoutUsd(maxForSelection)}</span>
                 </div>
               ) : null}
             </div>
 
             <div className="space-y-3">
-              <ChoiceLegend>Donated to another STO this tax year?</ChoiceLegend>
+              <ChoiceLegend>Previous Donations</ChoiceLegend>
+              <p className="text-sm text-muted-foreground">
+                Have you donated to another School Tuition Organization (STO) or have an amount
+                carried forward from a prior year for the selected tax year?
+              </p>
               <TogglePair
                 value={hasOtherSto}
                 onChange={setHasOtherSto}
@@ -950,12 +966,18 @@ export function TaxCreditWizard({
                 >
                   Calculate max
                 </Button>
-                <FormField
-                  label="ACT donation (confirmed)"
-                  className={cn("flex-1", embedInDialog && "min-w-[min(100%,14rem)]")}
+                <div
+                  className={cn(
+                    "flex flex-1 flex-col justify-end space-y-2",
+                    embedInDialog && "min-w-[min(100%,14rem)]"
+                  )}
                 >
-                  <Input readOnly className="bg-muted/30" value={donationAmount.toFixed(2)} />
-                </FormField>
+                  <p className="text-sm font-medium text-foreground">ACT donation (confirmed)</p>
+                  <p className="font-heading text-2xl font-semibold text-primary tabular-nums sm:text-3xl md:text-4xl">
+                    {formatCheckoutUsd(donationAmount)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Based on the donation amount entered above</p>
+                </div>
               </div>
               {embedInDialog ? (
                 <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -966,7 +988,7 @@ export function TaxCreditWizard({
                     className="text-xs font-medium sm:text-sm"
                     onClick={() => setDonationRaw(String(maxForSelection))}
                   >
-                    Max Credit ${maxForSelection.toFixed(2)}
+                    Max Credit {formatCheckoutUsd(maxForSelection)}
                   </Button>
                   <Button
                     type="button"
@@ -975,7 +997,7 @@ export function TaxCreditWizard({
                     className="text-xs font-medium sm:text-sm"
                     onClick={() => setDonationRaw((maxForSelection * 1.5).toFixed(2))}
                   >
-                    ${(maxForSelection * 1.5).toFixed(2)}
+                    {formatCheckoutUsd(maxForSelection * 1.5)}
                   </Button>
                   <Button
                     type="button"
@@ -986,7 +1008,7 @@ export function TaxCreditWizard({
                       setDonationRaw(String(getMaxForYearAndFiling(taxYear, "married")))
                     }
                   >
-                    ${getMaxForYearAndFiling(taxYear, "married").toFixed(2)}
+                    {formatCheckoutUsd(getMaxForYearAndFiling(taxYear, "married"))}
                   </Button>
                 </div>
               ) : null}
@@ -1017,7 +1039,7 @@ export function TaxCreditWizard({
                       Eligible Arizona credit
                     </CardDescription>
                     <CardTitle className="text-2xl font-semibold tabular-nums text-primary">
-                      ${summary.eligibleCredit.toLocaleString()}
+                      {formatCheckoutUsd(summary.eligibleCredit)}
                     </CardTitle>
                   </CardHeader>
                 </Card>
@@ -1027,7 +1049,7 @@ export function TaxCreditWizard({
                       Tax deduction (display)
                     </CardDescription>
                     <CardTitle className="text-2xl font-semibold tabular-nums text-primary">
-                      ${summary.taxDeductionDisplay.toFixed(2)}
+                      {formatCheckoutUsd(summary.taxDeductionDisplay)}
                     </CardTitle>
                   </CardHeader>
                 </Card>
@@ -1122,19 +1144,19 @@ export function TaxCreditWizard({
                   <p className="font-heading font-semibold text-primary">Donation Summary</p>
                   <div className="mt-3 flex justify-between font-medium text-foreground">
                     <span>Total Donation</span>
-                    <span className="tabular-nums">${donationAmount.toFixed(2)}</span>
+                    <span className="tabular-nums">{formatCheckoutUsd(donationAmount)}</span>
                   </div>
                   <div className="mt-2 flex justify-between text-act-action">
                     <span className="font-semibold">{taxYear} Tax Credit</span>
                     <span className="font-semibold tabular-nums">
-                      ${summary.eligibleCredit.toFixed(2)}
+                      {formatCheckoutUsd(summary.eligibleCredit)}
                     </span>
                   </div>
                   {summary.futureCarryForward > 0 ? (
                     <div className="mt-2 flex justify-between text-orange-900 dark:text-orange-100">
                       <span className="font-semibold">Future Tax Credit</span>
                       <span className="font-semibold tabular-nums">
-                        ${summary.futureCarryForward.toFixed(2)}
+                        {formatCheckoutUsd(summary.futureCarryForward)}
                       </span>
                     </div>
                   ) : null}
@@ -1241,16 +1263,16 @@ export function TaxCreditWizard({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Credit Limit</span>
-                  <span className="font-medium tabular-nums">${maxForSelection.toFixed(2)}</span>
+                  <span className="font-medium tabular-nums">{formatCheckoutUsd(maxForSelection)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Previous STO Donations</span>
-                  <span className="font-medium tabular-nums">${otherStoTotal.toFixed(2)}</span>
+                  <span className="font-medium tabular-nums">{formatCheckoutUsd(otherStoTotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Prior ACT gifts (this tax year)</span>
                   <span className="font-medium tabular-nums">
-                    ${priorActDonationsThisYear.toFixed(2)}
+                    {formatCheckoutUsd(priorActDonationsThisYear)}
                   </span>
                 </div>
               </div>
@@ -1292,7 +1314,7 @@ export function TaxCreditWizard({
               {embedPaymentView === "methods" ? (
                 <>
                   <p className="text-center text-sm font-medium text-foreground">
-                    Complete your ${donationAmount.toFixed(2)} donation via PayPal
+                    Complete your {formatCheckoutUsd(donationAmount)} donation via PayPal
                   </p>
                   <div className="flex flex-col gap-2">
                     <Button
@@ -1470,29 +1492,29 @@ export function TaxCreditWizard({
                 <CardContent className="space-y-2 text-muted-foreground">
                   <div className="flex justify-between">
                     <span>Other STO gifts</span>
-                    <span className="tabular-nums text-foreground">${otherStoTotal.toFixed(2)}</span>
+                    <span className="tabular-nums text-foreground">{formatCheckoutUsd(otherStoTotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>ACT donation</span>
-                    <span className="tabular-nums text-foreground">${donationAmount.toFixed(2)}</span>
+                    <span className="tabular-nums text-foreground">{formatCheckoutUsd(donationAmount)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Prior ACT gifts (YTD)</span>
                     <span className="tabular-nums text-foreground">
-                      ${priorActDonationsThisYear.toFixed(2)}
+                      {formatCheckoutUsd(priorActDonationsThisYear)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Eligible credit (this year)</span>
                     <span className="tabular-nums text-foreground">
-                      ${summary.eligibleCredit.toFixed(2)}
+                      {formatCheckoutUsd(summary.eligibleCredit)}
                     </span>
                   </div>
                   {summary.futureCarryForward > 0 ? (
                     <div className="flex justify-between">
                       <span>Future carry-forward (est.)</span>
                       <span className="tabular-nums text-foreground">
-                        ${summary.futureCarryForward.toFixed(2)}
+                        {formatCheckoutUsd(summary.futureCarryForward)}
                       </span>
                     </div>
                   ) : null}
