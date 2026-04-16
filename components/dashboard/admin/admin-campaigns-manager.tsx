@@ -18,16 +18,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { seedAdminCampaignRows } from "@/lib/admin/campaign-directory-seed";
 import {
-  loadAdminCampaignRows,
   removeAdminCampaignRow,
-  saveAdminCampaignRows,
   upsertAdminCampaignRow,
 } from "@/lib/admin/campaign-library-storage";
 import type { AdminCampaignRow, CampaignModerationStatus } from "@/lib/admin/mock-campaigns-admin";
-import { withAdminMeta } from "@/lib/admin/mock-campaigns-admin";
 import type { Campaign } from "@/lib/campaigns";
-import { MOCK_CAMPAIGNS } from "@/lib/campaigns";
 import {
   campaignToFormValues,
   emptyCampaignFormValues,
@@ -48,33 +45,37 @@ function modBadge(status: CampaignModerationStatus) {
   }
 }
 
-function seedRows(): AdminCampaignRow[] {
-  const clone = JSON.parse(JSON.stringify(MOCK_CAMPAIGNS)) as typeof MOCK_CAMPAIGNS;
-  return withAdminMeta(clone, ["pending", "approved", "featured", "approved", "rejected"]);
-}
-
 export function AdminCampaignsManager() {
   const [rows, setRows] = useState<AdminCampaignRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("list");
   const [screen, setScreen] = useState<"table" | "editor">("table");
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
 
-  const hydrate = useCallback(() => {
-    const stored = loadAdminCampaignRows();
-    if (stored && stored.length > 0) {
-      setRows(stored);
-      return;
+  const loadCampaigns = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/admin/campaigns-directory");
+      const data = (await res.json().catch(() => null)) as {
+        rows?: AdminCampaignRow[];
+        error?: string;
+      } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to load campaigns.");
+      }
+      setRows(Array.isArray(data?.rows) ? data.rows : []);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load campaigns.");
+      setRows([]);
     }
-    const initial = seedRows();
-    saveAdminCampaignRows(initial);
-    setRows(initial);
   }, []);
 
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    void loadCampaigns();
+  }, [loadCampaigns]);
 
   const editingRow = useMemo(
     () => (editingSlug && rows ? rows.find((r) => r.slug === editingSlug) : undefined),
@@ -86,9 +87,23 @@ export function AdminCampaignsManager() {
     return rows.map((r) => r.slug).filter((s) => s !== (editingSlug ?? ""));
   }, [rows, editingSlug]);
 
-  function persist(next: AdminCampaignRow[]) {
-    saveAdminCampaignRows(next);
-    setRows(next);
+  async function persistRows(next: AdminCampaignRow[]) {
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/admin/campaigns-directory", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: next }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to save campaigns.");
+      }
+      setRows(next);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed.");
+      throw e;
+    }
   }
 
   function handleCreateClick() {
@@ -103,31 +118,44 @@ export function AdminCampaignsManager() {
     setScreen("editor");
   }
 
-  function handleSaveFromForm(campaign: Campaign, oldSlug: string | null) {
+  async function handleSaveFromForm(campaign: Campaign, oldSlug: string | null) {
     if (!rows) return;
     const next = upsertAdminCampaignRow(rows, campaign, oldSlug);
-    persist(next);
-    setScreen("table");
-    setEditingSlug(null);
+    try {
+      await persistRows(next);
+      setScreen("table");
+      setEditingSlug(null);
+    } catch {
+      /* saveError set in persistRows */
+    }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteSlug || !rows) return;
     const next = removeAdminCampaignRow(rows, deleteSlug);
-    persist(next);
-    setDeleteSlug(null);
+    try {
+      await persistRows(next);
+      setDeleteSlug(null);
+    } catch {
+      /* saveError set */
+    }
   }
 
-  function resetDemoData() {
-    if (!window.confirm("Reset campaign list to built-in demo data? Your local admin changes will be cleared.")) {
+  async function resetDemoData() {
+    if (
+      !window.confirm(
+        "Replace the campaign directory with the built-in demo set? This updates the database for all admins."
+      )
+    ) {
       return;
     }
-    localStorage.removeItem("act-admin-campaign-rows-v1");
-    const initial = seedRows();
-    saveAdminCampaignRows(initial);
-    setRows(initial);
-    setScreen("table");
-    setEditingSlug(null);
+    try {
+      await persistRows(seedAdminCampaignRows());
+      setScreen("table");
+      setEditingSlug(null);
+    } catch {
+      /* saveError set */
+    }
   }
 
   if (!rows) {
@@ -135,6 +163,17 @@ export function AdminCampaignsManager() {
       <p className="text-sm text-muted-foreground" role="status">
         Loading campaigns…
       </p>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
+        <p className="font-medium text-destructive">{loadError}</p>
+        <Button type="button" size="sm" variant="outline" onClick={() => void loadCampaigns()}>
+          Retry
+        </Button>
+      </div>
     );
   }
 
@@ -162,12 +201,17 @@ export function AdminCampaignsManager() {
 
   return (
     <div className="space-y-6">
+      {saveError ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1 text-sm text-muted-foreground">
           <p>
             Create, edit, or delete campaigns with the full tabbed form (Campaign · Parent · Student · School). Changes
-            persist in this browser via <code className="rounded bg-muted px-1 font-mono text-xs">localStorage</code> for
-            admin preview; connect an API to sync the public site.
+            are stored in the database (Super Admin campaign directory) and used for admin counts; public campaign pages
+            can be wired to the same source when you are ready.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -312,12 +356,12 @@ export function AdminCampaignsManager() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={resetDemoData}>
+        <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => void resetDemoData()}>
           <RotateCcw className="size-4" aria-hidden />
           Reset demo data
         </Button>
         <p className="text-xs text-muted-foreground">
-          Table filters &amp; CSV export can plug in here when your moderation API is ready.
+          Table filters and CSV export can plug in here when your moderation workflow is ready.
         </p>
       </div>
 
@@ -326,15 +370,15 @@ export function AdminCampaignsManager() {
           <DialogHeader>
             <DialogTitle>Delete campaign?</DialogTitle>
             <DialogDescription>
-              This removes <strong className="text-foreground">{deleteSlug}</strong> from the admin library in this
-              browser. Public pages still use built-in mocks until you sync to a database.
+              Remove <strong className="text-foreground">{deleteSlug}</strong> from the campaign directory in the
+              database. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDeleteSlug(null)}>
               Cancel
             </Button>
-            <Button type="button" variant="destructive" onClick={confirmDelete}>
+            <Button type="button" variant="destructive" onClick={() => void confirmDelete()}>
               Delete
             </Button>
           </DialogFooter>

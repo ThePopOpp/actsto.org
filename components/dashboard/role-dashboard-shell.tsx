@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
+import { DashboardSidebarLogo } from "@/components/dashboard/dashboard-sidebar-logo";
+import { ModeToggle } from "@/components/mode-toggle";
 import { PortalAccountSwitcher } from "@/components/dashboard/portal-account-switcher";
 import { ROLE_LABEL, type ActSession } from "@/lib/auth/types";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,8 @@ import { buttonVariants } from "@/lib/button-variants";
 import { getRoleNavItems } from "@/lib/dashboard/role-nav";
 import { cn } from "@/lib/utils";
 
+const dashboardFont = "font-[var(--font-roboto)]";
+
 export function RoleDashboardShell({
   session,
   children,
@@ -29,7 +33,7 @@ export function RoleDashboardShell({
   children: React.ReactNode;
   /** e.g. `/dashboard/parent` or `/dashboard/parent-preview` */
   basePath: string;
-  /** Unauthenticated UI preview — banner + “Exit preview” only. */
+  /** Unauthenticated UI preview — single-line welcome banner + “Exit preview”. */
   previewMode?: boolean;
 }) {
   const pathname = usePathname();
@@ -55,7 +59,7 @@ export function RoleDashboardShell({
 
   function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     return (
-      <nav className="flex flex-col gap-0.5">
+      <nav className={cn("flex flex-col gap-0.5", dashboardFont)}>
         {nav.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
@@ -80,76 +84,99 @@ export function RoleDashboardShell({
     );
   }
 
+  const sidebarFooter = (
+    <div className={cn("space-y-3 border-t border-border px-3 py-4", dashboardFont)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Theme</span>
+        <ModeToggle />
+      </div>
+      <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full justify-center")}>
+        Back to site
+      </Link>
+      <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => void signOut()}>
+        {previewMode ? "Exit preview" : "Sign out"}
+      </Button>
+    </div>
+  );
+
   return (
-    <div className="min-h-[calc(100dvh-0px)] bg-muted/30">
-      <header className="sticky top-0 z-40 border-b border-border bg-background px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase">
-              {ROLE_LABEL[session.role]}
-              {previewMode ? (
-                <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-amber-800 uppercase dark:text-amber-200">
-                  Preview
-                </span>
-              ) : null}
-            </p>
-            <p className="font-heading text-lg font-semibold text-primary">
-              Welcome, {session.name}
-            </p>
-            <p className="text-xs text-muted-foreground">{session.email}</p>
+    <div className={cn("flex min-h-dvh bg-muted/30", dashboardFont)}>
+      <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col border-r border-border bg-background lg:flex">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 border-b border-border px-4 py-4">
+            <DashboardSidebarLogo />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              Back to site
-            </Link>
-            <Button type="button" variant="secondary" size="sm" onClick={() => void signOut()}>
-              {previewMode ? "Exit preview" : "Sign out"}
-            </Button>
-          </div>
-        </div>
-      </header>
 
-      {!previewMode ? <PortalAccountSwitcher session={session} /> : null}
+          {!previewMode ? <PortalAccountSwitcher session={session} layout="sidebar" /> : null}
 
-      {previewMode ? (
-        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-xs font-medium text-amber-950 dark:text-amber-100 sm:px-6">
-          UI preview — not signed in. Use the sidebar to explore each section.
-        </div>
-      ) : null}
-
-      <div className="mx-auto flex w-full max-w-7xl flex-col lg:flex-row">
-        <aside className="hidden w-56 shrink-0 border-r border-border bg-background py-6 lg:block">
-          <div className="px-3 pb-4">
-            <p className="mb-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Menu
-            </p>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             <NavLinks />
           </div>
-        </aside>
 
-        <div className="min-w-0 flex-1">
-          <div className="border-b border-border bg-background px-4 py-3 lg:hidden">
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-              <SheetTrigger
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "inline-flex gap-2"
-                )}
-              >
-                <Menu className="size-4" />
-                Menu
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-0">
-                <SheetHeader className="border-b border-border p-4 text-left">
-                  <SheetTitle className="font-heading">Dashboard</SheetTitle>
-                </SheetHeader>
-                <div className="p-3">
+          {sidebarFooter}
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-4 lg:hidden">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "inline-flex gap-2"
+              )}
+            >
+              <Menu className="size-4" />
+              Menu
+            </SheetTrigger>
+            <SheetContent side="left" className="flex w-72 flex-col gap-0 p-0">
+              <SheetHeader className="border-b border-border p-4 text-left">
+                <SheetTitle className="sr-only">Dashboard menu</SheetTitle>
+                <DashboardSidebarLogo />
+              </SheetHeader>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                  {!previewMode ? <PortalAccountSwitcher session={session} layout="sidebar" /> : null}
                   <NavLinks onNavigate={() => setMobileOpen(false)} />
                 </div>
-              </SheetContent>
-            </Sheet>
-          </div>
-          <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>
+                <div className={cn("border-t border-border p-3", dashboardFont)}>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Theme</span>
+                    <ModeToggle />
+                  </div>
+                  <Link
+                    href="/"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mb-2 w-full justify-center")}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Back to site
+                  </Link>
+                  <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => void signOut()}>
+                    {previewMode ? "Exit preview" : "Sign out"}
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+          <span className="truncate text-sm font-semibold text-primary">{ROLE_LABEL[session.role]}</span>
+        </header>
+
+        <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+          {previewMode ? (
+            <div
+              className="mb-4 rounded-lg border border-amber-500/35 bg-amber-50/90 px-4 py-3 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+              role="status"
+            >
+              <p className="text-center text-sm text-foreground whitespace-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <span className="font-semibold">Welcome, {session.name}</span>
+                <span aria-hidden className="mx-2 text-muted-foreground">
+                  ·
+                </span>
+                <span className="font-normal text-muted-foreground">{session.email}</span>
+              </p>
+            </div>
+          ) : null}
+          {children}
         </div>
       </div>
     </div>

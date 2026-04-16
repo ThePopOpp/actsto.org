@@ -284,8 +284,8 @@ export function PrivacyDocumentBody() {
         </ul>
         <p className="mt-3 text-muted-foreground">
           To exercise these rights, email{" "}
-          <a href="mailto:hello@arizonachristiantuition.com" className="text-primary underline-offset-4 hover:underline">
-            hello@arizonachristiantuition.com
+          <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+            hello@actsto.org
           </a>{" "}
           with subject line &quot;Privacy Rights Request.&quot; ACT will respond within 30 days. California residents may
           submit CCPA requests using subject line &quot;CCPA Request.&quot; ACT does not sell personal information.

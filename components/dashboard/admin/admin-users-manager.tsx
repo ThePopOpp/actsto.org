@@ -8,7 +8,6 @@ import {
   List,
   Pencil,
   Plus,
-  RotateCcw,
   Search,
   Trash2,
 } from "lucide-react";
@@ -34,13 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ADMIN_SAMPLE_USERS, type AdminUserSample } from "@/lib/admin/mock-users";
-import {
-  loadAdminUserRows,
-  removeAdminUserRow,
-  saveAdminUserRows,
-  upsertAdminUserRow,
-} from "@/lib/admin/user-library-storage";
+import type { AdminUserSample } from "@/lib/admin/mock-users";
 import { ROLE_LABEL } from "@/lib/auth/types";
 
 function newUserId(): string {
@@ -60,10 +53,6 @@ function emptyUser(): AdminUserSample {
     lastActive: "—",
     campaignsCount: 0,
   };
-}
-
-function seedUsers(): AdminUserSample[] {
-  return JSON.parse(JSON.stringify(ADMIN_SAMPLE_USERS)) as AdminUserSample[];
 }
 
 function initials(name: string) {
@@ -108,30 +97,36 @@ function statusBadge(status: AdminUserSample["status"]) {
 
 export function AdminUsersManager() {
   const [rows, setRows] = useState<AdminUserSample[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("list");
   const [screen, setScreen] = useState<"table" | "editor">("table");
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftUser, setDraftUser] = useState<AdminUserSample | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
   const [page, setPage] = useState(1);
 
-  const hydrate = useCallback(() => {
-    const stored = loadAdminUserRows();
-    if (stored && stored.length > 0) {
-      setRows(stored);
-      return;
+  const loadUsers = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/admin/users");
+      const data = (await res.json().catch(() => null)) as { users?: AdminUserSample[]; error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to load users.");
+      }
+      setRows(Array.isArray(data?.users) ? data.users : []);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load users.");
+      setRows([]);
     }
-    const initial = seedUsers();
-    saveAdminUserRows(initial);
-    setRows(initial);
   }, []);
 
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    void loadUsers();
+  }, [loadUsers]);
 
   const filteredRows = useMemo(
     () => (rows ? rows.filter((u) => matchesUserSearch(u, searchQuery)) : []),
@@ -161,11 +156,6 @@ export function AdminUsersManager() {
       .filter(Boolean);
   }, [rows, editingId]);
 
-  function persist(next: AdminUserSample[]) {
-    saveAdminUserRows(next);
-    setRows(next);
-  }
-
   function handleCreateClick() {
     setEditorMode("create");
     setEditingId(null);
@@ -182,35 +172,64 @@ export function AdminUsersManager() {
     setScreen("editor");
   }
 
-  function handleSaveFromForm(user: AdminUserSample, oldId: string | null) {
-    if (!rows) return;
-    const next = upsertAdminUserRow(rows, user, oldId);
-    persist(next);
-    setScreen("table");
-    setEditingId(null);
-    setDraftUser(null);
-  }
-
-  function confirmDelete() {
-    if (!deleteId || !rows) return;
-    const next = removeAdminUserRow(rows, deleteId);
-    persist(next);
-    setDeleteId(null);
-  }
-
-  function resetDemoData() {
-    if (!window.confirm("Reset user list to built-in demo data? Local admin changes will be cleared.")) {
-      return;
+  async function handleSaveFromForm(
+    user: AdminUserSample,
+    oldId: string | null,
+    secrets?: { password?: string; newPassword?: string }
+  ) {
+    if (editorMode === "create") {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          password: secrets?.password,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to create user.");
+      }
+    } else {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          ...(secrets?.newPassword ? { newPassword: secrets.newPassword } : {}),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to update user.");
+      }
     }
-    localStorage.removeItem("act-admin-user-rows-v1");
-    const initial = seedUsers();
-    saveAdminUserRows(initial);
-    setRows(initial);
+    await loadUsers();
     setScreen("table");
     setEditingId(null);
     setDraftUser(null);
-    setSearchQuery("");
-    setPage(1);
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${deleteId}`, { method: "DELETE" });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to delete user.");
+      }
+      await loadUsers();
+      setDeleteId(null);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed.");
+    }
   }
 
   const deleteName = deleteId && rows ? rows.find((r) => r.id === deleteId)?.name : null;
@@ -220,6 +239,17 @@ export function AdminUsersManager() {
       <p className="text-sm text-muted-foreground" role="status">
         Loading users…
       </p>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
+        <p className="font-medium text-destructive">{loadError}</p>
+        <Button type="button" size="sm" variant="outline" onClick={() => void loadUsers()}>
+          Retry
+        </Button>
+      </div>
     );
   }
 
@@ -250,9 +280,9 @@ export function AdminUsersManager() {
               · {filteredRows.length} match{filteredRows.length === 1 ? "" : "es"}
             </>
           ) : null}{" "}
-          · Create, edit, or delete records. Data persists in this browser via{" "}
-          <code className="rounded bg-muted px-1 font-mono text-xs">localStorage</code> for admin preview; connect your
-          auth / user service for production.
+          · Create, edit, or delete accounts stored in the database. Super Admin sign-in still requires{" "}
+          <code className="rounded bg-muted px-1 font-mono text-xs">ADMIN_EMAILS</code> (or temp bootstrap credentials)
+          for that role.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" className="gap-1.5" onClick={handleCreateClick}>
@@ -507,23 +537,28 @@ export function AdminUsersManager() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-        <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={resetDemoData}>
-          <RotateCcw className="size-4" aria-hidden />
-          Reset demo data
-        </Button>
-        <p className="text-xs text-muted-foreground">FluentCRM segments and password reset — wire next to your user API.</p>
-      </div>
+      <p className="text-xs text-muted-foreground pt-2">
+        FluentCRM segments and automated password reset emails can plug in when you add those services.
+      </p>
 
-      <Dialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <Dialog
+        open={deleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteId(null);
+            setDeleteError(null);
+          }
+        }}
+      >
         <DialogContent showCloseButton className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete user?</DialogTitle>
             <DialogDescription>
-              Remove <strong className="text-foreground">{deleteName ?? deleteId}</strong> from this admin directory
-              (browser storage only). This does not delete a real auth account until your API is connected.
+              Permanently remove <strong className="text-foreground">{deleteName ?? deleteId}</strong> from the database.
+              This cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDeleteId(null)}>
               Cancel

@@ -7,7 +7,7 @@ export default function AdminUsersPage() {
     <>
       <AdminPageHeader
         title="Users"
-        description="Parents, students, individual donors, business accounts — create, edit, and delete in this browser (localStorage preview); wire to your user service for production."
+        description="Parents, students, individual donors, business accounts — create, edit, and delete accounts stored in the database."
       />
       <AdminUsersManager />
       <Card className="mt-6 border-border/80">

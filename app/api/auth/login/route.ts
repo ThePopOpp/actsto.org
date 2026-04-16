@@ -76,6 +76,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { lastLoginAt: new Date() },
+    });
+
     const assignedPortals = portalRolesFromUser(dbUser);
     const displayName = (dbUser.name ?? displayNameBase).trim();
 

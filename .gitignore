@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# MCP / tool scratch JSON payloads (not part of the app)
+/local/mcp-artifacts/
+
 # Prisma / local SQLite — never commit dev databases or WAL files
 /prisma/*.db
 /prisma/*.db-journal
@@ -40,6 +43,21 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+
+# Cursor — local MCP URLs may include project refs; keep out of the repo
+.cursor/
+
+# Editor / agent tooling (local)
+.agents/
+.claude/
+skills-lock.json
+
+# Supabase CLI cache
+supabase/.temp/
+
+# Supabase migration scratch output (SQL files stay tracked)
+supabase/migrations/*_out.txt
+supabase/migrations/*.json.txt
 
 # vercel
 .vercel

@@ -6,7 +6,7 @@ export default function AdminLegalPage() {
     <>
       <AdminPageHeader
         title="Legal"
-        description="Edit the Terms of Service, Privacy Policy, and Communication Policy shown on public /legal pages. Saved HTML is stored in the database; until you save, visitors see the built-in default copy (aligned with your current policies). Paste content from your Word documents (Save as Web Page, Filtered) or compose here."
+        description="Terms of Service, Privacy Policy, and Communication Policy for public /legal pages. Built-in defaults match the live policy components; saving stores HTML in the database and overrides those defaults. You can paste from Word (Save as Web Page, Filtered) or compose in the editor. Unauthenticated preview can load and edit; saving and reset require a signed-in Super Admin."
       />
       <AdminLegalClient />
     </>

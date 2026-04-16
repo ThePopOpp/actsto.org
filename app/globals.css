@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Class-based dark mode (next-themes sets `class="dark"` on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --color-background: var(--background);
@@ -141,11 +142,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    height: 100%;
+    @apply font-sans;
+  }
   body {
     @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
   }
   h1,
   h2,
