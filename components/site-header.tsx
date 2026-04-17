@@ -502,7 +502,7 @@ export function SiteHeader({ user }: { user: ActSession | null }) {
           ) : (
             <Link
               href="/login"
-              className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:flex lg:hidden"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Account / sign in"
             >
               <User className="size-4" aria-hidden />
