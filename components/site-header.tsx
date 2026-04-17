@@ -7,12 +7,15 @@ import { usePathname, useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Heart,
   HeartHandshake,
   HelpCircle,
   LogIn,
   Mail,
+  Menu,
   Newspaper,
   Phone,
   Search,
@@ -20,6 +23,7 @@ import {
   User,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 
 import { HeaderUserMenu } from "@/components/header-user-menu";
@@ -187,6 +191,12 @@ const megaQuick: MegaItem[] = [
   },
 ];
 
+const allMobileLinks = [
+  { section: "Learn & Info", items: megaLearn },
+  { section: "Support & Contact", items: megaSupport },
+  { section: "Quick Actions", items: megaQuick },
+];
+
 function NavText({
   href,
   children,
@@ -260,10 +270,167 @@ function MegaColumn({ title, items }: { title: string; items: MegaItem[] }) {
   );
 }
 
+function MobileMenu({ user, onClose }: { user: ActSession | null; onClose: () => void }) {
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = search.trim();
+    onClose();
+    router.push(q ? `/campaigns?q=${encodeURIComponent(q)}` : "/campaigns");
+  }
+
+  return (
+    <div className="absolute inset-x-0 top-full z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border bg-background shadow-lg lg:hidden">
+      <div className="px-4 py-4 space-y-1">
+        {/* Search */}
+        <form onSubmit={submitSearch} className="relative mb-3">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search campaigns..."
+            className="h-10 rounded-full pl-9"
+            aria-label="Search campaigns"
+          />
+        </form>
+
+        {/* Home */}
+        <Link
+          href="/"
+          onClick={onClose}
+          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Home
+        </Link>
+
+        {/* Campaigns */}
+        <Link
+          href="/campaigns"
+          onClick={onClose}
+          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Campaigns
+        </Link>
+
+        {/* Contact */}
+        <Link
+          href="/contact"
+          onClick={onClose}
+          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Contact
+        </Link>
+
+        {/* Resources accordion */}
+        <button
+          onClick={() => setResourcesOpen((o) => !o)}
+          className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Resources
+          {resourcesOpen ? (
+            <ChevronDown className="size-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="size-4 text-muted-foreground" />
+          )}
+        </button>
+
+        {resourcesOpen && (
+          <div className="ml-3 space-y-4 border-l border-border pl-3 pt-1 pb-2">
+            {allMobileLinks.map(({ section, items }) => (
+              <div key={section}>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                  {section}
+                </p>
+                <ul className="space-y-0.5">
+                  {items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onClose}
+                        className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm text-foreground hover:bg-muted"
+                      >
+                        <span
+                          className={cn(
+                            "flex size-8 shrink-0 items-center justify-center rounded-md",
+                            item.iconWrapClass ?? "bg-muted"
+                          )}
+                        >
+                          <item.Icon
+                            className={cn("size-4", item.iconClass ?? "text-foreground")}
+                            strokeWidth={1.5}
+                            aria-hidden
+                          />
+                        </span>
+                        <span>
+                          <span className="block font-medium">{item.title}</span>
+                          <span
+                            className={cn(
+                              "block text-xs text-muted-foreground",
+                              item.descClass
+                            )}
+                          >
+                            {item.desc}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CTA buttons */}
+        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
+          {user ? (
+            <Link
+              href="/dashboard"
+              onClick={onClose}
+              className={cn(buttonVariants({ size: "sm" }), "justify-center")}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                onClick={onClose}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center")}
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/register"
+                onClick={onClose}
+                className={cn(buttonVariants({ size: "sm" }), "justify-center")}
+              >
+                Get Started
+              </Link>
+              <Link
+                href="/campaigns/new"
+                onClick={onClose}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center")}
+              >
+                Start Campaign
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SiteHeader({ user }: { user: ActSession | null }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-sm backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="relative block h-10 w-[200px] shrink-0 sm:h-11 sm:w-[220px]">
           <Image
             src={ACT_LOGO_FULL}
@@ -335,14 +502,28 @@ export function SiteHeader({ user }: { user: ActSession | null }) {
           ) : (
             <Link
               href="/login"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:flex lg:hidden"
               aria-label="Account / sign in"
             >
               <User className="size-4" aria-hidden />
             </Link>
           )}
+
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground transition-colors hover:bg-muted lg:hidden"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
         </div>
       </div>
+
+      {mobileOpen && (
+        <MobileMenu user={user} onClose={() => setMobileOpen(false)} />
+      )}
     </header>
   );
 }
