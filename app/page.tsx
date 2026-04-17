@@ -15,8 +15,9 @@ export default function HomePage() {
             Donate Today — It Only Takes 3 Minutes
           </p>
           <h1 className="mt-6 font-heading text-4xl leading-tight font-semibold tracking-tight text-primary sm:text-5xl md:text-[3.25rem] md:leading-[1.15]">
-            Turn Your Arizona Taxes Into Private{" "}
-            <span className="text-act-red">Christian</span> Education &amp; Tuition
+            Turn Your Arizona Taxes Into{" "}
+            <span className="text-act-red dark:text-[#9ab7f2]">Private Christian Education</span>{" "}
+            &amp; Tuition
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
             Your state tax dollars can fund a child&apos;s education instead of the general
