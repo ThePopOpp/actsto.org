@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   description:
     "Turn your Arizona taxes into private Christian education and tuition through the state tax credit program.",
   icons: {
-    icon: [{ url: ACT_FAVICON, type: "image/png" }],
+    icon: [{ url: ACT_FAVICON, type: "image/svg+xml" }],
     apple: ACT_FAVICON,
     shortcut: ACT_FAVICON,
   },
