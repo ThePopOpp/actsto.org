@@ -22,6 +22,9 @@ function createPrismaClient(): PrismaClient {
       connectionString,
       max: process.env.NODE_ENV === "production" ? 10 : 5,
     });
+  // Prevent unhandled 'error' events from crashing the RSC stream when the
+  // DB is temporarily unreachable (e.g. pooler not yet provisioned).
+  pool.on("error", () => {});
   if (process.env.NODE_ENV !== "production") globalForPrisma.pgPool = pool;
 
   const adapter = new PrismaPg(pool);

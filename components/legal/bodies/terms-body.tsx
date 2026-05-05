@@ -14,8 +14,8 @@ export function TermsDocumentBody() {
         39-3034324
         <br />
         (602) 421-8301&nbsp;&nbsp;|&nbsp;&nbsp;
-        <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
-          hello@actsto.org
+        <a href="mailto:hello@arizonachristiantuition.com" className="text-primary underline-offset-4 hover:underline">
+          hello@arizonachristiantuition.com
         </a>
         <br />
         Domains: actsto.org&nbsp;&nbsp;|&nbsp;&nbsp;arizonachristiantuition.com&nbsp;&nbsp;|&nbsp;&nbsp;my.actsto.org

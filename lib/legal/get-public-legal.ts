@@ -6,9 +6,13 @@ export async function getPublicLegalHtml(slug: LegalSlug): Promise<{
   html: string | null;
   updatedAt: Date | null;
 }> {
-  const row = await prisma.legalDocument.findUnique({ where: { slug } });
-  if (row) {
-    return { html: row.bodyHtml, updatedAt: row.updatedAt };
+  try {
+    const row = await prisma.legalDocument.findUnique({ where: { slug } });
+    if (row) {
+      return { html: row.bodyHtml, updatedAt: row.updatedAt };
+    }
+  } catch {
+    // DB unreachable — fall through to static defaults below
   }
   return { html: null, updatedAt: null };
 }

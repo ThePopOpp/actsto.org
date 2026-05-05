@@ -65,12 +65,12 @@ export function CommunicationDocumentBody() {
           updates, and account alerts. Consent is not required to donate or use our services. Message and data rates may
           apply. Message frequency varies. Reply STOP to opt out. Reply HELP for assistance. Privacy Policy:{" "}
           <a
-            href="https://arizonachristiantuition.com/legal/privacy"
+            href="https://arizonachristiantuition.com/privacy-policy"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline-offset-4 hover:underline"
           >
-            arizonachristiantuition.com/legal/privacy
+            arizonachristiantuition.com/privacy-policy
           </a>
           .&quot;
         </blockquote>
