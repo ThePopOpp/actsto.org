@@ -74,14 +74,6 @@ function LoginFormInner() {
     <Card className="w-full max-w-md border-border/80 shadow-md">
       <CardHeader>
         <CardTitle className="font-heading text-2xl text-primary">Sign in</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Super Admin: add your email to <code className="rounded bg-muted px-1 text-xs">ADMIN_EMAILS</code> in{" "}
-          <code className="rounded bg-muted px-1 text-xs">.env</code>, choose <strong>Super Admin</strong> here,
-          then sign in (password is not checked unless you use the bootstrap account below). Or set{" "}
-          <code className="rounded bg-muted px-1 text-xs">TEMP_SUPER_ADMIN_EMAIL</code> /{" "}
-          <code className="rounded bg-muted px-1 text-xs">TEMP_SUPER_ADMIN_PASSWORD</code>, sign in with that email
-          and password, and still choose <strong>Super Admin</strong> for this dashboard.
-        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
@@ -149,9 +141,6 @@ function LoginFormInner() {
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </Button>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Password not verified yet — hook up your auth provider here.
-            </p>
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing in…" : "Sign in"}
