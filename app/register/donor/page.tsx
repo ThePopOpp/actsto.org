@@ -16,6 +16,57 @@ import { ACT_LOGO_ROUND } from "@/lib/constants";
 export default function RegisterDonorPage() {
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirm: "",
+    agreed: false,
+  });
+
+  function set(field: keyof typeof form, value: string | boolean) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    if (!form.firstName.trim()) return setError("First name is required.");
+    if (!form.email.trim()) return setError("Email is required.");
+    if (form.password.length < 8) return setError("Password must be at least 8 characters.");
+    if (form.password !== form.confirm) return setError("Passwords do not match.");
+    if (!form.agreed) return setError("You must agree to the Terms and Privacy Policy.");
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          phone: form.phone.trim(),
+          role: "donor_individual",
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; redirect?: string; error?: string };
+      if (!res.ok || json.error) {
+        setError(json.error ?? "Registration failed. Please try again.");
+        return;
+      }
+      if (json.redirect) window.location.href = json.redirect;
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-[80vh] bg-muted/50 py-10">
@@ -38,36 +89,63 @@ export default function RegisterDonorPage() {
 
         <Card className="mt-8 border-border/80 shadow-md">
           <CardContent className="space-y-4 p-6">
+            {error && (
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="fn">First name *</Label>
-                <Input id="fn" placeholder="Jane" className="mt-1.5" />
+                <Input
+                  id="fn"
+                  className="mt-1.5"
+                  value={form.firstName}
+                  onChange={(e) => set("firstName", e.target.value)}
+                />
               </div>
               <div>
-                <Label htmlFor="ln">Last name *</Label>
-                <Input id="ln" placeholder="Smith" className="mt-1.5" />
+                <Label htmlFor="ln">Last name</Label>
+                <Input
+                  id="ln"
+                  className="mt-1.5"
+                  value={form.lastName}
+                  onChange={(e) => set("lastName", e.target.value)}
+                />
               </div>
-            </div>
-            <div>
-              <Label htmlFor="nick">Nickname (optional)</Label>
-              <Input
-                id="nick"
-                placeholder="What should we call you?"
-                className="mt-1.5"
-              />
             </div>
             <div>
               <Label htmlFor="email">Email address *</Label>
-              <Input id="email" type="email" className="mt-1.5" />
+              <Input
+                id="email"
+                type="email"
+                className="mt-1.5"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="phone">Phone number (optional)</Label>
-              <Input id="phone" type="tel" className="mt-1.5" />
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(602) 555-0100"
+                className="mt-1.5"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="pw">Password *</Label>
               <div className="relative mt-1.5">
-                <Input id="pw" type={showPw ? "text" : "password"} className="pr-10" />
+                <Input
+                  id="pw"
+                  type={showPw ? "text" : "password"}
+                  placeholder="Min 8 characters"
+                  className="pr-10"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                />
                 <button
                   type="button"
                   className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
@@ -81,7 +159,14 @@ export default function RegisterDonorPage() {
             <div>
               <Label htmlFor="pw2">Confirm password *</Label>
               <div className="relative mt-1.5">
-                <Input id="pw2" type={showPw2 ? "text" : "password"} className="pr-10" />
+                <Input
+                  id="pw2"
+                  type={showPw2 ? "text" : "password"}
+                  placeholder="Re-enter password"
+                  className="pr-10"
+                  value={form.confirm}
+                  onChange={(e) => set("confirm", e.target.value)}
+                />
                 <button
                   type="button"
                   className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
@@ -98,13 +183,16 @@ export default function RegisterDonorPage() {
               <p>
                 Arizona tax credit: As an individual donor you may contribute up to{" "}
                 <strong>$1,459 (single)</strong> or <strong>$2,918 (married filing jointly)</strong>{" "}
-                for tax year limits referenced in your materials — confirm current-year amounts
-                with a tax advisor.
+                — confirm current-year amounts with a tax advisor.
               </p>
             </div>
 
             <label className="flex cursor-pointer items-start gap-2 text-sm">
-              <Checkbox className="mt-0.5" />
+              <Checkbox
+                className="mt-0.5"
+                checked={form.agreed}
+                onCheckedChange={(v) => set("agreed", Boolean(v))}
+              />
               <span>
                 I agree to the{" "}
                 <Link href="/legal/terms" className="text-act-red hover:underline">
@@ -118,8 +206,13 @@ export default function RegisterDonorPage() {
               </span>
             </label>
 
-            <Button type="button" className="w-full">
-              Create donor account
+            <Button
+              type="button"
+              className="w-full"
+              disabled={loading}
+              onClick={handleSubmit}
+            >
+              {loading ? "Creating account…" : "Create donor account"}
             </Button>
           </CardContent>
         </Card>

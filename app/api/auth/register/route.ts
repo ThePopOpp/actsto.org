@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     lastName?: string;
     phone?: string;
     role?: string;
+    displayName?: string;
   };
 
   const email = (body.email ?? "").trim().toLowerCase();
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
   const lastName = (body.lastName ?? "").trim();
   const phone = (body.phone ?? "").trim() || null;
   const role = body.role ?? "";
+  const displayName = (body.displayName ?? "").trim() || null;
 
   if (!email) return NextResponse.json({ error: "Email required." }, { status: 400 });
   if (password.length < 8)
@@ -82,6 +84,7 @@ export async function POST(req: Request) {
         fullName,
         firstName,
         lastName,
+        displayName,
         phone,
         primaryAccountType: role,
         activeAccountType: role,
@@ -91,6 +94,7 @@ export async function POST(req: Request) {
         fullName,
         firstName,
         lastName,
+        displayName,
         phone,
         primaryAccountType: role,
         activeAccountType: role,
