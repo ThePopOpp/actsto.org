@@ -6,6 +6,10 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================
+// Existing enums — custom auth system (Phase 2: migrate to Supabase Auth)
+// ============================================================
+
 enum UserRole {
   super_admin
   parent
@@ -20,18 +24,22 @@ enum AccountStatus {
   suspended
 }
 
+// ============================================================
+// Custom auth tables (current session system — replaced in Phase 2)
+// ============================================================
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      UserRole
-  /// JSON array of portal roles (parent, student, donor_*) this email may access; defaults from `role` when null.
-  roles     Json?
+  id            String        @id @default(cuid())
+  email         String        @unique
+  password      String
+  name          String?
+  role          UserRole
+  /// JSON array of portal roles this email may access
+  roles         Json?
   accountStatus AccountStatus @default(active)
   lastLoginAt   DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   auditLogs AuditLog[] @relation("AuditActor")
 }
@@ -50,7 +58,11 @@ model AuditLog {
   actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
 }
 
-/// Super-admin–edited legal HTML shown on public /legal/* when a row exists.
+// ============================================================
+// Admin-managed content (existing — keep as-is)
+// ============================================================
+
+/// Super-admin–edited legal HTML shown on public /legal/* pages
 model LegalDocument {
   id        String   @id @default(cuid())
   slug      String   @unique
@@ -59,7 +71,7 @@ model LegalDocument {
   createdAt DateTime @default(now())
 }
 
-/// Single-row store for Super Admin campaign directory (full campaign JSON + moderation meta).
+/// Single-row campaign directory managed by Super Admin
 model AdminCampaignDirectory {
   id        String   @id
   rows      Json
@@ -67,10 +79,913 @@ model AdminCampaignDirectory {
   createdAt DateTime @default(now())
 }
 
-/// Super-admin–edited integration payloads (PayPal, Twilio). Keys: `paypal`, `twilio`.
+/// Integration settings (PayPal, Twilio). Keys: `paypal`, `twilio`
 model AdminIntegrationSettings {
   key       String   @id
   payload   Json
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+}
+
+// ============================================================
+// Supabase Auth profile layer
+// NOTE: Profile.id = auth.users.id (UUID). No Prisma relation
+// to User because User uses a separate custom table with CUID.
+// In Phase 2 (Supabase Auth migration), User will be removed
+// and Profile will become the single source of identity.
+// ============================================================
+
+/// Main user profile — one row per auth.users entry
+model Profile {
+  id                  String   @id @db.Uuid
+  email               String
+  fullName            String?  @map("full_name")
+  firstName           String?  @map("first_name")
+  middleName          String?  @map("middle_name")
+  lastName            String?  @map("last_name")
+  displayName         String?  @map("display_name")
+  avatarUrl           String?  @map("avatar_url")
+  phone               String?
+  primaryAccountType  String?  @map("primary_account_type")
+  activeAccountType   String?  @map("active_account_type")
+  status              String   @default("active")
+  isAdmin             Boolean  @default(false) @map("is_admin")
+  isSuperAdmin        Boolean  @default(false) @map("is_super_admin")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  userRoles               UserRoleRecord[]
+  accountSetupProgress    AccountSetupProgress[]
+  parentGuardianProfile   ParentGuardianProfile?
+  individualDonorProfile  IndividualDonorProfile?
+  businessDonorProfile    BusinessDonorProfile?
+
+  @@map("profiles")
+}
+
+// ============================================================
+// Hybrid User role tables
+// ============================================================
+
+/// Extended role model — one row per user per role
+model UserRoleRecord {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  role              String
+  status            String   @default("active")
+  completionPercent Int      @default(0) @map("completion_percent")
+  isComplete        Boolean  @default(false) @map("is_complete")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+/// Per-role profile completion tracking for dashboard progress meters
+model AccountSetupProgress {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  role              String
+  requiredFields    Json      @default("[]") @map("required_fields")
+  completedFields   Json      @default("[]") @map("completed_fields")
+  missingFields     Json      @default("[]") @map("missing_fields")
+  completionPercent Int       @default(0) @map("completion_percent")
+  lastCheckedAt     DateTime? @map("last_checked_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("account_setup_progress")
+}
+
+// ============================================================
+// Role-specific profile tables
+// ============================================================
+
+model ParentGuardianProfile {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String   @unique @map("user_id") @db.Uuid
+  relationshipToStudent String?  @map("relationship_to_student")
+  addressLine1          String?  @map("address_line_1")
+  addressLine2          String?  @map("address_line_2")
+  city                  String?
+  state                 String?
+  zip                   String?
+  emergencyContactName  String?  @map("emergency_contact_name")
+  emergencyContactPhone String?  @map("emergency_contact_phone")
+  profileStatus         String   @default("incomplete") @map("profile_status")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("parent_guardian_profiles")
+}
+
+model IndividualDonorProfile {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  filingStatus   String?  @map("filing_status")
+  azResident     Boolean? @map("az_resident")
+  defaultTaxYear Int?     @map("default_tax_year")
+  annualLimit    Decimal? @map("annual_limit") @db.Decimal(14, 2)
+  profileStatus  String   @default("incomplete") @map("profile_status")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("individual_donor_profiles")
+}
+
+model BusinessDonorProfile {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  businessName  String?  @map("business_name")
+  businessTitle String?  @map("business_title")
+  /// EIN — restrict access to owner + Super Admin only; never expose publicly
+  ein           String?
+  businessEmail String?  @map("business_email")
+  businessPhone String?  @map("business_phone")
+  businessType  String?  @map("business_type")
+  addressLine1  String?  @map("address_line_1")
+  addressLine2  String?  @map("address_line_2")
+  city          String?
+  state         String?
+  zip           String?
+  profileStatus String   @default("incomplete") @map("profile_status")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_donor_profiles")
+}
+
+// ============================================================
+// Schools
+// ============================================================
+
+model School {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  slug         String   @unique
+  schoolType   String?  @map("school_type")
+  description  String?
+  logoUrl      String?  @map("logo_url")
+  website      String?
+  phone        String?
+  email        String?
+  addressLine1 String?  @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  city         String?
+  state        String?
+  zip          String?
+  county       String?
+  isPartner    Boolean  @default(false) @map("is_partner")
+  status       String   @default("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  students             Student[]
+  campaigns            Campaign[]
+  schoolAdmins         SchoolAdmin[]
+  scholarshipApps      ScholarshipApplication[]
+  scholarshipAwards    ScholarshipAward[]
+  scholarshipPayments  ScholarshipPayment[]
+  donationAllocations  DonationAllocation[]
+  donorRecommendations DonorRecommendation[]
+
+  @@map("schools")
+}
+
+model SchoolAdmin {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("viewer")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, userId])
+  @@map("school_admins")
+}
+
+// ============================================================
+// Students
+// ============================================================
+
+model Student {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// auth.users UUID of the parent who created this student record
+  parentUserId   String    @map("parent_user_id") @db.Uuid
+  schoolId       String?   @map("school_id") @db.Uuid
+  firstName      String    @map("first_name")
+  lastName       String?   @map("last_name")
+  nickname       String?
+  grade          String?
+  birthDate      DateTime? @map("birth_date") @db.Date
+  ageVerified    Boolean   @default(false) @map("age_verified")
+  profilePhotoUrl String?  @map("profile_photo_url")
+  bio            String?
+  createdBy      String?   @map("created_by") @db.Uuid
+  status         String    @default("pending")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  school                 School?                  @relation(fields: [schoolId], references: [id])
+  guardians              StudentGuardian[]
+  campaignStudents       CampaignStudent[]
+  scholarshipApps        ScholarshipApplication[]
+  scholarshipAwards      ScholarshipAward[]
+  donationAllocations    DonationAllocation[]
+  donorRecommendations   DonorRecommendation[]
+
+  @@map("students")
+}
+
+model StudentGuardian {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String   @map("student_id") @db.Uuid
+  guardianUserId   String   @map("guardian_user_id") @db.Uuid
+  relationship     String?
+  isPrimary        Boolean  @default(false) @map("is_primary")
+  permissionStatus String   @default("pending") @map("permission_status")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, guardianUserId])
+  @@map("student_guardians")
+}
+
+// ============================================================
+// Campaigns
+// ============================================================
+
+model CampaignType {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaigns Campaign[]
+
+  @@map("campaign_types")
+}
+
+model Campaign {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// auth.users UUID of campaign creator
+  createdByUserId   String    @map("created_by_user_id") @db.Uuid
+  schoolId          String?   @map("school_id") @db.Uuid
+  campaignTypeId    String?   @map("campaign_type_id") @db.Uuid
+  title             String
+  slug              String    @unique
+  tagline           String?
+  shortExcerpt      String?   @map("short_excerpt")
+  story             String?
+  campaignType      String?   @map("campaign_type")
+  /// status: draft | pending_review | active | paused | completed | rejected | archived
+  status            String    @default("draft")
+  startsAt          DateTime? @map("starts_at")
+  endsAt            DateTime? @map("ends_at")
+  goalAmount        Decimal   @default(0) @map("goal_amount") @db.Decimal(14, 2)
+  raisedAmount      Decimal   @default(0) @map("raised_amount") @db.Decimal(14, 2)
+  donorCount        Int       @default(0) @map("donor_count")
+  featuredImageUrl  String?   @map("featured_image_url")
+  qrCodeUrl         String?   @map("qr_code_url")
+  city              String?
+  state             String?
+  isFeatured        Boolean   @default(false) @map("is_featured")
+  isPublic          Boolean   @default(true) @map("is_public")
+  submittedAt       DateTime? @map("submitted_at")
+  approvedBy        String?   @map("approved_by") @db.Uuid
+  approvedAt        DateTime? @map("approved_at")
+  rejectedBy        String?   @map("rejected_by") @db.Uuid
+  rejectedAt        DateTime? @map("rejected_at")
+  rejectionReason   String?   @map("rejection_reason")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  school               School?              @relation(fields: [schoolId], references: [id])
+  campaignTypeRelation CampaignType?        @relation(fields: [campaignTypeId], references: [id])
+  campaignStudents     CampaignStudent[]
+  campaignMedia        CampaignMedia[]
+  givingLevels         GivingLevel[]
+  campaignUpdates      CampaignUpdate[]
+  campaignFaqs         CampaignFaq[]
+  campaignBackers      CampaignBacker[]
+  campaignComments     CampaignComment[]
+  donations            Donation[]
+  donationAllocations  DonationAllocation[]
+  scholarshipAwards    ScholarshipAward[]
+  donorRecommendations DonorRecommendation[]
+  approvalQueue        ApprovalQueue[]
+
+  @@map("campaigns")
+}
+
+model CampaignStudent {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId      String   @map("campaign_id") @db.Uuid
+  studentId       String   @map("student_id") @db.Uuid
+  individualGoal  Decimal  @default(0) @map("individual_goal") @db.Decimal(14, 2)
+  amountAllocated Decimal  @default(0) @map("amount_allocated") @db.Decimal(14, 2)
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, studentId])
+  @@map("campaign_students")
+}
+
+model CampaignMedia {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId  String   @map("campaign_id") @db.Uuid
+  /// featured_image | gallery_image | video | document
+  mediaType   String   @default("gallery_image") @map("media_type")
+  fileUrl     String?  @map("file_url")
+  storagePath String?  @map("storage_path")
+  altText     String?  @map("alt_text")
+  caption     String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  uploadedBy  String?  @map("uploaded_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_media")
+}
+
+model GivingLevel {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId    String   @map("campaign_id") @db.Uuid
+  name          String
+  title         String?
+  minAmount     Decimal  @map("min_amount") @db.Decimal(14, 2)
+  amount        Decimal? @db.Decimal(14, 2)
+  description   String?
+  spotsAvailable Int?    @map("spots_available")
+  spotsClaimed  Int      @default(0) @map("spots_claimed")
+  sortOrder     Int      @default(0) @map("sort_order")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  campaign        Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignBackers CampaignBacker[]
+
+  @@map("giving_levels")
+}
+
+model CampaignUpdate {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId   String    @map("campaign_id") @db.Uuid
+  authorUserId String?   @map("author_user_id") @db.Uuid
+  title        String
+  body         String?
+  status       String    @default("draft")
+  publishedAt  DateTime? @map("published_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_updates")
+}
+
+model CampaignFaq {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  question   String
+  answer     String
+  sortOrder  Int      @default(0) @map("sort_order")
+  isPublic   Boolean  @default(true) @map("is_public")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_faqs")
+}
+
+model CampaignBacker {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId    String    @map("campaign_id") @db.Uuid
+  donationId    String?   @map("donation_id") @db.Uuid
+  userId        String?   @map("user_id") @db.Uuid
+  displayName   String?   @map("display_name")
+  avatarUrl     String?   @map("avatar_url")
+  amount        Decimal?  @db.Decimal(14, 2)
+  message       String?
+  isAnonymous   Boolean   @default(false) @map("is_anonymous")
+  showAmount    Boolean   @default(false) @map("show_amount")
+  showMessage   Boolean   @default(true) @map("show_message")
+  backerType    String?   @map("backer_type")
+  givingLevelId String?   @map("giving_level_id") @db.Uuid
+  /// pending_review | visible | hidden | removed
+  status        String    @default("pending_review")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  donation    Donation?    @relation(fields: [donationId], references: [id])
+  givingLevel GivingLevel? @relation(fields: [givingLevelId], references: [id])
+
+  @@map("campaign_backers")
+}
+
+model CampaignComment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId      String    @map("campaign_id") @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
+  parentCommentId String?   @map("parent_comment_id") @db.Uuid
+  authorName      String?   @map("author_name")
+  authorEmail     String?   @map("author_email")
+  commentBody     String    @map("comment_body")
+  commentType     String    @default("encouragement") @map("comment_type")
+  /// pending | approved | rejected | removed
+  status          String    @default("pending")
+  isPinned        Boolean   @default(false) @map("is_pinned")
+  isPrivate       Boolean   @default(false) @map("is_private")
+  moderatedBy     String?   @map("moderated_by") @db.Uuid
+  moderatedAt     DateTime? @map("moderated_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  campaign      Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  parentComment CampaignComment? @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies       CampaignComment[] @relation("CommentReplies")
+
+  @@map("campaign_comments")
+}
+
+// ============================================================
+// Pledges (existing — keep model in sync)
+// ============================================================
+
+model Pledge {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  amount     Decimal  @db.Decimal(14, 2)
+  currency   String   @default("USD")
+  /// pending | confirmed | cancelled | fulfilled
+  status     String   @default("pending")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  donations Donation[]
+
+  @@map("pledges")
+}
+
+// ============================================================
+// Donations and payment tables
+// ============================================================
+
+model Donation {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// auth.users UUID — null for anonymous donations
+  userId                  String?   @map("user_id") @db.Uuid
+  campaignId              String?   @map("campaign_id") @db.Uuid
+  pledgeId                String?   @map("pledge_id") @db.Uuid
+  amount                  Decimal   @db.Decimal(14, 2)
+  tipAmount               Decimal   @default(0) @map("tip_amount") @db.Decimal(14, 2)
+  processingFeeAmount     Decimal   @default(0) @map("processing_fee_amount") @db.Decimal(14, 2)
+  totalAmount             Decimal?  @map("total_amount") @db.Decimal(14, 2)
+  currency                String    @default("USD")
+  /// quick | tax_credit | business | general | campaign | manual_check
+  donationType            String    @default("quick") @map("donation_type")
+  /// pending | paid | failed | cancelled | refunded | partially_refunded
+  status                  String    @default("pending")
+  paymentProvider         String    @default("paypal") @map("payment_provider")
+  paymentProviderOrderId  String?   @map("payment_provider_order_id")
+  paymentProviderCaptureId String?  @map("payment_provider_capture_id")
+  /// Legacy field — use paymentProviderOrderId going forward
+  externalPaymentId       String?   @map("external_payment_id")
+  anonymous               Boolean   @default(false)
+  donorMessage            String?   @map("donor_message")
+  taxYear                 Int?      @map("tax_year")
+  metadata                Json      @default("{}")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  campaign             Campaign?           @relation(fields: [campaignId], references: [id])
+  pledge               Pledge?             @relation(fields: [pledgeId], references: [id])
+  donationDetail       DonationDetail?
+  donationAllocations  DonationAllocation[]
+  paymentEvents        PaymentEvent[]
+  campaignBackers      CampaignBacker[]
+  taxReceipts          TaxReceipt[]
+  donorRecommendation  DonorRecommendation?
+
+  @@map("donations")
+}
+
+model DonationDetail {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId           String   @unique @map("donation_id") @db.Uuid
+  donorFirstName       String?  @map("donor_first_name")
+  donorMiddleName      String?  @map("donor_middle_name")
+  donorLastName        String?  @map("donor_last_name")
+  donorEmail           String?  @map("donor_email")
+  donorPhone           String?  @map("donor_phone")
+  billingAddressLine1  String?  @map("billing_address_line_1")
+  billingAddressLine2  String?  @map("billing_address_line_2")
+  billingCity          String?  @map("billing_city")
+  billingState         String?  @map("billing_state")
+  billingZip           String?  @map("billing_zip")
+  taxYear              Int?     @map("tax_year")
+  filingStatus         String?  @map("filing_status")
+  isArizonaResident    Boolean? @map("is_arizona_resident")
+  wantsTaxReceipt      Boolean  @default(true) @map("wants_tax_receipt")
+  dedicationType       String?  @map("dedication_type")
+  dedicationName       String?  @map("dedication_name")
+  dedicationMessage    String?  @map("dedication_message")
+  publicDisplayName    String?  @map("public_display_name")
+  publicMessage        String?  @map("public_message")
+  showNamePublicly     Boolean  @default(true) @map("show_name_publicly")
+  showAmountPublicly   Boolean  @default(false) @map("show_amount_publicly")
+  metadata             Json     @default("{}") @map("metadata")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@map("donation_details")
+}
+
+model DonationAllocation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId     String   @map("donation_id") @db.Uuid
+  campaignId     String?  @map("campaign_id") @db.Uuid
+  studentId      String?  @map("student_id") @db.Uuid
+  schoolId       String?  @map("school_id") @db.Uuid
+  amount         Decimal  @db.Decimal(14, 2)
+  /// campaign | student | school | general_fund
+  allocationType String   @map("allocation_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  donation Donation  @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  student  Student?  @relation(fields: [studentId], references: [id])
+  school   School?   @relation(fields: [schoolId], references: [id])
+
+  @@map("donation_allocations")
+}
+
+model DonorBillingProfile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  firstName    String?  @map("first_name")
+  middleName   String?  @map("middle_name")
+  lastName     String?  @map("last_name")
+  email        String?
+  phone        String?
+  addressLine1 String?  @map("address_line_1")
+  addressLine2 String?  @map("address_line_2")
+  city         String?
+  state        String?
+  zip          String?
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("donor_billing_profiles")
+}
+
+/// Raw PayPal / webhook event log — deduplicated by providerEventId
+model PaymentEvent {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider          String
+  eventType         String    @map("event_type")
+  providerEventId   String?   @unique @map("provider_event_id")
+  providerOrderId   String?   @map("provider_order_id")
+  providerCaptureId String?   @map("provider_capture_id")
+  donationId        String?   @map("donation_id") @db.Uuid
+  payload           Json      @default("{}")
+  processed         Boolean   @default(false)
+  processedAt       DateTime? @map("processed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  donation Donation? @relation(fields: [donationId], references: [id])
+
+  @@map("payment_events")
+}
+
+// ============================================================
+// Donor recommendations (Arizona STO compliance)
+// ============================================================
+
+/// Donor preference — NOT a binding scholarship earmark (ARS § 43-1089 compliance)
+model DonorRecommendation {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId            String    @unique @map("donation_id") @db.Uuid
+  recommendedStudentId  String?   @map("recommended_student_id") @db.Uuid
+  recommendedSchoolId   String?   @map("recommended_school_id") @db.Uuid
+  recommendedCampaignId String?   @map("recommended_campaign_id") @db.Uuid
+  relationshipDisclosure String?  @map("relationship_disclosure")
+  isDependentOfDonor    Boolean?  @map("is_dependent_of_donor")
+  complianceStatus      String    @default("pending") @map("compliance_status")
+  reviewedBy            String?   @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime? @map("reviewed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  donation            Donation  @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  recommendedStudent  Student?  @relation(fields: [recommendedStudentId], references: [id])
+  recommendedSchool   School?   @relation(fields: [recommendedSchoolId], references: [id])
+  recommendedCampaign Campaign? @relation(fields: [recommendedCampaignId], references: [id])
+
+  @@map("donor_recommendations")
+}
+
+// ============================================================
+// Scholarship
+// ============================================================
+
+model ScholarshipApplication {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String    @map("student_id") @db.Uuid
+  guardianUserId      String?   @map("guardian_user_id") @db.Uuid
+  schoolId            String?   @map("school_id") @db.Uuid
+  schoolYear          String?   @map("school_year")
+  requestedAmount     Decimal?  @map("requested_amount") @db.Decimal(14, 2)
+  householdIncomeRange String?  @map("household_income_range")
+  applicationStatus   String    @default("draft") @map("application_status")
+  submittedAt         DateTime? @map("submitted_at")
+  reviewedBy          String?   @map("reviewed_by") @db.Uuid
+  reviewedAt          DateTime? @map("reviewed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  student Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school  School?            @relation(fields: [schoolId], references: [id])
+  awards  ScholarshipAward[]
+
+  @@map("scholarship_applications")
+}
+
+model ScholarshipAward {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String?   @map("application_id") @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  schoolId      String?   @map("school_id") @db.Uuid
+  campaignId    String?   @map("campaign_id") @db.Uuid
+  awardAmount   Decimal   @map("award_amount") @db.Decimal(14, 2)
+  awardDate     DateTime? @map("award_date") @db.Date
+  schoolYear    String?   @map("school_year")
+  status        String    @default("pending")
+  approvedBy    String?   @map("approved_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  application ScholarshipApplication? @relation(fields: [applicationId], references: [id])
+  student     Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school      School?                 @relation(fields: [schoolId], references: [id])
+  campaign    Campaign?               @relation(fields: [campaignId], references: [id])
+  payments    ScholarshipPayment[]
+
+  @@map("scholarship_awards")
+}
+
+model ScholarshipPayment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  awardId          String    @map("award_id") @db.Uuid
+  schoolId         String?   @map("school_id") @db.Uuid
+  amount           Decimal   @db.Decimal(14, 2)
+  paymentMethod    String?   @map("payment_method")
+  paymentReference String?   @map("payment_reference")
+  paidAt           DateTime? @map("paid_at")
+  status           String    @default("pending")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  award  ScholarshipAward @relation(fields: [awardId], references: [id], onDelete: Cascade)
+  school School?          @relation(fields: [schoolId], references: [id])
+
+  @@map("scholarship_payments")
+}
+
+// ============================================================
+// Tax receipts and credit limits
+// ============================================================
+
+model TaxReceipt {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId    String    @map("donation_id") @db.Uuid
+  receiptNumber String    @unique @map("receipt_number")
+  taxYear       Int?      @map("tax_year")
+  receiptPdfUrl String?   @map("receipt_pdf_url")
+  storagePath   String?   @map("storage_path")
+  issuedToName  String?   @map("issued_to_name")
+  issuedToEmail String?   @map("issued_to_email")
+  amount        Decimal?  @db.Decimal(14, 2)
+  issuedAt      DateTime? @map("issued_at")
+  emailedAt     DateTime? @map("emailed_at")
+  /// pending | generated | emailed | error
+  status        String    @default("pending")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@map("tax_receipts")
+}
+
+/// Arizona STO annual credit limits per filing status
+model TaxCreditLimit {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taxYear             Int       @map("tax_year")
+  filingStatus        String    @map("filing_status")
+  originalCreditLimit Decimal?  @map("original_credit_limit") @db.Decimal(14, 2)
+  overflowCreditLimit Decimal?  @map("overflow_credit_limit") @db.Decimal(14, 2)
+  combinedLimit       Decimal?  @map("combined_limit") @db.Decimal(14, 2)
+  effectiveStartDate  DateTime? @map("effective_start_date") @db.Date
+  effectiveEndDate    DateTime? @map("effective_end_date") @db.Date
+  sourceUrl           String?   @map("source_url")
+  notes               String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@unique([taxYear, filingStatus])
+  @@map("tax_credit_limits")
+}
+
+// ============================================================
+// Compliance
+// ============================================================
+
+model ComplianceCheck {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id") @db.Uuid
+  checkType  String    @map("check_type")
+  status     String
+  notes      String?
+  reviewedBy String?   @map("reviewed_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("compliance_checks")
+}
+
+// ============================================================
+// Communication and notifications
+// ============================================================
+
+model CommunicationPreference {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String   @unique @map("user_id") @db.Uuid
+  emailOptIn               Boolean  @default(true) @map("email_opt_in")
+  smsOptIn                 Boolean  @default(false) @map("sms_opt_in")
+  transactionalEmailEnabled Boolean @default(true) @map("transactional_email_enabled")
+  marketingEmailEnabled    Boolean  @default(false) @map("marketing_email_enabled")
+  donationUpdatesEnabled   Boolean  @default(true) @map("donation_updates_enabled")
+  campaignUpdatesEnabled   Boolean  @default(true) @map("campaign_updates_enabled")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("communication_preferences")
+}
+
+model EmailLog {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String?   @map("user_id") @db.Uuid
+  toEmail           String    @map("to_email")
+  subject           String?
+  templateKey       String?   @map("template_key")
+  provider          String?
+  providerMessageId String?   @map("provider_message_id")
+  status            String?
+  payload           Json?
+  sentAt            DateTime? @map("sent_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@map("email_logs")
+}
+
+model SmsLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String?  @map("user_id") @db.Uuid
+  toPhone           String   @map("to_phone")
+  message           String
+  provider          String   @default("twilio")
+  providerMessageId String?  @map("provider_message_id")
+  status            String?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("sms_logs")
+}
+
+/// In-app dashboard notifications (maps to existing `notifications` table for new entries)
+model DashboardNotification {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  title            String
+  message          String?
+  notificationType String?   @map("notification_type")
+  readAt           DateTime? @map("read_at")
+  actionUrl        String?   @map("action_url")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@map("dashboard_notifications")
+}
+
+// ============================================================
+// Admin approvals and activity logs
+// ============================================================
+
+/// Unified review queue for campaigns, schools, scholarship apps, comments, reviews
+model ApprovalQueue {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType  String    @map("entity_type")
+  entityId    String    @map("entity_id") @db.Uuid
+  submittedBy String?   @map("submitted_by") @db.Uuid
+  /// pending | approved | rejected | needs_changes
+  status      String    @default("pending")
+  reviewNotes String?   @map("review_notes")
+  reviewedBy  String?   @map("reviewed_by") @db.Uuid
+  reviewedAt  DateTime? @map("reviewed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  campaign Campaign? @relation(fields: [entityId], references: [id], map: "approval_queue_campaign_fk")
+
+  @@map("approval_queue")
+}
+
+/// Immutable audit trail of all Super Admin actions
+model AdminActivityLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminUserId String?  @map("admin_user_id") @db.Uuid
+  action      String
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  beforeData  Json?    @map("before_data")
+  afterData   Json?    @map("after_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("admin_activity_logs")
+}
+
+/// Integration sync log for WordPress, FluentCRM, FluentBoards, FluentBooking, PayPal, Resend, Twilio
+model IntegrationLog {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  integrationName String    @map("integration_name")
+  eventType       String?   @map("event_type")
+  /// inbound | outbound | manual_check
+  direction       String?
+  status          String?
+  entityType      String?   @map("entity_type")
+  entityId        String?   @map("entity_id") @db.Uuid
+  requestPayload  Json?     @map("request_payload")
+  responsePayload Json?     @map("response_payload")
+  errorMessage    String?   @map("error_message")
+  processedAt     DateTime? @map("processed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@map("integration_logs")
+}
+
+// ============================================================
+// Legacy tables from existing migration (keep in sync)
+// ============================================================
+
+/// Simple review/rating on a campaign (existing table — subset of campaign_reviews concept)
+model Review {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  donorId    String   @map("donor_id") @db.Uuid
+  rating     Int
+  comment    String?
+  /// pending | approved | rejected
+  status     String   @default("approved")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([campaignId, donorId])
+  @@map("reviews")
+}
+
+/// Simple photo (existing table — superseded by CampaignMedia for new uploads)
+model Photo {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  url        String
+  caption    String?
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("photos")
 }
