@@ -1,11 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
+import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import {
   Check,
   ChevronRight,
-  CreditCard,
   Receipt,
   Zap,
 } from "lucide-react";
@@ -24,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { CampaignGivingLevel } from "@/lib/campaigns";
 import { TAX_CREDIT_MAX } from "@/lib/tax-credit";
-import { cn, formatCheckoutUsd } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const QUICK_CHOOSE_PILLS = [250, 1500, 3750] as const;
 
@@ -46,12 +45,15 @@ function defaultPerks(level: CampaignGivingLevel): string[] {
   ];
 }
 
-type Phase = "choose" | "quick-levels" | "quick-pay" | "quick-card" | "tax";
+type Phase = "choose" | "quick-levels" | "quick-pay" | "quick-success" | "tax";
+
+type PaypalConfig = { clientId: string; environment: string };
 
 export function CampaignDonationDialog({
   open,
   onOpenChange,
   campaignSlug,
+  campaignId,
   campaignTitle,
   schoolName,
   studentLine,
@@ -62,6 +64,7 @@ export function CampaignDonationDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaignSlug: string;
+  campaignId?: string;
   campaignTitle: string;
   schoolName: string;
   /** e.g. "Jace Waters at Valley Christian School" */
@@ -75,6 +78,11 @@ export function CampaignDonationDialog({
   const [selection, setSelection] = React.useState<string>("level-0");
   const [customRaw, setCustomRaw] = React.useState("");
 
+  const [paypalConfig, setPaypalConfig] = React.useState<PaypalConfig | null>(null);
+  const [paypalConfigError, setPaypalConfigError] = React.useState<string | null>(null);
+  const [paymentError, setPaymentError] = React.useState<string | null>(null);
+  const donationIdRef = React.useRef<string | null>(null);
+
   const taxCaps = TAX_CREDIT_MAX["2026"];
 
   React.useEffect(() => {
@@ -83,14 +91,39 @@ export function CampaignDonationDialog({
         setPhase("choose");
         setSelection("level-0");
         setCustomRaw("");
+        setPaypalConfig(null);
+        setPaypalConfigError(null);
+        setPaymentError(null);
+        donationIdRef.current = null;
       }, 200);
       return () => window.clearTimeout(t);
     }
     setPhase("choose");
     setSelection("level-0");
     setCustomRaw("");
+    setPaypalConfig(null);
+    setPaypalConfigError(null);
+    setPaymentError(null);
+    donationIdRef.current = null;
     return undefined;
   }, [open]);
+
+  // Fetch PayPal config when entering quick-pay
+  React.useEffect(() => {
+    if (phase !== "quick-pay") return;
+    setPaypalConfig(null);
+    setPaypalConfigError(null);
+    setPaymentError(null);
+    donationIdRef.current = null;
+
+    fetch("/api/paypal/config")
+      .then((r) => r.json() as Promise<PaypalConfig & { error?: string }>)
+      .then((data) => {
+        if (data.error) setPaypalConfigError(data.error);
+        else setPaypalConfig(data);
+      })
+      .catch(() => setPaypalConfigError("Failed to load payment options. Please try again."));
+  }, [phase]);
 
   const selectedAmount = React.useMemo(() => {
     if (selection === "custom") {
@@ -147,7 +180,7 @@ export function CampaignDonationDialog({
   const dialogClass =
     phase === "tax"
       ? "flex max-h-[90vh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-[700px]"
-      : phase === "quick-levels" || phase === "quick-pay" || phase === "quick-card"
+      : phase === "quick-levels" || phase === "quick-pay"
         ? "max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg gap-0 overflow-y-auto sm:max-w-md"
         : "max-w-lg gap-0 sm:max-w-lg";
 
@@ -406,39 +439,79 @@ export function CampaignDonationDialog({
               </div>
             </div>
 
-            <div className="mt-6 space-y-2">
-              <Button type="button" variant="paypal" className="h-12 w-full gap-2 rounded-lg">
-                <Image
-                  src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
-                  alt=""
-                  width={22}
-                  height={22}
-                  className="size-5"
-                  unoptimized
-                />
-                PayPal Donate
-              </Button>
-              <Button type="button" variant="paypal" className="h-12 w-full gap-2 rounded-lg">
-                <span className="text-lg font-bold text-[#003087]">P</span>
-                Pay Later
-              </Button>
-              <Button
-                type="button"
-                variant="paypalCard"
-                className="h-12 w-full gap-2 rounded-lg"
-                onClick={() => setPhase("quick-card")}
-              >
-                <CreditCard className="size-5" aria-hidden />
-                Debit or Credit Card
-              </Button>
+            <div className="mt-6">
+              {paymentError && (
+                <p className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {paymentError}
+                </p>
+              )}
+              {paypalConfigError ? (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {paypalConfigError}
+                </p>
+              ) : paypalConfig ? (
+                <PayPalScriptProvider
+                  options={{
+                    clientId: paypalConfig.clientId,
+                    currency: "USD",
+                    intent: "capture",
+                    components: "buttons",
+                  }}
+                >
+                  <PayPalButtons
+                    style={{ layout: "vertical", shape: "rect", label: "donate" }}
+                    disabled={selectedAmount <= 0}
+                    createOrder={async () => {
+                      setPaymentError(null);
+                      const res = await fetch("/api/paypal/create-order", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          amount: selectedAmount.toFixed(2),
+                          campaignId: campaignId ?? null,
+                          donationType: "quick",
+                        }),
+                      });
+                      const data = (await res.json()) as { orderId?: string; donationId?: string; error?: string };
+                      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to create order.");
+                      donationIdRef.current = data.donationId ?? null;
+                      return data.orderId!;
+                    }}
+                    onApprove={async (data) => {
+                      const res = await fetch("/api/paypal/capture-order", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          orderId: data.orderID,
+                          donationId: donationIdRef.current,
+                        }),
+                      });
+                      const json = (await res.json()) as { ok?: boolean; error?: string };
+                      if (!res.ok || json.error) {
+                        setPaymentError(json.error ?? "Payment capture failed. Please contact us.");
+                        return;
+                      }
+                      setPhase("quick-success");
+                    }}
+                    onError={() => {
+                      setPaymentError("Payment was cancelled or failed. Please try again.");
+                    }}
+                  />
+                </PayPalScriptProvider>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">
+                  Loading payment options…
+                </p>
+              )}
             </div>
-            <p className="mt-2 text-center text-[10px] text-muted-foreground">
-              Powered by PayPal — connect keys in production.
+
+            <p className="mt-3 text-center text-[10px] text-muted-foreground">
+              Payments processed securely by PayPal.
             </p>
 
             <button
               type="button"
-              className="mt-6 w-full text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
+              className="mt-4 w-full text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
               onClick={() => setPhase("quick-levels")}
             >
               ← Back to giving levels
@@ -446,100 +519,27 @@ export function CampaignDonationDialog({
           </>
         ) : null}
 
-        {phase === "quick-card" ? (
-          <div className="pb-8">
-            <DialogHeader className="pr-8 text-left">
-              <DialogTitle className="font-heading text-xl text-primary">
-                Donate to This Campaign
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="mt-3 rounded-xl bg-muted/30 p-4 ring-1 ring-border/60">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-heading font-semibold text-primary">
-                    {selectedLevel?.title ?? "Custom gift"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selectedLevel?.description ??
-                      "Your gift supports this campaign through Arizona Christian Tuition."}
-                  </p>
-                </div>
-                <p className="shrink-0 font-heading text-lg font-semibold tabular-nums text-act-action">
-                  {formatMoney(selectedAmount)}
-                </p>
-              </div>
+        {phase === "quick-success" ? (
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-green-100 text-green-700">
+              <Check className="size-8" />
             </div>
-
-            <div className="mt-4 rounded-lg bg-act-charcoal px-4 py-3 text-center text-sm font-semibold text-white">
-              <span className="inline-flex items-center justify-center gap-2">
-                <CreditCard className="size-4" aria-hidden />
-                Debit or Credit Card
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-3 rounded-lg border border-border/80 p-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="qc-email">Email</Label>
-                <Input id="qc-email" type="email" placeholder="you@example.com" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="qc-card">Card number</Label>
-                <Input id="qc-card" inputMode="numeric" placeholder="1234 5678 9012 3456" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="qc-exp">Expires</Label>
-                  <Input id="qc-exp" placeholder="MM / YY" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="qc-csc">CSC</Label>
-                  <Input id="qc-csc" placeholder="CVC" />
-                </div>
-              </div>
-              <p className="text-xs font-medium text-muted-foreground">Billing address</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="qc-fn">First name</Label>
-                  <Input id="qc-fn" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="qc-ln">Last name</Label>
-                  <Input id="qc-ln" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="qc-zip">ZIP code</Label>
-                <Input id="qc-zip" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="qc-mobile">Mobile (+1)</Label>
-                <Input id="qc-mobile" type="tel" />
-              </div>
-            </div>
-
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              By continuing, you confirm you&apos;re 18 years or older.
+            <h2 className="font-heading text-2xl font-semibold text-primary">
+              Thank you!
+            </h2>
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Your donation of{" "}
+              <span className="font-semibold text-foreground">{formatMoney(selectedAmount)}</span>{" "}
+              to <span className="font-semibold text-foreground">{campaignTitle}</span> was received.
+              You&apos;ll receive a confirmation by email.
             </p>
             <Button
               type="button"
-              variant="checkoutPay"
-              className="mt-4"
-              disabled={selectedAmount <= 0}
+              className="mt-2"
+              onClick={() => onOpenChange(false)}
             >
-              Pay {formatCheckoutUsd(selectedAmount)}
+              Close
             </Button>
-            <p className="mt-3 text-center text-[10px] text-muted-foreground">
-              Powered by PayPal — connect keys in production.
-            </p>
-
-            <button
-              type="button"
-              className="mt-4 w-full text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
-              onClick={() => setPhase("quick-pay")}
-            >
-              ← Back to payment methods
-            </button>
           </div>
         ) : null}
 
