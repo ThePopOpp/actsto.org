@@ -1,7 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { canAccessSuperAdminDashboard } from "@/lib/auth/admin-allowlist";
 import { decodeSession } from "@/lib/auth/cookie";
+
+// Inline edge-compatible check — avoids importing admin-allowlist → temp-super-admin → node:crypto
+function isAdminEmail(email: string): boolean {
+  const raw = process.env.ADMIN_EMAILS ?? "";
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email.trim().toLowerCase());
+}
 
 function isLockedAdminPath(pathname: string): boolean {
   return pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
@@ -23,7 +32,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  if (session.role !== "super_admin" || !canAccessSuperAdminDashboard(session.email)) {
+  if (session.role !== "super_admin" || !isAdminEmail(session.email)) {
     const dash = new URL("/dashboard", request.url);
     dash.searchParams.set("error", "forbidden");
     return NextResponse.redirect(dash);
