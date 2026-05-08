@@ -76,7 +76,7 @@ function LoginFormInner() {
         <CardTitle className="font-heading text-2xl text-primary">Sign in</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
+        <form onSubmit={(e) => void onSubmit(e)} className="space-y-4" autoComplete="off">
           {error ? (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -103,7 +103,10 @@ function LoginFormInner() {
               id="email"
               type="email"
               className="mt-1.5"
-              autoComplete="email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -114,6 +117,7 @@ function LoginFormInner() {
             <Input
               id="name"
               className="mt-1.5"
+              autoComplete="off"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="First name or organization"
@@ -126,7 +130,7 @@ function LoginFormInner() {
                 id="pw"
                 type={showPassword ? "text" : "password"}
                 className="pr-10"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
