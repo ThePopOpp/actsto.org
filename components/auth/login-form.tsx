@@ -9,14 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ROLE_LABEL, type UserRole } from "@/lib/auth/types";
+import type { UserRole } from "@/lib/auth/types";
 
 const ROLES: UserRole[] = [
   "donor_individual",
@@ -29,14 +22,12 @@ const ROLES: UserRole[] = [
 function LoginFormInner() {
   const sp = useSearchParams();
   const nextFromUrl = sp.get("next") ?? "";
-  const roleDefault = (sp.get("role") as UserRole | null) ?? "donor_individual";
+  const roleParam = sp.get("role") as UserRole | null;
+  const requestedRole = roleParam && ROLES.includes(roleParam) ? roleParam : undefined;
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>(
-    ROLES.includes(roleDefault) ? roleDefault : "donor_individual"
-  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +44,7 @@ function LoginFormInner() {
           email,
           name: name || email.split("@")[0],
           password,
-          role,
+          role: requestedRole,
           next: nextFromUrl || undefined,
         }),
       });
@@ -82,21 +73,6 @@ function LoginFormInner() {
               {error}
             </p>
           ) : null}
-          <div>
-            <Label htmlFor="role">Account type</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
-              <SelectTrigger id="role" className="mt-1.5 h-10 w-full min-w-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {ROLE_LABEL[r]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
           <div>
             <Label htmlFor="email">Email</Label>
             <Input

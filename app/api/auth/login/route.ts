@@ -50,12 +50,12 @@ export async function POST(req: Request) {
   const emailInput = (body.email ?? "").trim();
   const emailLower = emailInput.toLowerCase();
   const passwordRaw = String(body.password ?? "");
-  const roleRaw = body.role ?? "donor_individual";
+  const roleRaw = body.role;
 
   if (!emailInput) {
     return NextResponse.json({ error: "Email required." }, { status: 400 });
   }
-  if (!isRole(roleRaw)) {
+  if (roleRaw && !isRole(roleRaw)) {
     return NextResponse.json({ error: "Invalid role." }, { status: 400 });
   }
 
@@ -98,6 +98,7 @@ export async function POST(req: Request) {
 
       let session: ActSession;
       let profileRoles: PortalRole[] = [];
+      let storedActiveAccountType: string | null = null;
 
       // Try to load role data from Prisma Profile
       try {
@@ -106,13 +107,14 @@ export async function POST(req: Request) {
           include: { userRoles: { where: { status: "active" } } },
         });
         if (profile) {
+          storedActiveAccountType = profile.activeAccountType;
           profileRoles = profile.userRoles
             .map((r) => r.role)
             .filter(isPortalRoleStr) as PortalRole[];
         }
       } catch {
         // DB not available — derive roles from requested role
-        if (isPortalRoleStr(roleRaw)) profileRoles = [roleRaw];
+        if (roleRaw && isPortalRoleStr(roleRaw)) profileRoles = [roleRaw];
       }
 
       if (roleRaw === "super_admin") {
@@ -124,7 +126,7 @@ export async function POST(req: Request) {
         }
         session = { email: emailLower, name: displayName, role: "super_admin", roles: [] };
       } else {
-        if (profileRoles.length > 0 && !profileRoles.includes(roleRaw as PortalRole)) {
+        if (roleRaw && profileRoles.length > 0 && !profileRoles.includes(roleRaw as PortalRole)) {
           return NextResponse.json(
             {
               error:
@@ -133,8 +135,18 @@ export async function POST(req: Request) {
             { status: 403 }
           );
         }
-        const activeRole = isPortalRoleStr(roleRaw) ? roleRaw : (profileRoles[0] ?? "parent");
-        const allRoles = profileRoles.length > 0 ? profileRoles : (isPortalRoleStr(roleRaw) ? [roleRaw] : ["parent" as PortalRole]);
+        const activeRole =
+          roleRaw && isPortalRoleStr(roleRaw)
+            ? roleRaw
+            : storedActiveAccountType && isPortalRoleStr(storedActiveAccountType)
+              ? storedActiveAccountType
+              : (profileRoles[0] ?? "parent");
+        const allRoles =
+          profileRoles.length > 0
+            ? profileRoles
+            : roleRaw && isPortalRoleStr(roleRaw)
+              ? [roleRaw]
+              : [activeRole];
         session = {
           email: emailLower,
           name: displayName,
@@ -193,16 +205,20 @@ export async function POST(req: Request) {
       }
       session = { email: dbUser.email, name: displayName, role: "super_admin", roles: [] };
     } else {
-      if (!assignedPortals.includes(roleRaw as PortalRole)) {
+      if (roleRaw && !assignedPortals.includes(roleRaw as PortalRole)) {
         return NextResponse.json(
           { error: "That account type is not enabled for this email." },
           { status: 403 }
         );
       }
+      const activeRole =
+        roleRaw && isPortalRoleStr(roleRaw)
+          ? roleRaw
+          : assignedPortals[0] ?? (dbUser.role === "super_admin" ? "super_admin" : dbUser.role);
       session = {
         email: dbUser.email,
         name: displayName,
-        role: roleRaw as UserRole,
+        role: activeRole,
         roles: assignedPortals,
       };
     }
@@ -211,7 +227,13 @@ export async function POST(req: Request) {
     if (roleRaw === "super_admin" && (tempOk || isSuperAdminEmail(emailLower))) {
       session = { email: emailInput, name: displayNameBase, role: "super_admin", roles: [] };
     } else if (tempOk) {
-      session = { email: emailInput, name: displayNameBase, role: roleRaw as UserRole, roles: isPortalRole(roleRaw as UserRole) ? [roleRaw as PortalRole] : [] };
+      const activeRole = roleRaw && isRole(roleRaw) ? roleRaw : "parent";
+      session = {
+        email: emailInput,
+        name: displayNameBase,
+        role: activeRole,
+        roles: isPortalRole(activeRole) ? [activeRole] : [],
+      };
     } else {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
