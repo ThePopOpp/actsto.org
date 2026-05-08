@@ -1185,12 +1185,15 @@ export function PostcardBuilder({
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" showCloseButton>
+        <DialogContent
+          className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-sm"
+          showCloseButton
+        >
           <DialogHeader>
             <DialogTitle>Postcard preview</DialogTitle>
             <DialogDescription>Full-size preview for proofing before print or digital send.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-6">
             <div>
               <p className="mb-2 text-xs font-medium text-muted-foreground">Front</p>
               <PostcardFace sizeId={draft.sizeId} className="w-full bg-white">
