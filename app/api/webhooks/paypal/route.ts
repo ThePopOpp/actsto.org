@@ -108,7 +108,16 @@ export async function POST(req: Request) {
   if (donationId) {
     try {
       if (eventType === "PAYMENT.CAPTURE.COMPLETED") {
-        await prisma.donation.updateMany({
+        const donation = await prisma.donation.findUnique({
+          where: { id: donationId },
+          select: {
+            campaignId: true,
+            userId: true,
+            donorMessage: true,
+            anonymous: true,
+          },
+        });
+        const paidUpdate = await prisma.donation.updateMany({
           where: { id: donationId, status: { not: "paid" } },
           data: {
             status: "paid",
@@ -116,6 +125,38 @@ export async function POST(req: Request) {
             totalAmount: event.resource?.amount?.value ?? undefined,
           },
         });
+        if (paidUpdate.count > 0 && donation?.campaignId && event.resource?.amount?.value) {
+          await prisma.$transaction([
+            prisma.campaign.update({
+              where: { id: donation.campaignId },
+              data: {
+                raisedAmount: { increment: event.resource.amount.value },
+                donorCount: { increment: 1 },
+              },
+            }),
+            prisma.donationAllocation.create({
+              data: {
+                donationId,
+                campaignId: donation.campaignId,
+                amount: event.resource.amount.value,
+                allocationType: "campaign",
+              },
+            }),
+            prisma.campaignBacker.create({
+              data: {
+                campaignId: donation.campaignId,
+                donationId,
+                userId: donation.userId,
+                amount: event.resource.amount.value,
+                message: donation.donorMessage,
+                isAnonymous: donation.anonymous,
+                showAmount: false,
+                showMessage: Boolean(donation.donorMessage),
+                status: "visible",
+              },
+            }),
+          ]);
+        }
         await prisma.paymentEvent.updateMany({
           where: { providerEventId: eventId ?? "" },
           data: { processed: true, processedAt: new Date() },

@@ -15,6 +15,10 @@ import {
   getCampaignGivingLevels,
   MOCK_CAMPAIGNS,
 } from "@/lib/campaigns";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
 type Props = { params: Promise<{ slug: string }> };
 
 export function generateStaticParams() {
@@ -33,8 +37,11 @@ export default async function CampaignDetailPage({ params }: Props) {
   const c = getCampaignBySlug(slug);
   if (!c) notFound();
 
+  const liveTotals = await getLiveCampaignDonationTotals(c.slug);
+  const raised = c.raised + liveTotals.raised;
+  const donorCount = c.donorCount + liveTotals.donorCount;
   const pct =
-    c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
+    c.goal > 0 ? Math.min(100, Math.round((raised / c.goal) * 100)) : 0;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://arizonachristiantuition.com";
   const shareUrl = `${siteUrl}/campaigns/${c.slug}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`;
@@ -128,7 +135,7 @@ export default async function CampaignDetailPage({ params }: Props) {
               storySections={storySections}
               description={c.description}
               updateCount={updateCount}
-              donorCount={c.donorCount}
+              donorCount={donorCount}
               gallery={c.gallery}
             />
           </article>
@@ -139,8 +146,8 @@ export default async function CampaignDetailPage({ params }: Props) {
             schoolName={c.school.name}
             donationSubtitle={donationSubtitle}
             goal={c.goal}
-            raised={c.raised}
-            donorCount={c.donorCount}
+            raised={raised}
+            donorCount={donorCount}
             daysLeft={c.daysLeft}
             endDate={c.endDate}
             pct={pct}
@@ -151,4 +158,27 @@ export default async function CampaignDetailPage({ params }: Props) {
       </div>
     </div>
   );
+}
+
+async function getLiveCampaignDonationTotals(slug: string) {
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ raised: string | null; donor_count: number | bigint }>>(
+      `
+        select
+          coalesce(sum(amount), 0)::text as raised,
+          count(*)::int as donor_count
+        from public.donations
+        where status = 'paid'
+          and metadata->>'campaignSlug' = $1
+      `,
+      slug,
+    );
+    const row = rows[0];
+    return {
+      raised: Number(row?.raised ?? 0),
+      donorCount: Number(row?.donor_count ?? 0),
+    };
+  } catch {
+    return { raised: 0, donorCount: 0 };
+  }
 }

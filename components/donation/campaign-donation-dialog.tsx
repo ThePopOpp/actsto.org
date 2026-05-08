@@ -469,6 +469,8 @@ export function CampaignDonationDialog({
                         body: JSON.stringify({
                           amount: selectedAmount.toFixed(2),
                           campaignId: campaignId ?? null,
+                          campaignSlug,
+                          campaignTitle,
                           donationType: "quick",
                         }),
                       });

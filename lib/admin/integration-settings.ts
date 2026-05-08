@@ -16,6 +16,7 @@ export type PaypalSettingsPayload = {
 export type TwilioSettingsPayload = {
   accountSid: string;
   authToken: string;
+  phoneNumber: string;
   messagingServiceSid: string;
 };
 
@@ -30,6 +31,7 @@ export const DEFAULT_PAYPAL_PAYLOAD: PaypalSettingsPayload = {
 export const DEFAULT_TWILIO_PAYLOAD: TwilioSettingsPayload = {
   accountSid: "",
   authToken: "",
+  phoneNumber: "",
   messagingServiceSid: "",
 };
 
@@ -62,6 +64,7 @@ export function parseTwilioPayload(raw: unknown): TwilioSettingsPayload | null {
   return {
     accountSid: optionalString(o.accountSid),
     authToken: optionalString(o.authToken),
+    phoneNumber: optionalString(o.phoneNumber),
     messagingServiceSid: optionalString(o.messagingServiceSid),
   };
 }

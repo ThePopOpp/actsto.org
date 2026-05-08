@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 export function AdminTwilioSettingsForm() {
   const [accountSid, setAccountSid] = useState("");
   const [authToken, setAuthToken] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [messagingServiceSid, setMessagingServiceSid] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -30,6 +31,7 @@ export function AdminTwilioSettingsForm() {
           payload?: {
             accountSid?: string;
             authToken?: string;
+            phoneNumber?: string;
             messagingServiceSid?: string;
           };
           error?: string;
@@ -41,6 +43,7 @@ export function AdminTwilioSettingsForm() {
         const p = data.payload;
         setAccountSid(p.accountSid ?? "");
         setAuthToken(p.authToken ?? "");
+        setPhoneNumber(p.phoneNumber ?? "");
         setMessagingServiceSid(p.messagingServiceSid ?? "");
       } catch (e) {
         if (!cancelled) {
@@ -68,6 +71,7 @@ export function AdminTwilioSettingsForm() {
           payload: {
             accountSid,
             authToken,
+            phoneNumber,
             messagingServiceSid,
           },
         }),
@@ -139,6 +143,20 @@ export function AdminTwilioSettingsForm() {
                 {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </Button>
             </div>
+          </div>
+          <div>
+            <Label htmlFor="tw-phone-number">Twilio phone number</Label>
+            <Input
+              id="tw-phone-number"
+              className="mt-1.5 font-mono text-sm"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+16025550123"
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use this as the server-side From number when a Messaging Service SID is not configured.
+            </p>
           </div>
           <div>
             <Label htmlFor="tw-msg-service">Messaging Service SID (optional)</Label>

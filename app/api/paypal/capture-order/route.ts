@@ -58,9 +58,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Payment was not completed." }, { status: 402 });
     }
 
-    // Mark donation paid
-    await prisma.donation.update({
-      where: { id: donationId },
+    const paidUpdate = await prisma.donation.updateMany({
+      where: { id: donationId, status: { not: "paid" } },
       data: {
         status: "paid",
         paymentProviderOrderId: orderId,
@@ -68,6 +67,39 @@ export async function POST(req: Request) {
         totalAmount: amountUsd,
       },
     });
+
+    if (paidUpdate.count > 0 && donation.campaignId) {
+      await prisma.$transaction([
+        prisma.campaign.update({
+          where: { id: donation.campaignId },
+          data: {
+            raisedAmount: { increment: amountUsd },
+            donorCount: { increment: 1 },
+          },
+        }),
+        prisma.donationAllocation.create({
+          data: {
+            donationId,
+            campaignId: donation.campaignId,
+            amount: amountUsd,
+            allocationType: "campaign",
+          },
+        }),
+        prisma.campaignBacker.create({
+          data: {
+            campaignId: donation.campaignId,
+            donationId,
+            userId: donation.userId,
+            amount: amountUsd,
+            message: donation.donorMessage,
+            isAnonymous: donation.anonymous,
+            showAmount: false,
+            showMessage: Boolean(donation.donorMessage),
+            status: "visible",
+          },
+        }),
+      ]);
+    }
 
     await logPaymentEvent({
       donationId,

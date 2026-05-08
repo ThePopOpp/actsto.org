@@ -14,6 +14,7 @@ import { createPaypalOrder } from "@/lib/paypal/client";
  *   amount: string (e.g. "250.00"),
  *   donationType?: "quick" | "tax_credit",
  *   campaignId?: string (UUID),
+ *   campaignSlug?: string,
  *   anonymous?: boolean,
  *   donorMessage?: string,
  * }
@@ -23,6 +24,8 @@ export async function POST(req: Request) {
     amount?: string;
     donationType?: string;
     campaignId?: string;
+    campaignSlug?: string;
+    campaignTitle?: string;
     anonymous?: boolean;
     donorMessage?: string;
   } | null;
@@ -40,7 +43,9 @@ export async function POST(req: Request) {
 
   const amountUsd = amount.toFixed(2);
   const donationType = body.donationType ?? "quick";
-  const campaignId = body.campaignId ?? null;
+  const campaignSlug = body.campaignSlug?.trim() || null;
+  const campaignTitle = body.campaignTitle?.trim() || null;
+  const campaignId = body.campaignId ?? (campaignSlug ? await getCampaignIdBySlug(campaignSlug) : null);
   const anonymous = body.anonymous ?? false;
   const donorMessage = body.donorMessage?.trim() ?? null;
 
@@ -60,6 +65,10 @@ export async function POST(req: Request) {
         paymentProvider: "paypal",
         anonymous,
         donorMessage,
+        metadata: {
+          campaignSlug,
+          campaignTitle,
+        },
       },
     });
 
@@ -76,6 +85,18 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to create order.";
     return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+async function getCampaignIdBySlug(slug: string): Promise<string | null> {
+  try {
+    const campaign = await prisma.campaign.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    return campaign?.id ?? null;
+  } catch {
+    return null;
   }
 }
 
