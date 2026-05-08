@@ -16,10 +16,21 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const row = await prisma.adminCampaignDirectory.findUnique({ where: { id: DIRECTORY_ID } });
+  const rows = row ? (row.rows as AdminCampaignRow[]) : seedAdminCampaignRows();
+  const liveDonationTotals = await getDonationTotalsBySlug(rows.map((campaign) => campaign.slug));
+
   if (!row) {
-    return NextResponse.json({ rows: seedAdminCampaignRows(), persisted: false });
+    return NextResponse.json({
+      rows,
+      liveDonationTotals: Object.fromEntries(liveDonationTotals),
+      persisted: false,
+    });
   }
-  return NextResponse.json({ rows: row.rows, persisted: true });
+  return NextResponse.json({
+    rows,
+    liveDonationTotals: Object.fromEntries(liveDonationTotals),
+    persisted: true,
+  });
 }
 
 export async function PUT(request: Request) {
@@ -39,4 +50,36 @@ export async function PUT(request: Request) {
   });
 
   return NextResponse.json({ ok: true });
+}
+
+async function getDonationTotalsBySlug(slugs: string[]) {
+  if (slugs.length === 0) return new Map<string, { raised: number; donorCount: number }>();
+
+  const rows = await prisma
+    .$queryRawUnsafe<Array<{ slug: string; raised: string | null; donor_count: number | bigint }>>(
+      `
+        select
+          metadata->>'campaignSlug' as slug,
+          coalesce(sum(amount), 0)::text as raised,
+          count(*)::int as donor_count
+        from public.donations
+        where status = 'paid'
+          and metadata->>'campaignSlug' = any($1::text[])
+        group by metadata->>'campaignSlug'
+      `,
+      slugs,
+    )
+    .catch(() => []);
+
+  return new Map(
+    rows
+      .filter((row) => row.slug)
+      .map((row) => [
+        row.slug,
+        {
+          raised: Number(row.raised ?? 0),
+          donorCount: Number(row.donor_count ?? 0),
+        },
+      ]),
+  );
 }

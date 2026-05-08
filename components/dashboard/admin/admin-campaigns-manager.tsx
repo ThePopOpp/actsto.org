@@ -45,8 +45,26 @@ function modBadge(status: CampaignModerationStatus) {
   }
 }
 
+function normalizeLiveDonationTotals(
+  raw: Record<string, { raised?: number; donorCount?: number }> | undefined
+) {
+  if (!raw) return {};
+  return Object.fromEntries(
+    Object.entries(raw).map(([slug, total]) => [
+      slug,
+      {
+        raised: Number.isFinite(total.raised) ? Number(total.raised) : 0,
+        donorCount: Number.isFinite(total.donorCount) ? Number(total.donorCount) : 0,
+      },
+    ])
+  );
+}
+
 export function AdminCampaignsManager() {
   const [rows, setRows] = useState<AdminCampaignRow[] | null>(null);
+  const [liveDonationTotals, setLiveDonationTotals] = useState<
+    Record<string, { raised: number; donorCount: number }>
+  >({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("list");
@@ -61,15 +79,18 @@ export function AdminCampaignsManager() {
       const res = await fetch("/api/admin/campaigns-directory");
       const data = (await res.json().catch(() => null)) as {
         rows?: AdminCampaignRow[];
+        liveDonationTotals?: Record<string, { raised?: number; donorCount?: number }>;
         error?: string;
       } | null;
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to load campaigns.");
       }
       setRows(Array.isArray(data?.rows) ? data.rows : []);
+      setLiveDonationTotals(normalizeLiveDonationTotals(data?.liveDonationTotals));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load campaigns.");
       setRows([]);
+      setLiveDonationTotals({});
     }
   }, []);
 
@@ -86,6 +107,19 @@ export function AdminCampaignsManager() {
     if (!rows) return [];
     return rows.map((r) => r.slug).filter((s) => s !== (editingSlug ?? ""));
   }, [rows, editingSlug]);
+
+  const displayRows = useMemo(() => {
+    if (!rows) return null;
+    return rows.map((row) => {
+      const live = liveDonationTotals[row.slug];
+      if (!live) return row;
+      return {
+        ...row,
+        raised: row.raised + live.raised,
+        donorCount: row.donorCount + live.donorCount,
+      };
+    });
+  }, [rows, liveDonationTotals]);
 
   async function persistRows(next: AdminCampaignRow[]) {
     setSaveError(null);
@@ -261,7 +295,7 @@ export function AdminCampaignsManager() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((c) => {
+                {displayRows?.map((c) => {
                   const pct = c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
                   return (
                     <tr
@@ -329,7 +363,7 @@ export function AdminCampaignsManager() {
         </Card>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((c) => (
+          {displayRows?.map((c) => (
             <div key={c.slug} className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 {modBadge(c.moderationStatus)}
