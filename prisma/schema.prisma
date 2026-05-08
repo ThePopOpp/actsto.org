@@ -85,6 +85,8 @@ model AdminIntegrationSettings {
   payload   Json
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@map("admin_integration_settings")
 }
 
 // ============================================================
