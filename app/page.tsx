@@ -3,9 +3,15 @@ import { Clock } from "lucide-react";
 
 import { HomeBelowHero } from "@/components/home/home-sections";
 import { buttonVariants } from "@/lib/button-variants";
+import { MOCK_CAMPAIGNS } from "@/lib/campaigns";
+import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
 import { cn } from "@/lib/utils";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const campaigns = await applyLiveCampaignDonationTotals(MOCK_CAMPAIGNS);
+
   return (
     <>
       <div className="bg-background">
@@ -44,7 +50,7 @@ export default function HomePage() {
           </div>
         </section>
       </div>
-      <HomeBelowHero />
+      <HomeBelowHero campaigns={campaigns} />
     </>
   );
 }

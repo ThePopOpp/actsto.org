@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { getCampaignBySlug } from "@/lib/campaigns";
+import { getCampaignBySlug, type Campaign } from "@/lib/campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +18,8 @@ const MOCK_SUPPORTERS = [
   { name: "Anonymous", amount: 50, when: "Mar 10" },
 ];
 
-export function StudentDashboardContent() {
-  const c = getCampaignBySlug(CAMPAIGN_SLUG);
+export function StudentDashboardContent({ campaign }: { campaign?: Campaign }) {
+  const c = campaign ?? getCampaignBySlug(CAMPAIGN_SLUG);
   if (!c) return null;
   const pct = c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
 

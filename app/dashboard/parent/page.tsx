@@ -1,5 +1,6 @@
 import { ParentDashboardContent } from "@/components/dashboard/parent-dashboard-content";
+import { getLiveDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
 
-export default function ParentDashboardPage() {
-  return <ParentDashboardContent />;
+export default async function ParentDashboardPage() {
+  return <ParentDashboardContent campaigns={await getLiveDemoFamilyCampaigns()} />;
 }

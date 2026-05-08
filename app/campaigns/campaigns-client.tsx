@@ -9,13 +9,13 @@ import { CampaignCard } from "@/components/campaign-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  MOCK_CAMPAIGNS,
   campaignStats,
   filterCampaigns,
   filterCampaignsBySchoolType,
   parseCampaignFilterParam,
   parseSchoolTypeParam,
   type BrowseSchoolTypeLabel,
+  type Campaign,
   type CampaignFilter,
 } from "@/lib/campaigns";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ function useSyncedSearchParams() {
   return { replaceParams, searchParams };
 }
 
-export function CampaignsPageClient() {
+export function CampaignsPageClient({ campaigns }: { campaigns: Campaign[] }) {
   const { replaceParams, searchParams } = useSyncedSearchParams();
 
   const [filter, setFilter] = useState<CampaignFilter>(() =>
@@ -76,7 +76,7 @@ export function CampaignsPageClient() {
   }, [searchParams]);
 
   const list = useMemo(() => {
-    const byFilter = filterCampaigns(MOCK_CAMPAIGNS, filter);
+    const byFilter = filterCampaigns(campaigns, filter);
     const bySchool = filterCampaignsBySchoolType(byFilter, schoolType);
     if (!q.trim()) return bySchool;
     const s = q.toLowerCase();
@@ -87,9 +87,9 @@ export function CampaignsPageClient() {
         c.excerpt.toLowerCase().includes(s) ||
         c.school.name.toLowerCase().includes(s)
     );
-  }, [filter, q, schoolType]);
+  }, [campaigns, filter, q, schoolType]);
 
-  const stats = campaignStats(MOCK_CAMPAIGNS);
+  const stats = campaignStats(campaigns);
 
   function setFilterAndUrl(next: CampaignFilter) {
     setFilter(next);

@@ -5,7 +5,8 @@ import { CampaignCard } from "@/components/campaign-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { MOCK_CAMPAIGNS } from "@/lib/campaigns";
+import type { Campaign } from "@/lib/campaigns";
+import { getDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -28,10 +29,13 @@ const MOCK_STUDENTS = [
   },
 ];
 
-export function ParentDashboardContent() {
-  const familyCampaigns = MOCK_CAMPAIGNS.filter((c) =>
-    ["waters-family-fundraiser", "leavitt-family-fundraiser"].includes(c.slug)
-  );
+export function ParentDashboardContent({
+  campaigns = getDemoFamilyCampaigns(),
+}: {
+  campaigns?: Campaign[];
+}) {
+  const familyCampaigns = campaigns;
+  const campaignsBySlug = new Map(familyCampaigns.map((campaign) => [campaign.slug, campaign]));
   const totalRaised = familyCampaigns.reduce((s, c) => s + c.raised, 0);
   const totalGoal = familyCampaigns.reduce((s, c) => s + c.goal, 0);
 
@@ -92,7 +96,10 @@ export function ParentDashboardContent() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {MOCK_STUDENTS.map((s) => {
-            const pct = s.goal > 0 ? Math.min(100, Math.round((s.raised / s.goal) * 100)) : 0;
+            const campaign = campaignsBySlug.get(s.campaignSlug);
+            const raised = campaign?.raised ?? s.raised;
+            const goal = campaign?.goal ?? s.goal;
+            const pct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
             return (
               <Card key={s.name} className="border-border/80">
                 <CardHeader className="pb-2">
@@ -110,7 +117,7 @@ export function ParentDashboardContent() {
                     </div>
                     <Progress value={pct} className="mt-1.5 h-2" />
                     <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                      ${s.raised.toLocaleString()} of ${s.goal.toLocaleString()} allocated
+                      ${raised.toLocaleString()} of ${goal.toLocaleString()} allocated
                     </p>
                   </div>
                   <Link

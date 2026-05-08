@@ -16,7 +16,7 @@ import { CampaignCard } from "@/components/campaign-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { BROWSE_SCHOOL_TYPE_LABELS, MOCK_CAMPAIGNS } from "@/lib/campaigns";
+import { BROWSE_SCHOOL_TYPE_LABELS, MOCK_CAMPAIGNS, type Campaign } from "@/lib/campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -202,7 +202,7 @@ export function HomeImpactStats() {
   );
 }
 
-export function HomeNewCampaigns() {
+export function HomeNewCampaigns({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
   return (
     <section className="bg-background py-14 sm:py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -222,7 +222,7 @@ export function HomeNewCampaigns() {
           }
         />
         <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {MOCK_CAMPAIGNS.map((c) => (
+          {campaigns.map((c) => (
             <CampaignCard key={c.slug} campaign={c} variant="home" />
           ))}
         </div>
@@ -231,7 +231,7 @@ export function HomeNewCampaigns() {
   );
 }
 
-export function HomeFeaturedCampaigns() {
+export function HomeFeaturedCampaigns({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
   return (
     <section
       id="featured-campaigns"
@@ -251,7 +251,7 @@ export function HomeFeaturedCampaigns() {
           }
         />
         <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {MOCK_CAMPAIGNS.map((c) => (
+          {campaigns.map((c) => (
             <CampaignCard key={`feat-${c.slug}`} campaign={c} variant="home" />
           ))}
         </div>
@@ -288,7 +288,7 @@ export function HomeBrowseSchoolTypes() {
   );
 }
 
-export function HomeGainingMomentum() {
+export function HomeGainingMomentum({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
   return (
     <section className="bg-slate-100/80 py-14 dark:bg-white/[0.06] sm:py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -305,7 +305,7 @@ export function HomeGainingMomentum() {
           }
         />
         <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {[...MOCK_CAMPAIGNS].reverse().map((c) => (
+          {[...campaigns].reverse().map((c) => (
             <CampaignCard key={`mom-${c.slug}`} campaign={c} variant="home" />
           ))}
         </div>
@@ -524,14 +524,14 @@ export function HomePreFooterCta() {
   );
 }
 
-export function HomeBelowHero() {
+export function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
   return (
     <>
       <HomeImpactStats />
-      <HomeNewCampaigns />
-      <HomeFeaturedCampaigns />
+      <HomeNewCampaigns campaigns={campaigns} />
+      <HomeFeaturedCampaigns campaigns={campaigns} />
       <HomeBrowseSchoolTypes />
-      <HomeGainingMomentum />
+      <HomeGainingMomentum campaigns={campaigns} />
       <HomeHowTaxCreditWorks />
       <HomeHowItWorksSplit />
       <HomeWhoWeServe />

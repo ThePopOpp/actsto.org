@@ -15,7 +15,7 @@ import {
   getCampaignGivingLevels,
   MOCK_CAMPAIGNS,
 } from "@/lib/campaigns";
-import { prisma } from "@/lib/prisma";
+import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
 
 export const dynamic = "force-dynamic";
 
@@ -34,14 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CampaignDetailPage({ params }: Props) {
   const { slug } = await params;
-  const c = getCampaignBySlug(slug);
+  const baseCampaign = getCampaignBySlug(slug);
+  const c = baseCampaign ? (await applyLiveCampaignDonationTotals([baseCampaign]))[0] : undefined;
   if (!c) notFound();
 
-  const liveTotals = await getLiveCampaignDonationTotals(c.slug);
-  const raised = c.raised + liveTotals.raised;
-  const donorCount = c.donorCount + liveTotals.donorCount;
   const pct =
-    c.goal > 0 ? Math.min(100, Math.round((raised / c.goal) * 100)) : 0;
+    c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://arizonachristiantuition.com";
   const shareUrl = `${siteUrl}/campaigns/${c.slug}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`;
@@ -135,7 +133,7 @@ export default async function CampaignDetailPage({ params }: Props) {
               storySections={storySections}
               description={c.description}
               updateCount={updateCount}
-              donorCount={donorCount}
+              donorCount={c.donorCount}
               gallery={c.gallery}
             />
           </article>
@@ -146,8 +144,8 @@ export default async function CampaignDetailPage({ params }: Props) {
             schoolName={c.school.name}
             donationSubtitle={donationSubtitle}
             goal={c.goal}
-            raised={raised}
-            donorCount={donorCount}
+            raised={c.raised}
+            donorCount={c.donorCount}
             daysLeft={c.daysLeft}
             endDate={c.endDate}
             pct={pct}
@@ -158,27 +156,4 @@ export default async function CampaignDetailPage({ params }: Props) {
       </div>
     </div>
   );
-}
-
-async function getLiveCampaignDonationTotals(slug: string) {
-  try {
-    const rows = await prisma.$queryRawUnsafe<Array<{ raised: string | null; donor_count: number | bigint }>>(
-      `
-        select
-          coalesce(sum(amount), 0)::text as raised,
-          count(*)::int as donor_count
-        from public.donations
-        where status = 'paid'
-          and metadata->>'campaignSlug' = $1
-      `,
-      slug,
-    );
-    const row = rows[0];
-    return {
-      raised: Number(row?.raised ?? 0),
-      donorCount: Number(row?.donor_count ?? 0),
-    };
-  } catch {
-    return { raised: 0, donorCount: 0 };
-  }
 }

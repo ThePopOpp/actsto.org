@@ -1,6 +1,6 @@
 import { RoleCampaignsHub } from "@/components/dashboard/role-campaigns-hub";
-import { getDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
+import { getLiveDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
 
-export default function ParentCampaignsPage() {
-  return <RoleCampaignsHub campaigns={getDemoFamilyCampaigns()} basePath="/dashboard/parent" />;
+export default async function ParentCampaignsPage() {
+  return <RoleCampaignsHub campaigns={await getLiveDemoFamilyCampaigns()} basePath="/dashboard/parent" />;
 }
