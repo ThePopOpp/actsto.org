@@ -153,87 +153,91 @@ export function AdminPaypalSettingsForm() {
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading saved settings…</p>
           ) : null}
-          <div className={loading ? "pointer-events-none opacity-60" : undefined}>
-          <div>
-            <h3 className="text-sm font-semibold text-primary">Test / Sandbox</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Use PayPal Developer Dashboard sandbox apps for local amounts and webhooks.
-            </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="pp-sandbox-client">Sandbox client ID</Label>
-                <Input
-                  id="pp-sandbox-client"
-                  className="mt-1.5 font-mono text-sm"
-                  value={sandboxClientId}
-                  onChange={(e) => setSandboxClientId(e.target.value)}
-                  placeholder="AxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQ"
-                  autoComplete="off"
+          <div className={`space-y-8 ${loading ? "pointer-events-none opacity-60" : ""}`}>
+            <div>
+              <h3 className="text-sm font-semibold text-primary">Test / Sandbox</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use PayPal Developer Dashboard sandbox apps for local amounts and webhooks.
+              </p>
+              <div className="mt-4 grid gap-x-6 gap-y-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="pp-sandbox-client">Sandbox client ID</Label>
+                  <Input
+                    id="pp-sandbox-client"
+                    className="mt-1.5 font-mono text-sm"
+                    value={sandboxClientId}
+                    onChange={(e) => setSandboxClientId(e.target.value)}
+                    placeholder="AxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQ"
+                    autoComplete="off"
+                  />
+                </div>
+                <SecretField
+                  id="pp-sandbox-secret"
+                  label="Sandbox secret"
+                  value={sandboxSecret}
+                  onChange={setSandboxSecret}
+                  autoComplete="new-password"
                 />
               </div>
-              <SecretField
-                id="pp-sandbox-secret"
-                label="Sandbox secret"
-                value={sandboxSecret}
-                onChange={setSandboxSecret}
-                autoComplete="new-password"
-              />
             </div>
-          </div>
 
-          <Separator />
+            <Separator />
 
-          <div>
-            <h3 className="text-sm font-semibold text-primary">Live / Production</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Production REST app credentials — restrict to server-side use only when deployed.
-            </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="pp-live-client">Live client ID</Label>
-                <Input
-                  id="pp-live-client"
-                  className="mt-1.5 font-mono text-sm"
-                  value={liveClientId}
-                  onChange={(e) => setLiveClientId(e.target.value)}
-                  placeholder="AxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQ"
-                  autoComplete="off"
+            <div>
+              <h3 className="text-sm font-semibold text-primary">Live / Production</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Production REST app credentials — restrict to server-side use only when deployed.
+              </p>
+              <div className="mt-4 grid gap-x-6 gap-y-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="pp-live-client">Live client ID</Label>
+                  <Input
+                    id="pp-live-client"
+                    className="mt-1.5 font-mono text-sm"
+                    value={liveClientId}
+                    onChange={(e) => setLiveClientId(e.target.value)}
+                    placeholder="AxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQ"
+                    autoComplete="off"
+                  />
+                </div>
+                <SecretField
+                  id="pp-live-secret"
+                  label="Live secret"
+                  value={liveSecret}
+                  onChange={setLiveSecret}
+                  autoComplete="new-password"
                 />
               </div>
-              <SecretField
-                id="pp-live-secret"
-                label="Live secret"
-                value={liveSecret}
-                onChange={setLiveSecret}
-                autoComplete="new-password"
+            </div>
+
+            <div className="max-w-sm">
+              <Label htmlFor="pp-webhook">Webhook ID (optional)</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Found in PayPal Developer → Webhooks after creating the webhook endpoint.
+                Any format is accepted (e.g. <span className="font-mono">3P595129W…</span>).
+              </p>
+              <Input
+                id="pp-webhook"
+                className="mt-1.5 font-mono text-sm"
+                value={webhookId}
+                onChange={(e) => setWebhookId(e.target.value)}
+                placeholder="Your PayPal webhook ID"
               />
             </div>
-          </div>
 
-          <div>
-            <Label htmlFor="pp-webhook">Webhook ID (optional)</Label>
-            <Input
-              id="pp-webhook"
-              className="mt-1.5 font-mono text-sm"
-              value={webhookId}
-              onChange={(e) => setWebhookId(e.target.value)}
-              placeholder="WH-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={loading || saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-            {saved ? (
-              <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved.</span>
-            ) : null}
-            {saveError ? (
-              <span className="text-sm text-destructive" role="alert">
-                {saveError}
-              </span>
-            ) : null}
-          </div>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Button type="submit" disabled={loading || saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              {saved ? (
+                <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved.</span>
+              ) : null}
+              {saveError ? (
+                <span className="text-sm text-destructive" role="alert">
+                  {saveError}
+                </span>
+              ) : null}
+            </div>
           </div>
         </form>
       </CardContent>
