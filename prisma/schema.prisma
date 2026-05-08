@@ -36,55 +36,63 @@ model User {
   role          UserRole
   /// JSON array of portal roles this email may access
   roles         Json?
-  accountStatus AccountStatus @default(active)
-  lastLoginAt   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  accountStatus AccountStatus @default(active) @map("account_status")
+  lastLoginAt   DateTime?     @map("last_login_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   auditLogs AuditLog[] @relation("AuditActor")
+
+  @@map("admin_users")
 }
 
 model AuditLog {
   id          String   @id @default(cuid())
   action      String
-  actorId     String?
-  actorEmail  String?
-  targetId    String?
-  targetEmail String?
+  actorId     String?  @map("actor_id")
+  actorEmail  String?  @map("actor_email")
+  targetId    String?  @map("target_id")
+  targetEmail String?  @map("target_email")
   metadata    String?
   ip          String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
 
   actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
 }
 
 // ============================================================
-// Admin-managed content (existing — keep as-is)
+// Admin-managed content
 // ============================================================
 
 /// Super-admin–edited legal HTML shown on public /legal/* pages
 model LegalDocument {
   id        String   @id @default(cuid())
   slug      String   @unique
-  bodyHtml  String
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  bodyHtml  String   @map("body_html")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("legal_documents")
 }
 
 /// Single-row campaign directory managed by Super Admin
 model AdminCampaignDirectory {
   id        String   @id
   rows      Json
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admin_campaign_directory")
 }
 
 /// Integration settings (PayPal, Twilio). Keys: `paypal`, `twilio`
 model AdminIntegrationSettings {
   key       String   @id
   payload   Json
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("admin_integration_settings")
 }
