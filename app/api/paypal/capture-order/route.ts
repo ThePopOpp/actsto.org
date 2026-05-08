@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { capturePaypalOrder } from "@/lib/paypal/client";
+import {
+  finalizePaidDonation,
+  markDonationPaymentStatus,
+} from "@/lib/paypal/payment-records";
 
 /**
  * POST /api/paypal/capture-order
@@ -24,7 +28,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "orderId and donationId are required." }, { status: 400 });
   }
 
-  // Fetch existing donation — guard against double-capture
   let donation;
   try {
     donation = await prisma.donation.findUnique({ where: { id: donationId } });
@@ -38,7 +41,6 @@ export async function POST(req: Request) {
   }
 
   if (donation.status === "paid") {
-    // Idempotent — already captured
     return NextResponse.json({ ok: true, donationId, alreadyCaptured: true });
   }
 
@@ -50,93 +52,33 @@ export async function POST(req: Request) {
     const { captureId, status, amountUsd } = await capturePaypalOrder(orderId);
 
     if (status !== "COMPLETED") {
-      await prisma.donation.update({
-        where: { id: donationId },
-        data: { status: "failed" },
+      await markDonationPaymentStatus({
+        donationId,
+        orderId,
+        captureId: null,
+        status: "failed",
+        eventType: "PAYMENT.CAPTURE.DENIED",
+        payload: { status },
       });
-      await logPaymentEvent({ donationId, orderId, captureId: null, eventType: "PAYMENT.CAPTURE.DENIED", payload: { status } });
       return NextResponse.json({ error: "Payment was not completed." }, { status: 402 });
     }
 
-    const paidUpdate = await prisma.donation.updateMany({
-      where: { id: donationId, status: { not: "paid" } },
-      data: {
-        status: "paid",
-        paymentProviderOrderId: orderId,
-        paymentProviderCaptureId: captureId,
-        totalAmount: amountUsd,
-      },
-    });
-
-    if (paidUpdate.count > 0 && donation.campaignId) {
-      await prisma.$transaction([
-        prisma.campaign.update({
-          where: { id: donation.campaignId },
-          data: {
-            raisedAmount: { increment: amountUsd },
-            donorCount: { increment: 1 },
-          },
-        }),
-        prisma.donationAllocation.create({
-          data: {
-            donationId,
-            campaignId: donation.campaignId,
-            amount: amountUsd,
-            allocationType: "campaign",
-          },
-        }),
-        prisma.campaignBacker.create({
-          data: {
-            campaignId: donation.campaignId,
-            donationId,
-            userId: donation.userId,
-            amount: amountUsd,
-            message: donation.donorMessage,
-            isAnonymous: donation.anonymous,
-            showAmount: false,
-            showMessage: Boolean(donation.donorMessage),
-            status: "visible",
-          },
-        }),
-      ]);
-    }
-
-    await logPaymentEvent({
+    const { receipt } = await finalizePaidDonation({
       donationId,
       orderId,
       captureId,
-      eventType: "PAYMENT.CAPTURE.COMPLETED",
+      amountUsd,
       payload: { status, amountUsd },
     });
 
-    return NextResponse.json({ ok: true, donationId, captureId });
+    return NextResponse.json({
+      ok: true,
+      donationId,
+      captureId,
+      receiptNumber: receipt.receiptNumber,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to capture payment.";
     return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
-
-async function logPaymentEvent(opts: {
-  donationId: string;
-  orderId: string;
-  captureId: string | null;
-  eventType: string;
-  payload: object;
-}) {
-  try {
-    await prisma.paymentEvent.create({
-      data: {
-        provider: "paypal",
-        eventType: opts.eventType,
-        providerOrderId: opts.orderId,
-        providerCaptureId: opts.captureId,
-        donationId: opts.donationId,
-        payload: opts.payload,
-        processed: true,
-        processedAt: new Date(),
-      },
-    });
-  } catch {
-    // Non-fatal — donation is already updated
   }
 }

@@ -3,12 +3,17 @@ import { NextResponse } from "next/server";
 import { getPaypalSettingsForServer } from "@/lib/admin/integration-settings-server";
 import { prisma } from "@/lib/prisma";
 import { verifyPaypalWebhook } from "@/lib/paypal/client";
+import {
+  finalizePaidDonation,
+  logPaypalPaymentEvent,
+  markDonationPaymentStatus,
+} from "@/lib/paypal/payment-records";
 
 /**
  * POST /api/webhooks/paypal
  *
- * Receives PayPal webhook events, verifies the signature, and updates Donation status.
- * Idempotent — deduplicates on providerEventId.
+ * Receives PayPal webhook events, verifies the signature, logs the raw event,
+ * and updates Donation/receipt state for known payment events.
  */
 export async function POST(req: Request) {
   const rawBody = await req.text();
@@ -19,7 +24,6 @@ export async function POST(req: Request) {
   const transmissionSig = req.headers.get("paypal-transmission-sig") ?? "";
   const authAlgo = req.headers.get("paypal-auth-algo") ?? "";
 
-  // Verify webhook signature using stored webhookId
   let verified = false;
   try {
     const settings = await getPaypalSettingsForServer();
@@ -35,7 +39,6 @@ export async function POST(req: Request) {
       });
     }
   } catch {
-    // Verification error — reject
     return NextResponse.json({ error: "Webhook verification failed." }, { status: 401 });
   }
 
@@ -64,7 +67,6 @@ export async function POST(req: Request) {
   const captureId = event.resource?.id ?? null;
   const orderId = event.resource?.order_id ?? null;
 
-  // Idempotency check
   if (eventId) {
     const existing = await prisma.paymentEvent.findUnique({
       where: { providerEventId: eventId },
@@ -72,112 +74,84 @@ export async function POST(req: Request) {
     if (existing) return NextResponse.json({ ok: true, duplicate: true });
   }
 
-  // Find donation by PayPal order ID
   let donationId: string | null = null;
   if (orderId) {
-    try {
-      const donation = await prisma.donation.findFirst({
+    const donation = await prisma.donation
+      .findFirst({
         where: { paymentProviderOrderId: orderId },
         select: { id: true },
-      });
-      donationId = donation?.id ?? null;
-    } catch {
-      // Non-fatal — log anyway
-    }
+      })
+      .catch(() => null);
+    donationId = donation?.id ?? null;
+  }
+  if (!donationId && captureId) {
+    const donation = await prisma.donation
+      .findFirst({
+        where: { paymentProviderCaptureId: captureId },
+        select: { id: true },
+      })
+      .catch(() => null);
+    donationId = donation?.id ?? null;
   }
 
-  // Log the raw event
+  await logPaypalPaymentEvent({
+    donationId,
+    orderId,
+    captureId,
+    eventType,
+    providerEventId: eventId,
+    payload: event as object,
+    processed: false,
+  });
+
+  if (!donationId) {
+    return NextResponse.json({ ok: true, matchedDonation: false });
+  }
+
   try {
-    await prisma.paymentEvent.create({
-      data: {
-        provider: "paypal",
-        eventType,
-        providerEventId: eventId,
-        providerOrderId: orderId,
-        providerCaptureId: captureId,
+    if (eventType === "PAYMENT.CAPTURE.COMPLETED" && event.resource?.amount?.value) {
+      await finalizePaidDonation({
         donationId,
+        orderId: orderId ?? "",
+        captureId,
+        amountUsd: event.resource.amount.value,
+        eventType,
         payload: event as object,
-        processed: false,
-      },
-    });
-  } catch {
-    // Already logged or DB error — continue processing
-  }
-
-  // Process known event types
-  if (donationId) {
-    try {
-      if (eventType === "PAYMENT.CAPTURE.COMPLETED") {
-        const donation = await prisma.donation.findUnique({
-          where: { id: donationId },
-          select: {
-            campaignId: true,
-            userId: true,
-            donorMessage: true,
-            anonymous: true,
-          },
-        });
-        const paidUpdate = await prisma.donation.updateMany({
-          where: { id: donationId, status: { not: "paid" } },
-          data: {
-            status: "paid",
-            paymentProviderCaptureId: captureId,
-            totalAmount: event.resource?.amount?.value ?? undefined,
-          },
-        });
-        if (paidUpdate.count > 0 && donation?.campaignId && event.resource?.amount?.value) {
-          await prisma.$transaction([
-            prisma.campaign.update({
-              where: { id: donation.campaignId },
-              data: {
-                raisedAmount: { increment: event.resource.amount.value },
-                donorCount: { increment: 1 },
-              },
-            }),
-            prisma.donationAllocation.create({
-              data: {
-                donationId,
-                campaignId: donation.campaignId,
-                amount: event.resource.amount.value,
-                allocationType: "campaign",
-              },
-            }),
-            prisma.campaignBacker.create({
-              data: {
-                campaignId: donation.campaignId,
-                donationId,
-                userId: donation.userId,
-                amount: event.resource.amount.value,
-                message: donation.donorMessage,
-                isAnonymous: donation.anonymous,
-                showAmount: false,
-                showMessage: Boolean(donation.donorMessage),
-                status: "visible",
-              },
-            }),
-          ]);
-        }
-        await prisma.paymentEvent.updateMany({
-          where: { providerEventId: eventId ?? "" },
-          data: { processed: true, processedAt: new Date() },
-        });
-      } else if (
-        eventType === "PAYMENT.CAPTURE.DENIED" ||
-        eventType === "PAYMENT.CAPTURE.REVERSED"
-      ) {
-        const newStatus = eventType === "PAYMENT.CAPTURE.REVERSED" ? "refunded" : "failed";
-        await prisma.donation.updateMany({
-          where: { id: donationId, status: { not: newStatus } },
-          data: { status: newStatus },
-        });
-        await prisma.paymentEvent.updateMany({
-          where: { providerEventId: eventId ?? "" },
-          data: { processed: true, processedAt: new Date() },
-        });
-      }
-    } catch {
-      // DB error processing — return 200 so PayPal doesn't retry forever
+      });
+    } else if (
+      eventType === "PAYMENT.CAPTURE.DENIED" ||
+      eventType === "CHECKOUT.PAYMENT-APPROVAL.REVERSED"
+    ) {
+      await markDonationPaymentStatus({
+        donationId,
+        orderId,
+        captureId,
+        status: "failed",
+        eventType,
+        payload: event as object,
+      });
+    } else if (
+      eventType === "PAYMENT.CAPTURE.REVERSED" ||
+      eventType === "PAYMENT.CAPTURE.REFUNDED"
+    ) {
+      await markDonationPaymentStatus({
+        donationId,
+        orderId,
+        captureId,
+        status: "refunded",
+        eventType,
+        payload: event as object,
+      });
     }
+
+    if (eventId) {
+      await prisma.paymentEvent.updateMany({
+        where: { providerEventId: eventId },
+        data: { processed: true, processedAt: new Date() },
+      });
+    }
+  } catch {
+    // Return 200 after logging so PayPal does not retry forever for local DB processing errors.
   }
 
   return NextResponse.json({ ok: true });

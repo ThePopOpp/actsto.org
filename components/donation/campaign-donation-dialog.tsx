@@ -495,6 +495,17 @@ export function CampaignDonationDialog({
                       }
                       setPhase("quick-success");
                     }}
+                    onCancel={async (data) => {
+                      await fetch("/api/paypal/cancel-order", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          orderId: data.orderID,
+                          donationId: donationIdRef.current,
+                        }),
+                      }).catch(() => undefined);
+                      setPaymentError("Payment was cancelled before completion.");
+                    }}
                     onError={() => {
                       setPaymentError("Payment was cancelled or failed. Please try again.");
                     }}
