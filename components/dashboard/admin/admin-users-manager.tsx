@@ -65,11 +65,12 @@ function initials(name: string) {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100] as const;
 
-const USER_ROLE_TABS: { id: Extract<UserRole, "parent" | "student" | "donor_individual" | "donor_business">; label: string }[] = [
+const USER_ROLE_TABS: { id: UserRole; label: string }[] = [
   { id: "parent", label: "Parents" },
   { id: "student", label: "Students" },
   { id: "donor_individual", label: "Individual Donors" },
   { id: "donor_business", label: "Business Donors" },
+  { id: "super_admin", label: "Super Admins" },
 ];
 
 function matchesUserSearch(u: AdminUserSample, query: string): boolean {
@@ -564,7 +565,7 @@ export function AdminUsersManager() {
       </div>
 
       <p className="text-xs text-muted-foreground pt-2">
-        FluentCRM segments and automated password reset emails can plug in when you add those services.
+        New accounts are created in Supabase Auth and mirrored into ACTSTO profile and role records.
       </p>
 
       <Dialog
@@ -580,7 +581,7 @@ export function AdminUsersManager() {
           <DialogHeader>
             <DialogTitle>Delete user?</DialogTitle>
             <DialogDescription>
-              Permanently remove <strong className="text-foreground">{deleteName ?? deleteId}</strong> from the database.
+              Permanently remove <strong className="text-foreground">{deleteName ?? deleteId}</strong> from Supabase Auth and ACTSTO profile records.
               This cannot be undone.
             </DialogDescription>
           </DialogHeader>

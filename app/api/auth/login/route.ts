@@ -99,6 +99,7 @@ export async function POST(req: Request) {
       let session: ActSession;
       let profileRoles: PortalRole[] = [];
       let storedActiveAccountType: string | null = null;
+      let profileIsSuperAdmin = false;
 
       // Try to load role data from Prisma Profile
       try {
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
           include: { userRoles: { where: { status: "active" } } },
         });
         if (profile) {
+          profileIsSuperAdmin = profile.isSuperAdmin;
           storedActiveAccountType = profile.activeAccountType;
           profileRoles = profile.userRoles
             .map((r) => r.role)
@@ -118,7 +120,7 @@ export async function POST(req: Request) {
       }
 
       if (roleRaw === "super_admin") {
-        if (!isSuperAdminEmail(emailLower)) {
+        if (!isSuperAdminEmail(emailLower) && !profileIsSuperAdmin) {
           return NextResponse.json(
             { error: "Super Admin access not permitted for this account." },
             { status: 403 }
@@ -126,6 +128,18 @@ export async function POST(req: Request) {
         }
         session = { email: emailLower, name: displayName, role: "super_admin", roles: [] };
       } else {
+        if (profileIsSuperAdmin && !roleRaw) {
+          session = { email: emailLower, name: displayName, role: "super_admin", roles: [] };
+          if (!redirect || redirect.startsWith("//")) {
+            redirect = dashboardPathForRole(session.role);
+          }
+          const res = NextResponse.json({ ok: true, redirect });
+          supabaseCookies.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options as Parameters<typeof res.cookies.set>[2]);
+          });
+          res.cookies.set(SESSION_COOKIE_NAME, encodeSession(session), COOKIE_OPTS);
+          return res;
+        }
         if (roleRaw && profileRoles.length > 0 && !profileRoles.includes(roleRaw as PortalRole)) {
           return NextResponse.json(
             {

@@ -3,10 +3,13 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { campaignsCountsByEmail } from "@/lib/admin/campaigns-counts";
-import { prismaUserToAdminSample, portalRolesPayload } from "@/lib/admin/user-dto";
+import { profileToAdminSample, prismaUserToAdminSample, portalRolesPayload } from "@/lib/admin/user-dto";
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
-import type { UserRole } from "@/lib/auth/types";
+import { ensureRoleScaffold, syncAccountSetupProgress } from "@/lib/auth/account-types";
+import type { PortalRole, UserRole } from "@/lib/auth/types";
+import { isPortalRole } from "@/lib/auth/types";
 import { prisma } from "@/lib/prisma";
+import { createServiceClient } from "@/lib/supabase/server";
 
 const ROLES: UserRole[] = [
   "super_admin",
@@ -45,8 +48,11 @@ export async function PATCH(
     newPassword?: string;
   } | null;
 
-  const row = await prisma.user.findUnique({ where: { id } });
-  if (!row) {
+  const [profileRow, legacyRow] = await Promise.all([
+    prisma.profile.findUnique({ where: { id }, include: { userRoles: true } }),
+    prisma.user.findUnique({ where: { id } }),
+  ]);
+  if (!profileRow && !legacyRow) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
@@ -61,10 +67,11 @@ export async function PATCH(
     if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower!)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
-    const duplicate = await prisma.user.findFirst({
-      where: { email: emailLower!, NOT: { id } },
-    });
-    if (duplicate) {
+    const [duplicateProfile, duplicateLegacy] = await Promise.all([
+      prisma.profile.findFirst({ where: { email: emailLower!, NOT: { id } } }),
+      prisma.user.findFirst({ where: { email: emailLower!, NOT: { id } } }),
+    ]);
+    if (duplicateProfile || duplicateLegacy) {
       return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
     }
   }
@@ -88,11 +95,79 @@ export async function PATCH(
     }
   }
 
-  const effectiveRole = (role ?? row.role) as UserRole;
+  const effectiveRole = (role ?? (profileRow ? (profileRow.isSuperAdmin ? "super_admin" : profileRow.activeAccountType ?? "parent") : legacyRow!.role)) as UserRole;
   const rolesJson =
     effectiveRole === "super_admin"
       ? Prisma.JsonNull
       : (portalRolesPayload(effectiveRole) as Prisma.InputJsonValue);
+
+  if (profileRow) {
+    const service = createServiceClient();
+    const authUpdates: Parameters<typeof service.auth.admin.updateUserById>[1] = {};
+    if (emailLower !== undefined) authUpdates.email = emailLower;
+    if (name !== undefined) authUpdates.user_metadata = { full_name: name, name };
+    if (newPassword !== undefined && newPassword !== "") authUpdates.password = newPassword;
+    if (Object.keys(authUpdates).length > 0) {
+      const { error } = await service.auth.admin.updateUserById(profileRow.id, authUpdates);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const isSuperAdmin = effectiveRole === "super_admin";
+    const portalRole = isPortalRole(effectiveRole) ? (effectiveRole as PortalRole) : null;
+    const updated = await prisma.profile.update({
+      where: { id: profileRow.id },
+      data: {
+        ...(name !== undefined ? { fullName: name, displayName: name } : {}),
+        ...(emailLower !== undefined ? { email: emailLower } : {}),
+        ...(accountStatus !== undefined ? { status: accountStatus } : {}),
+        isSuperAdmin,
+        primaryAccountType: portalRole,
+        activeAccountType: portalRole,
+      },
+      include: { userRoles: true },
+    });
+
+    if (role !== undefined) {
+      if (portalRole) {
+        await prisma.userRoleRecord.updateMany({
+          where: { userId: profileRow.id, NOT: { role: portalRole } },
+          data: { status: "suspended" },
+        });
+        await ensureRoleScaffold(profileRow.id, portalRole);
+        await syncAccountSetupProgress(profileRow.id, portalRole);
+      } else {
+        await prisma.userRoleRecord.updateMany({
+          where: { userId: profileRow.id },
+          data: { status: "suspended" },
+        });
+      }
+    }
+
+    await prisma.user
+      .update({
+        where: { email: profileRow.email.toLowerCase() },
+        data: {
+          ...(name !== undefined ? { name } : {}),
+          ...(emailLower !== undefined ? { email: emailLower } : {}),
+          role: effectiveRole,
+          ...(accountStatus !== undefined ? { accountStatus } : {}),
+          roles: rolesJson,
+          ...(newPassword !== undefined && newPassword !== "" ? { password: await hash(newPassword, 10) } : {}),
+        },
+      })
+      .catch(() => null);
+
+    const refreshed = await prisma.profile.findUnique({
+      where: { id: updated.id },
+      include: { userRoles: true },
+    });
+    const counts = await campaignsCountsByEmail();
+    return NextResponse.json({
+      user: refreshed
+        ? profileToAdminSample(refreshed, counts.get(refreshed.email.toLowerCase()) ?? 0)
+        : profileToAdminSample(updated, counts.get(updated.email.toLowerCase()) ?? 0),
+    });
+  }
 
   const data: Prisma.UserUpdateInput = {};
   if (name !== undefined) data.name = name;
@@ -100,14 +175,9 @@ export async function PATCH(
   if (role !== undefined) data.role = role as UserRole;
   if (accountStatus !== undefined) data.accountStatus = accountStatus;
   data.roles = rolesJson;
-  if (newPassword !== undefined && newPassword !== "") {
-    data.password = await hash(newPassword, 10);
-  }
+  if (newPassword !== undefined && newPassword !== "") data.password = await hash(newPassword, 10);
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data,
-  });
+  const updated = await prisma.user.update({ where: { id }, data });
 
   const counts = await campaignsCountsByEmail();
   return NextResponse.json({
@@ -127,15 +197,26 @@ export async function DELETE(
     return NextResponse.json({ error: "Missing id." }, { status: 400 });
   }
 
-  const row = await prisma.user.findUnique({ where: { id } });
-  if (!row) {
+  const [profileRow, legacyRow] = await Promise.all([
+    prisma.profile.findUnique({ where: { id } }),
+    prisma.user.findUnique({ where: { id } }),
+  ]);
+  if (!profileRow && !legacyRow) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
-  if (row.email.toLowerCase() === auth.email.toLowerCase()) {
+  const email = (profileRow?.email ?? legacyRow?.email ?? "").toLowerCase();
+  if (email === auth.email.toLowerCase()) {
     return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
   }
 
-  await prisma.user.delete({ where: { id } });
+  if (profileRow) {
+    const service = createServiceClient();
+    await service.auth.admin.deleteUser(profileRow.id).catch(() => null);
+    await prisma.profile.delete({ where: { id: profileRow.id } }).catch(() => null);
+    await prisma.user.delete({ where: { email: profileRow.email.toLowerCase() } }).catch(() => null);
+  } else if (legacyRow) {
+    await prisma.user.delete({ where: { id } });
+  }
   return NextResponse.json({ ok: true });
 }

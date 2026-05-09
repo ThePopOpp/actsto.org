@@ -1,7 +1,8 @@
-import type { AccountStatus, User } from "@prisma/client";
+import type { AccountStatus, Prisma, User } from "@prisma/client";
 
 import type { AdminUserSample } from "@/lib/admin/mock-users";
 import type { UserRole } from "@/lib/auth/types";
+import { PORTAL_ROLES, type PortalRole } from "@/lib/auth/types";
 
 function formatLastActive(d: Date): string {
   const now = Date.now();
@@ -39,4 +40,42 @@ export function prismaUserToAdminSample(
 export function portalRolesPayload(role: UserRole): unknown {
   if (role === "super_admin") return null;
   return [role];
+}
+
+type AdminProfile = Prisma.ProfileGetPayload<{
+  include: { userRoles: true };
+}>;
+
+function isPortalRoleString(value: string | null | undefined): value is PortalRole {
+  return !!value && (PORTAL_ROLES as readonly string[]).includes(value);
+}
+
+export function profileToAdminSample(
+  profile: AdminProfile,
+  campaignsCount: number
+): AdminUserSample {
+  const roles = profile.userRoles
+    .filter((role) => role.status === "active")
+    .map((role) => role.role)
+    .filter(isPortalRoleString);
+  const activeRole =
+    profile.isSuperAdmin
+      ? "super_admin"
+      : isPortalRoleString(profile.activeAccountType) && roles.includes(profile.activeAccountType)
+        ? profile.activeAccountType
+        : roles[0] ?? "parent";
+  const status =
+    profile.status === "invited" || profile.status === "suspended" || profile.status === "active"
+      ? profile.status
+      : "active";
+
+  return {
+    id: profile.id,
+    name: profile.displayName ?? profile.fullName ?? profile.email.split("@")[0] ?? "Unnamed user",
+    email: profile.email,
+    role: activeRole,
+    status,
+    lastActive: profile.updatedAt ? formatLastActive(profile.updatedAt) : "---",
+    campaignsCount,
+  };
 }
