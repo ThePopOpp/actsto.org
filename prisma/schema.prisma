@@ -126,6 +126,16 @@ model SiteCtaBlock {
   @@map("site_cta_blocks")
 }
 
+/// Site-wide content settings managed by Super Admin Site Content
+model SiteContentSettings {
+  key       String   @id
+  payload   Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("site_content_settings")
+}
+
 // ============================================================
 // Supabase Auth profile layer
 // NOTE: Profile.id = auth.users.id (UUID). No Prisma relation
