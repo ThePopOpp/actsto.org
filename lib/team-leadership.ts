@@ -63,7 +63,7 @@ export const leadershipTeam: LeadershipMember[] = [
     bio: "Chris Leavitt serves as CEO of Arizona Christian Tuition, guiding strategy and partnerships so more families can access private Christian schooling. He is passionate about transparency, stewardship, and walking alongside parents from application to award.",
     imageSrc:
       "https://arizonachristiantuition.com/wp-content/uploads/2026/03/chris-leavitt-white-bg.png",
-    email: "chris@arizonachristiantuition.com",
+    email: "chris@actsto.org",
     facebookUrl: "https://www.facebook.com/arizonachristiantuition",
     linkedinUrl: "https://www.linkedin.com/",
   },
@@ -95,7 +95,7 @@ export const leadershipTeam: LeadershipMember[] = [
     bio: "Scott Spaulding, COO, focuses on operational excellence across Arizona Christian Tuition—from donation processing to scholarship timelines. His background helps ensure schools, parents, and donors receive dependable answers and smooth workflows.",
     imageSrc:
       "https://arizonachristiantuition.com/wp-content/uploads/2025/07/Scott-Spalding.png",
-    email: "scott@arizonachristiantuition.com",
+    email: "scott@actsto.org",
     facebookUrl: "https://www.facebook.com/arizonachristiantuition",
     linkedinUrl: "https://www.linkedin.com/",
   },
@@ -127,7 +127,7 @@ export const leadershipTeam: LeadershipMember[] = [
     bio: "Jeremy Waters leads technology as CTO, shaping the platforms families and donors use every day. He prioritizes security, accessibility, and a calm user experience so ACT can scale its mission across Arizona.",
     imageSrc:
       "https://arizonachristiantuition.com/wp-content/uploads/2026/03/Jeremy-Waters.png",
-    email: "jeremy@arizonachristiantuition.com",
+    email: "jeremy@actsto.org",
     facebookUrl: "https://www.facebook.com/arizonachristiantuition",
     linkedinUrl: "https://www.linkedin.com/",
   },

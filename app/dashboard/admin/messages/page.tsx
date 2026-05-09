@@ -6,7 +6,7 @@ export default function AdminMessagesPage() {
     <>
       <AdminPageHeader
         title="Inbox"
-        description="Review supporter and family messages in context (role, campaign, channel). Compose one-to-one or segmented emails — wire to your ESP when ready."
+        description="Review supporter and family email messages in context. Compose one-to-one or segmented emails from hello@actsto.org."
       />
       <AdminInboxWorkspace />
     </>

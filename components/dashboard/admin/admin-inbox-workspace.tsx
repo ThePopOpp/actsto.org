@@ -9,8 +9,8 @@ import {
   Heart,
   Inbox,
   Mail,
-  MessageSquare,
   Send,
+  Trash2,
   User,
   Users,
 } from "lucide-react";
@@ -42,7 +42,7 @@ import {
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
-type InboxFilter = "all" | "unread" | "flagged" | "email" | "sms" | "campaign";
+type InboxFilter = "all" | "unread" | "flagged" | "email" | "campaign";
 
 function roleIcon(role?: UserRole) {
   switch (role) {
@@ -60,11 +60,14 @@ function roleIcon(role?: UserRole) {
 }
 
 export function AdminInboxWorkspace() {
-  const [messages, setMessages] = useState<InboundMessage[]>(() => [...MOCK_INBOUND_MESSAGES]);
+  const [messages, setMessages] = useState<InboundMessage[]>(() =>
+    MOCK_INBOUND_MESSAGES.filter((message) => message.channel === "email")
+  );
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(MOCK_INBOUND_MESSAGES[0]?.id ?? null);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [recipientMode, setRecipientMode] = useState<"individual" | "group">("individual");
   const [individualEmail, setIndividualEmail] = useState("");
@@ -97,7 +100,6 @@ export function AdminInboxWorkspace() {
       if (filter === "unread" && !m.unread) return false;
       if (filter === "flagged" && !m.flagged) return false;
       if (filter === "email" && m.channel !== "email") return false;
-      if (filter === "sms" && m.channel !== "sms") return false;
       if (filter === "campaign" && !m.campaignSlug) return false;
       return true;
     });
@@ -116,6 +118,26 @@ export function AdminInboxWorkspace() {
     setMessages((prev) =>
       prev.map((x) => (x.id === id ? { ...x, flagged: !x.flagged } : x))
     );
+  }
+
+  async function deleteMessage(id: string) {
+    setDeletingId(id);
+    setSyncHint(null);
+    try {
+      const res = await fetch(`/api/admin/email/inbox/${id}`, { method: "DELETE" });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not delete message.");
+      setMessages((prev) => {
+        const next = prev.filter((message) => message.id !== id);
+        setSelectedId((current) => (current === id ? next[0]?.id ?? null : current));
+        return next;
+      });
+      setSyncHint("Message deleted from the ACTSTO inbox.");
+    } catch (error) {
+      setSyncHint(error instanceof Error ? error.message : "Could not delete message.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   function toggleSegment(seg: BroadcastSegment, checked: boolean) {
@@ -211,7 +233,6 @@ export function AdminInboxWorkspace() {
     { id: "unread", label: "Unread" },
     { id: "flagged", label: "Flagged" },
     { id: "email", label: "Email" },
-    { id: "sms", label: "SMS" },
     { id: "campaign", label: "Campaign-linked" },
   ];
 
@@ -224,8 +245,8 @@ export function AdminInboxWorkspace() {
               Review incoming
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Prioritize by role and campaign context. Flag tax or compliance threads; SMS shows as
-              short-form — escalate sensitive student conversations per your policy.
+              Prioritize by role and campaign context. Flag tax, compliance, and sensitive family
+              conversations for careful follow-up.
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -295,17 +316,10 @@ export function AdminInboxWorkspace() {
                                 {m.preview}
                               </p>
                               <div className="mt-2 flex flex-wrap gap-1.5">
-                                {m.channel === "sms" ? (
-                                  <Badge variant="outline" className="text-[10px]">
-                                    <MessageSquare className="size-3" />
-                                    SMS
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="text-[10px]">
-                                    <Mail className="size-3" />
-                                    Email
-                                  </Badge>
-                                )}
+                                <Badge variant="secondary" className="text-[10px]">
+                                  <Mail className="size-3" />
+                                  Email
+                                </Badge>
                                 {m.senderRole ? (
                                   <Badge variant="outline" className="text-[10px]">
                                     {ROLE_LABEL[m.senderRole]}
@@ -339,11 +353,7 @@ export function AdminInboxWorkspace() {
                         <h3 className="font-heading text-lg font-semibold text-primary">
                           {selected.subject}
                         </h3>
-                        {selected.channel === "sms" ? (
-                          <Badge variant="outline">SMS</Badge>
-                        ) : (
-                          <Badge variant="secondary">Email</Badge>
-                        )}
+                        <Badge variant="secondary">Email</Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
                         From{" "}
@@ -378,6 +388,17 @@ export function AdminInboxWorkspace() {
                         <Mail className="mr-1.5 size-3.5" />
                         Reply in mail client
                       </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletingId === selected.id}
+                        onClick={() => void deleteMessage(selected.id)}
+                      >
+                        <Trash2 className="mr-1.5 size-3.5" />
+                        {deletingId === selected.id ? "Deleting..." : "Delete"}
+                      </Button>
                     </div>
                   </div>
 

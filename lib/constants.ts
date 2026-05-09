@@ -9,5 +9,5 @@ export const ACT_FAVICON = "/icon.svg";
 
 export const SUPPORT_PHONE_DISPLAY = "(480) 999-9906";
 export const SUPPORT_EMAIL = "support@actsto.org";
-export const GENERAL_EMAIL = "hello@arizonachristiantuition.com";
+export const GENERAL_EMAIL = "hello@actsto.org";
 export const TEAM_PHONE_DISPLAY = "(602) 421-8301";
