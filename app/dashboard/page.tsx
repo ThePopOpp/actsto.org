@@ -12,6 +12,10 @@ export default async function DashboardPage({
   const session = await getActSession();
   const { error } = await searchParams;
 
+  if (error) {
+    return <DashboardHub error={error} />;
+  }
+
   if (session) {
     redirect(dashboardPathForRole(session.role));
   }

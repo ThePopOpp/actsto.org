@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+
+type ProfileResponse = {
+  profile?: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    avatarUrl?: string | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+  };
+  error?: string;
+};
 
 export function UserProfileEditor({
   defaultName,
@@ -35,6 +49,7 @@ export function UserProfileEditor({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [name, setName] = useState(defaultName);
   const [phone, setPhone] = useState(defaultPhone);
   const [address, setAddress] = useState(defaultAddress);
@@ -43,22 +58,102 @@ export function UserProfileEditor({
   const [zip, setZip] = useState(defaultZip);
   const [timezone, setTimezone] = useState("America/Phoenix");
   const [bio, setBio] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfile() {
+      setStatus("loading");
+      try {
+        const res = await fetch("/api/profile", { cache: "no-store" });
+        if (!res.ok) {
+          if (mounted) setStatus("idle");
+          return;
+        }
+        const data = (await res.json()) as ProfileResponse;
+        if (!mounted || !data.profile) return;
+
+        setName(data.profile.name || defaultName);
+        setPhone(data.profile.phone || defaultPhone);
+        setAddress(data.profile.address || defaultAddress);
+        setCity(data.profile.city || defaultCity);
+        setState(data.profile.state || defaultState);
+        setZip(data.profile.zip || defaultZip);
+        setAvatarUrl(data.profile.avatarUrl || null);
+        setPhotoPreview(data.profile.avatarUrl || null);
+        setStatus("idle");
+      } catch {
+        if (mounted) setStatus("idle");
+      }
+    }
+
+    void loadProfile();
+    return () => {
+      mounted = false;
+    };
+  }, [defaultAddress, defaultCity, defaultName, defaultPhone, defaultState, defaultZip]);
 
   function onPhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    const url = URL.createObjectURL(f);
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
+
+    if (f.size > 1_500_000) {
+      setStatus("error");
+      setMessage("Please choose an image smaller than 1.5 MB.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : null;
+      setAvatarUrl(dataUrl);
+      setPhotoPreview(dataUrl);
+      setStatus("idle");
+      setMessage("");
+    };
+    reader.onerror = () => {
+      setStatus("error");
+      setMessage("We could not read that image. Please try another file.");
+    };
+    reader.readAsDataURL(f);
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+    setStatus("saving");
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          phone,
+          address,
+          city,
+          state,
+          zip,
+          avatarUrl,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as ProfileResponse;
+      if (!res.ok) {
+        throw new Error(data.error || "Profile could not be saved.");
+      }
+      setStatus("saved");
+      setMessage("Profile saved.");
+      window.setTimeout(() => {
+        setStatus((current) => (current === "saved" ? "idle" : current));
+        setMessage((current) => (current === "Profile saved." ? "" : current));
+      }, 2200);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Profile could not be saved.");
+    }
   }
 
   return (
@@ -76,15 +171,15 @@ export function UserProfileEditor({
           <CardHeader>
             <CardTitle className="font-heading text-lg text-primary">Photo</CardTitle>
             <CardDescription>
-              Square images (400px+) look best on campaign cards. This is a local preview only until
-              uploads are connected to storage.
+              Square images (400px+) look best on campaign cards. Larger files will be stored
+              through media storage once uploads are connected.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             <div className="relative">
               <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-border bg-muted">
                 {photoPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- blob: preview URLs
+                  // eslint-disable-next-line @next/next/no-img-element -- profile previews may be data URLs
                   <img src={photoPreview} alt="" className="size-full object-cover" />
                 ) : (
                   <User className="size-12 text-muted-foreground" strokeWidth={1.25} />
@@ -112,17 +207,15 @@ export function UserProfileEditor({
               <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
                 Upload photo
               </Button>
-              {photoPreview ? (
+              {avatarUrl || photoPreview ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="text-destructive"
                   onClick={() => {
-                    setPhotoPreview((prev) => {
-                      if (prev) URL.revokeObjectURL(prev);
-                      return null;
-                    });
+                    setAvatarUrl(null);
+                    setPhotoPreview(null);
                     if (fileRef.current) fileRef.current.value = "";
                   }}
                 >
@@ -195,10 +288,20 @@ export function UserProfileEditor({
           </CardContent>
         </Card>
 
-        {saved ? (
-          <p className="text-sm text-emerald-600 dark:text-emerald-400">Saved locally (demo) — connect API to persist.</p>
+        {message ? (
+          <p
+            className={
+              status === "error"
+                ? "text-sm text-destructive"
+                : "text-sm text-emerald-600 dark:text-emerald-400"
+            }
+          >
+            {message}
+          </p>
         ) : null}
-        <Button type="submit">Save profile</Button>
+        <Button type="submit" disabled={status === "saving" || status === "loading"}>
+          {status === "saving" ? "Saving..." : "Save profile"}
+        </Button>
       </form>
     </div>
   );
