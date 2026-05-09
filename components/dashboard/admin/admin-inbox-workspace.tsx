@@ -25,7 +25,6 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -39,7 +38,6 @@ import {
   MOCK_INBOUND_MESSAGES,
   type BroadcastSegment,
   type InboundMessage,
-  getComposeRecipientOptions,
 } from "@/lib/admin/inbox-mock";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
@@ -69,8 +67,7 @@ export function AdminInboxWorkspace() {
   const [syncing, setSyncing] = useState(false);
 
   const [recipientMode, setRecipientMode] = useState<"individual" | "group">("individual");
-  const recipientOptions = useMemo(() => getComposeRecipientOptions(), []);
-  const [individualEmail, setIndividualEmail] = useState(recipientOptions[0]?.value ?? "");
+  const [individualEmail, setIndividualEmail] = useState("");
   const [segmentIds, setSegmentIds] = useState<Set<string>>(() => new Set());
   const [templateId, setTemplateId] = useState<string>("");
   const [subject, setSubject] = useState("");
@@ -468,26 +465,17 @@ export function AdminInboxWorkspace() {
               {recipientMode === "individual" ? (
                 <div className="space-y-2">
                   <Label htmlFor="to-one">Recipient</Label>
-                  <Select
+                  <Input
+                    id="to-one"
+                    type="email"
+                    className="mt-1.5 h-10 w-full max-w-xl"
                     value={individualEmail}
-                    onValueChange={(v) => setIndividualEmail(v ?? "")}
-                  >
-                    <SelectTrigger id="to-one" className="h-10 w-full max-w-xl">
-                      <SelectValue placeholder="Select contact" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {recipientOptions.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                    onChange={(event) => setIndividualEmail(event.target.value)}
+                    placeholder="name@example.com"
+                    autoComplete="email"
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Includes sample users and campaign family leads from your mocks; production would
-                    search the full directory.
+                    Enter any recipient email address for one-to-one support messages.
                   </p>
                 </div>
               ) : (
