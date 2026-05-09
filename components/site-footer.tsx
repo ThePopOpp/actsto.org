@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ACT_LOGO_FULL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-/** Footer sits on brand navy; dark theme’s `primary-foreground` can be wrong — keep links explicitly light. */
+/** Footer sits on brand navy; keep links explicitly light across themes. */
 const footerLinkClass =
   "text-primary-foreground/90 underline-offset-4 transition-colors hover:text-white hover:underline dark:text-white/95 dark:hover:text-sky-200 dark:hover:underline";
 
@@ -57,7 +57,6 @@ export function SiteFooter() {
     <footer
       className={cn(
         "bg-primary text-primary-foreground",
-        /* Match dark page shell to brand navy */
         "dark:bg-[var(--act-brand-navy-dark)] dark:text-[oklch(0.98_0.01_240)]"
       )}
     >
@@ -79,7 +78,7 @@ export function SiteFooter() {
               scholarships.
             </p>
             <div className="mt-4 inline-flex rounded-full bg-primary-foreground/10 px-4 py-2 text-xs text-sky-200">
-              Singles up to $1,459 · Married up to $2,918 tax credit
+              Singles up to $1,571 &middot; Married up to $3,131 tax credit
             </div>
           </div>
 
@@ -145,8 +144,7 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-primary-foreground/15 pt-8 text-xs text-primary-foreground/70 dark:text-white/80 md:flex-row">
           <p className="text-center md:text-left">
-            © {new Date().getFullYear()} Arizona Christian Tuition. All rights reserved. · EIN:
-            86-XXXXXXX
+            &copy; {new Date().getFullYear()} Arizona Christian Tuition. All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/legal/privacy" className={footerLinkClass}>
