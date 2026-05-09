@@ -13,6 +13,7 @@ import {
   Receipt,
   ShieldCheck,
   UserCircle,
+  UserCog,
   Users,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
   const b = base(basePath);
 
   const profile = { href: `${b}/profile`, label: "Profile", icon: UserCircle };
+  const accountTypes = { href: `${b}/account-types`, label: "Account types", icon: UserCog };
   const messages = { href: `${b}/messages`, label: "Messages", icon: Mail };
   const notifications = { href: `${b}/notifications`, label: "Notifications", icon: Bell };
   const receipts = { href: `${b}/receipts`, label: "Receipts & tax", icon: Receipt };
@@ -42,6 +44,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
       return [
         { href: b, label: "Overview", icon: LayoutDashboard },
         profile,
+        accountTypes,
         { href: `${b}/students`, label: "Students", icon: Users },
         { href: `${b}/campaigns`, label: "Campaigns", icon: Megaphone },
         { href: `${b}/marketing`, label: "Marketing", icon: Images },
@@ -54,6 +57,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
       return [
         { href: b, label: "Overview", icon: LayoutDashboard },
         profile,
+        accountTypes,
         { href: `${b}/campaigns`, label: "My campaign", icon: Megaphone },
         messages,
         notifications,
@@ -63,6 +67,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
       return [
         { href: b, label: "Overview", icon: LayoutDashboard },
         profile,
+        accountTypes,
         { href: `${b}/donations`, label: "Donations", icon: CreditCard },
         { href: `${b}/saved`, label: "Saved campaigns", icon: Heart },
         messages,
@@ -73,6 +78,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
       return [
         { href: b, label: "Overview", icon: LayoutDashboard },
         profile,
+        accountTypes,
         { href: `${b}/company`, label: "Company info", icon: Building2 },
         { href: `${b}/employees`, label: "Employees", icon: Users },
         { href: `${b}/taxes`, label: "Taxes", icon: ShieldCheck },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { encodeSession, SESSION_COOKIE_NAME } from "@/lib/auth/cookie";
+import { ensureRoleScaffold, syncAccountSetupProgress } from "@/lib/auth/account-types";
 import { dashboardPathForRole } from "@/lib/auth/paths";
 import type { ActSession, PortalRole } from "@/lib/auth/types";
 import { PORTAL_ROLES } from "@/lib/auth/types";
@@ -101,33 +102,8 @@ export async function POST(req: Request) {
       },
     });
 
-    // Create UserRoleRecord for the selected role
-    await prisma.userRoleRecord.upsert({
-      where: { userId_role: { userId, role } },
-      create: { userId, role, status: "active" },
-      update: { status: "active" },
-    });
-
-    // Create role-specific profile record
-    if (role === "parent") {
-      await prisma.parentGuardianProfile.upsert({
-        where: { userId },
-        create: { userId, profileStatus: "incomplete" },
-        update: {},
-      });
-    } else if (role === "donor_individual") {
-      await prisma.individualDonorProfile.upsert({
-        where: { userId },
-        create: { userId, profileStatus: "incomplete" },
-        update: {},
-      });
-    } else if (role === "donor_business") {
-      await prisma.businessDonorProfile.upsert({
-        where: { userId },
-        create: { userId, profileStatus: "incomplete" },
-        update: {},
-      });
-    }
+    await ensureRoleScaffold(userId, role);
+    await syncAccountSetupProgress(userId, role);
   } catch {
     // DB unavailable — the trigger will create the profile asynchronously
   }

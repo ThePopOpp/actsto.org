@@ -61,9 +61,11 @@ export async function getActSession(): Promise<ActSession | null> {
             .map((r) => r.role)
             .filter(isPortalRoleStr) as PortalRole[];
 
-          const activeRole = isPortalRoleStr(profile.activeAccountType)
-            ? (profile.activeAccountType as PortalRole)
-            : roles[0] ?? "parent";
+          const activeRole =
+            isPortalRoleStr(profile.activeAccountType) &&
+            roles.includes(profile.activeAccountType)
+              ? (profile.activeAccountType as PortalRole)
+              : roles[0] ?? "parent";
 
           return { email, name, role: activeRole, roles };
         }
