@@ -17,6 +17,7 @@ export async function finalizePaidDonation({
 }) {
   const donation = await prisma.donation.findUnique({ where: { id: donationId } });
   if (!donation) throw new Error("Donation not found.");
+  const backerDisplay = await getBackerDisplayForDonation(donationId);
 
   const paidUpdate = await prisma.donation.updateMany({
     where: { id: donationId, status: { not: "paid" } },
@@ -50,6 +51,8 @@ export async function finalizePaidDonation({
           campaignId: donation.campaignId,
           donationId,
           userId: donation.userId,
+          displayName: backerDisplay.displayName,
+          avatarUrl: backerDisplay.avatarUrl,
           amount: amountUsd,
           message: donation.donorMessage,
           isAnonymous: donation.anonymous,
@@ -72,6 +75,42 @@ export async function finalizePaidDonation({
   });
 
   return { receipt, newlyPaid: paidUpdate.count > 0 };
+}
+
+async function getBackerDisplayForDonation(donationId: string) {
+  const donation = await prisma.donation.findUnique({
+    where: { id: donationId },
+    include: { donationDetail: true },
+  });
+  if (!donation) return { displayName: "Supporter", avatarUrl: null as string | null };
+  if (donation.anonymous) return { displayName: "Anonymous", avatarUrl: null as string | null };
+
+  const detailName = donation.donationDetail
+    ? [donation.donationDetail.donorFirstName, donation.donationDetail.donorLastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim()
+    : "";
+  if (detailName) return { displayName: detailName, avatarUrl: null as string | null };
+
+  if (donation.userId) {
+    const profile = await prisma.profile.findUnique({
+      where: { id: donation.userId },
+      select: { displayName: true, fullName: true, email: true, avatarUrl: true },
+    }).catch(() => null);
+    if (profile) {
+      return {
+        displayName: profile.displayName || profile.fullName || profile.email.split("@")[0] || "Supporter",
+        avatarUrl: profile.avatarUrl,
+      };
+    }
+  }
+
+  if (donation.donationDetail?.donorEmail) {
+    return { displayName: donation.donationDetail.donorEmail, avatarUrl: null as string | null };
+  }
+
+  return { displayName: "Supporter", avatarUrl: null as string | null };
 }
 
 export async function ensureTaxReceiptForDonation(donationId: string, amountUsd?: string) {
