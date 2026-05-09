@@ -140,7 +140,7 @@ export function ParentDashboardContent({
             Start a campaign
           </Link>
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {familyCampaigns.map((c) => (
             <CampaignCard key={c.slug} campaign={c} variant="listing" />
           ))}

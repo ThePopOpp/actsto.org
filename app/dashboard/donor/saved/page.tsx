@@ -15,7 +15,7 @@ export default function DonorSavedCampaignsPage() {
         title="Saved campaigns"
         description="Bookmarked pages for follow-up giving. Remove or add from any campaign detail page when logged in."
       />
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {SAVED.map((c) => (
           <CampaignCard key={c.slug} campaign={c} variant="listing" />
         ))}

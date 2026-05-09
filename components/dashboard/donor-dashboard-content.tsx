@@ -109,7 +109,7 @@ export function DonorDashboardContent() {
 
       <div>
         <h2 className="mb-4 font-heading text-lg font-semibold text-primary">Saved campaigns</h2>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {SAVED.map((c) => (
             <CampaignCard key={c.slug} campaign={c} variant="listing" />
           ))}
