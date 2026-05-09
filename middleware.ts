@@ -2,14 +2,26 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { decodeSession } from "@/lib/auth/cookie";
 
-// Inline edge-compatible check — avoids importing admin-allowlist → temp-super-admin → node:crypto
+// Keep this edge-compatible. Do not import admin-allowlist here because that
+// path reaches the temp-super-admin node:crypto helper.
 function isAdminEmail(email: string): boolean {
+  const normalizedEmail = email.trim().toLowerCase();
   const raw = process.env.ADMIN_EMAILS ?? "";
-  return raw
+  const allowlisted = raw
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
-    .includes(email.trim().toLowerCase());
+    .includes(normalizedEmail);
+  if (allowlisted) return true;
+
+  const bootstrapEmail = process.env.TEMP_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+  const bootstrapPassword = process.env.TEMP_SUPER_ADMIN_PASSWORD;
+  return Boolean(
+    bootstrapEmail &&
+      bootstrapPassword !== undefined &&
+      bootstrapPassword !== "" &&
+      normalizedEmail === bootstrapEmail
+  );
 }
 
 function isLockedAdminPath(pathname: string): boolean {
