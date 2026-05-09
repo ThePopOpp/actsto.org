@@ -4,10 +4,10 @@ import { ArrowLeft, ExternalLink, Heart, MessageSquare, Users } from "lucide-rea
 import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { dashboardPathForRole } from "@/lib/auth/paths";
 import { getActSession } from "@/lib/auth/session-server";
+import { buttonVariants } from "@/lib/button-variants";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -40,11 +40,15 @@ function backerStatusBadge(status: string) {
 }
 
 async function getProfileId(email: string) {
-  const profile = await prisma.profile.findFirst({
-    where: { email: email.toLowerCase() },
-    select: { id: true },
-  });
-  return profile?.id ?? null;
+  try {
+    const profile = await prisma.profile.findFirst({
+      where: { email: email.toLowerCase() },
+      select: { id: true },
+    });
+    return profile?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function backerScope(userId: string, role: string) {
@@ -145,7 +149,7 @@ async function getBackerData(email: string, role: string) {
 }
 
 export default async function BackersPage() {
-  const session = await getActSession();
+  const session = await getActSession().catch(() => null);
   if (!session) redirect("/login?next=/dashboard/backers");
 
   const data = await getBackerData(session.email, session.role);
