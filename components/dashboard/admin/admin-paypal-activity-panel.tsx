@@ -35,7 +35,9 @@ function statusBadge(status: string) {
   return <Badge variant="outline">{status}</Badge>;
 }
 
-export async function AdminPaypalActivityPanel() {
+type PaypalActivityView = "all" | "payments" | "receipts" | "webhooks";
+
+export async function AdminPaypalActivityPanel({ view = "all" }: { view?: PaypalActivityView }) {
   const [summary, recentDonations, recentEvents, recentReceipts, missingReceiptCount] = await Promise.all([
     getPaymentSummary(),
     prisma.donation.findMany({
@@ -68,6 +70,7 @@ export async function AdminPaypalActivityPanel() {
 
   return (
     <div className="mt-6 space-y-6">
+      {view === "all" || view === "payments" ? (
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-border/80">
           <CardHeader className="pb-2">
@@ -94,7 +97,9 @@ export async function AdminPaypalActivityPanel() {
           </CardHeader>
         </Card>
       </div>
+      ) : null}
 
+      {view === "all" || view === "payments" ? (
       <Card className="border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-primary">Recent PayPal donations</CardTitle>
@@ -138,8 +143,10 @@ export async function AdminPaypalActivityPanel() {
           </table>
         </CardContent>
       </Card>
+      ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className={view === "all" ? "grid gap-6 xl:grid-cols-2" : "space-y-6"}>
+        {view === "all" || view === "webhooks" ? (
         <Card className="border-border/80">
           <CardHeader>
             <CardTitle className="font-heading text-primary">Webhook and payment events</CardTitle>
@@ -162,7 +169,9 @@ export async function AdminPaypalActivityPanel() {
             ))}
           </CardContent>
         </Card>
+        ) : null}
 
+        {view === "all" || view === "receipts" ? (
         <Card className="border-border/80">
           <CardHeader>
             <CardTitle className="font-heading text-primary">Generated tax receipts</CardTitle>
@@ -190,6 +199,7 @@ export async function AdminPaypalActivityPanel() {
             ))}
           </CardContent>
         </Card>
+        ) : null}
       </div>
     </div>
   );

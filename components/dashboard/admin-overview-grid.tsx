@@ -45,14 +45,14 @@ const tiles = [
   },
   {
     href: "/dashboard/admin/billing",
-    title: "Billing · PayPal",
+    title: "Payments",
     desc: "Payouts, transactions, receipts",
     icon: CreditCard,
   },
   {
     href: "/dashboard/admin/sms",
-    title: "SMS · Twilio",
-    desc: "Numbers, templates, delivery logs",
+    title: "Communications",
+    desc: "SMS messages, templates, delivery logs",
     icon: MessageSquare,
   },
   {

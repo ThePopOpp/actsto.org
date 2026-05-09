@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import type { AdminUserSample } from "@/lib/admin/mock-users";
 import { ROLE_LABEL } from "@/lib/auth/types";
+import type { UserRole } from "@/lib/auth/types";
 
 function newUserId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -43,12 +44,12 @@ function newUserId(): string {
   return `u-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function emptyUser(): AdminUserSample {
+function emptyUser(role: AdminUserSample["role"] = "parent"): AdminUserSample {
   return {
     id: newUserId(),
     name: "",
     email: "",
-    role: "parent",
+    role,
     status: "invited",
     lastActive: "—",
     campaignsCount: 0,
@@ -63,6 +64,13 @@ function initials(name: string) {
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100] as const;
+
+const USER_ROLE_TABS: { id: Extract<UserRole, "parent" | "student" | "donor_individual" | "donor_business">; label: string }[] = [
+  { id: "parent", label: "Parents" },
+  { id: "student", label: "Students" },
+  { id: "donor_individual", label: "Individual Donors" },
+  { id: "donor_business", label: "Business Donors" },
+];
 
 function matchesUserSearch(u: AdminUserSample, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -106,6 +114,7 @@ export function AdminUsersManager() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleTab, setRoleTab] = useState<(typeof USER_ROLE_TABS)[number]["id"]>("parent");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
   const [page, setPage] = useState(1);
 
@@ -129,8 +138,8 @@ export function AdminUsersManager() {
   }, [loadUsers]);
 
   const filteredRows = useMemo(
-    () => (rows ? rows.filter((u) => matchesUserSearch(u, searchQuery)) : []),
-    [rows, searchQuery]
+    () => (rows ? rows.filter((u) => u.role === roleTab && matchesUserSearch(u, searchQuery)) : []),
+    [rows, roleTab, searchQuery]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
@@ -146,7 +155,7 @@ export function AdminUsersManager() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, pageSize]);
+  }, [roleTab, searchQuery, pageSize]);
 
   const reservedEmails = useMemo(() => {
     if (!rows) return [];
@@ -159,7 +168,7 @@ export function AdminUsersManager() {
   function handleCreateClick() {
     setEditorMode("create");
     setEditingId(null);
-    setDraftUser(emptyUser());
+    setDraftUser(emptyUser(roleTab));
     setScreen("editor");
   }
 
@@ -312,6 +321,23 @@ export function AdminUsersManager() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="User account types">
+        {USER_ROLE_TABS.map((tab) => (
+          <Button
+            key={tab.id}
+            type="button"
+            size="sm"
+            variant={roleTab === tab.id ? "default" : "outline"}
+            className="h-8"
+            role="tab"
+            aria-selected={roleTab === tab.id}
+            onClick={() => setRoleTab(tab.id)}
+          >
+            {tab.label}
+          </Button>
+        ))}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
@@ -499,7 +525,7 @@ export function AdminUsersManager() {
               Showing <span className="font-medium text-foreground">{rangeStart}</span>–
               <span className="font-medium text-foreground">{rangeEnd}</span> of{" "}
               <span className="font-medium text-foreground">{filteredRows.length}</span>
-              {searchQuery.trim() ? ` (of ${rows.length} total)` : ""}
+              {searchQuery.trim() ? ` (of ${rows.filter((u) => u.role === roleTab).length} in this tab)` : ""}
             </>
           )}
         </p>

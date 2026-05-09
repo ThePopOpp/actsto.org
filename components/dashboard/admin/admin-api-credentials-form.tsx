@@ -108,11 +108,11 @@ export function AdminApiCredentialsForm() {
           <strong className="text-foreground">PayPal</strong> and <strong className="text-foreground">Twilio</strong>{" "}
           live on{" "}
           <Link href="/dashboard/admin/billing" className="text-primary underline-offset-4 hover:underline">
-            Billing · PayPal
+            Payments
           </Link>{" "}
           and{" "}
           <Link href="/dashboard/admin/sms" className="text-primary underline-offset-4 hover:underline">
-            SMS · Twilio
+            Communications
           </Link>
           . Use this page for CRM, email transport, webhooks, and auxiliary API keys.
         </CardContent>
@@ -315,7 +315,7 @@ export function AdminApiCredentialsForm() {
               placeholder="Bearer token for /api/jobs/*"
             />
             <p className="text-xs text-muted-foreground">
-              In production, prefer per-provider secrets (see PayPal webhook ID on the billing page)
+              In production, prefer per-provider secrets (see PayPal webhook ID on the Payments page)
               plus this shared fallback only where a single verifier is appropriate.
             </p>
           </form>

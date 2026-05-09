@@ -109,7 +109,7 @@ export function AdminNotificationsForm() {
           </Link>{" "}
           (Resend/SMTP) and{" "}
           <Link href="/dashboard/admin/sms" className="text-primary underline-offset-4 hover:underline">
-            SMS · Twilio
+            Communications
           </Link>
           . Here you define what sends, to whom, and how fast.
         </CardContent>

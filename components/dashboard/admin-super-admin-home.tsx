@@ -59,16 +59,16 @@ const MODULE_REFERENCE: ModuleRef[] = [
     ],
   },
   {
-    title: "Billing · PayPal",
+    title: "Payments",
     href: "/dashboard/admin/billing",
-    summary: "Merchant REST credentials for sandbox and production.",
-    capabilities: ["Sandbox & live client ID + secrets", "Webhook ID", "Masked fields with reveal"],
+    summary: "PayPal donations, receipts, webhook visibility, and credentials.",
+    capabilities: ["Payments view", "Receipt status", "Webhook events", "PayPal credentials"],
   },
   {
-    title: "SMS · Twilio",
+    title: "Communications",
     href: "/dashboard/admin/sms",
-    summary: "Twilio Console credentials.",
-    capabilities: ["Account SID & auth token", "Optional messaging service SID"],
+    summary: "SMS inbox, sending workflows, templates, and Twilio credentials.",
+    capabilities: ["SMS messages", "Send SMS", "Bulk SMS", "Templates", "Twilio credentials"],
   },
   {
     title: "Inbox",
