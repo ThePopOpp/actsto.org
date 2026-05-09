@@ -79,6 +79,7 @@ export default function RegisterStudentPage() {
           lastName: form.lastName.trim(),
           phone: form.phone.trim(),
           role: "student",
+          birthDate: dob,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; redirect?: string; error?: string };

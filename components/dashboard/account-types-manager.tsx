@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2, CircleDashed, Plus, UserCog } from "lucide-r
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { dashboardPathForRole } from "@/lib/auth/paths";
 import type { PortalRole } from "@/lib/auth/types";
@@ -49,6 +50,7 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
   const [accounts, setAccounts] = useState<AccountTypeSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<PortalRole | null>(null);
+  const [studentBirthDate, setStudentBirthDate] = useState("");
   const activeCount = useMemo(() => accounts?.filter((account) => account.isActive).length ?? 0, [accounts]);
 
   async function loadAccountTypes() {
@@ -72,13 +74,17 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
   }, []);
 
   async function addRole(role: PortalRole) {
+    if (role === "student" && !studentBirthDate) {
+      setLoadError("Enter the student's date of birth to confirm they are 16 or older.");
+      return;
+    }
     setPendingRole(role);
     setLoadError(null);
     try {
       const res = await fetch("/api/auth/account-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, birthDate: role === "student" ? studentBirthDate : undefined }),
       });
       const data = (await res.json().catch(() => null)) as { redirect?: string; error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "Could not add account type.");
@@ -173,10 +179,28 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
                     )}
                   </div>
                 ) : (
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CircleDashed className="size-4" />
-                    Add this account type when this user needs access to this dashboard.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CircleDashed className="size-4" />
+                      Add this account type when this user needs access to this dashboard.
+                    </p>
+                    {account.role === "student" ? (
+                      <div className="max-w-xs space-y-2">
+                        <label htmlFor="student-birth-date" className="text-sm font-medium text-foreground">
+                          Date of birth
+                        </label>
+                        <Input
+                          id="student-birth-date"
+                          type="date"
+                          value={studentBirthDate}
+                          onChange={(event) => setStudentBirthDate(event.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Students must be 16 or older to manage their own account.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
                 )}
 
                 <div className="flex flex-wrap gap-2">

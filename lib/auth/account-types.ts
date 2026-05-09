@@ -33,6 +33,15 @@ type ProfileForCompletion = Prisma.ProfileGetPayload<{
   };
 }>;
 
+type SelfManagedStudent = {
+  firstName: string | null;
+  lastName: string | null;
+  schoolId: string | null;
+  grade: string | null;
+  birthDate: Date | null;
+  ageVerified: boolean;
+} | null;
+
 const FIELD_LABELS = {
   name: "Name",
   email: "Email",
@@ -70,13 +79,32 @@ function hasAddress(value?: {
   return !!value && hasText(value.addressLine1) && hasText(value.city) && hasText(value.state) && hasText(value.zip);
 }
 
-function fieldIsComplete(profile: ProfileForCompletion, role: PortalRole, field: keyof typeof FIELD_LABELS): boolean {
+function getAge(birthDate: Date | null | undefined): number | null {
+  if (!birthDate) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
+function fieldIsComplete(
+  profile: ProfileForCompletion,
+  role: PortalRole,
+  field: keyof typeof FIELD_LABELS,
+  selfStudent?: SelfManagedStudent
+): boolean {
   const parent = profile.parentGuardianProfile;
   const individual = profile.individualDonorProfile;
   const business = profile.businessDonorProfile;
 
   switch (field) {
     case "name":
+      if (role === "student" && selfStudent) {
+        return hasText(selfStudent.firstName) && hasText(selfStudent.lastName);
+      }
       return hasText(profile.fullName) || hasText(profile.displayName) || hasText(profile.firstName);
     case "email":
       return hasText(profile.email);
@@ -89,9 +117,9 @@ function fieldIsComplete(profile: ProfileForCompletion, role: PortalRole, field:
     case "student":
       return false;
     case "school":
-      return false;
+      return !!selfStudent?.schoolId;
     case "grade":
-      return false;
+      return hasText(selfStudent?.grade);
     case "billing":
       return hasText(profile.firstName) && hasText(profile.lastName);
     case "arizona":
@@ -109,9 +137,13 @@ function fieldIsComplete(profile: ProfileForCompletion, role: PortalRole, field:
   }
 }
 
-export function calculateAccountTypeProgress(profile: ProfileForCompletion, role: PortalRole) {
+export function calculateAccountTypeProgress(
+  profile: ProfileForCompletion,
+  role: PortalRole,
+  selfStudent?: SelfManagedStudent
+) {
   const required = REQUIRED_FIELDS[role];
-  const completed = required.filter((field) => fieldIsComplete(profile, role, field));
+  const completed = required.filter((field) => fieldIsComplete(profile, role, field, selfStudent));
   const missing = required.filter((field) => !completed.includes(field));
   const completionPercent = required.length === 0 ? 0 : Math.round((completed.length / required.length) * 100);
 
@@ -124,7 +156,11 @@ export function calculateAccountTypeProgress(profile: ProfileForCompletion, role
   };
 }
 
-export async function ensureRoleScaffold(userId: string, role: PortalRole) {
+export async function ensureRoleScaffold(
+  userId: string,
+  role: PortalRole,
+  options: { birthDate?: Date | null } = {}
+) {
   await prisma.userRoleRecord.upsert({
     where: { userId_role: { userId, role } },
     create: { userId, role, status: "active" },
@@ -149,6 +185,41 @@ export async function ensureRoleScaffold(userId: string, role: PortalRole) {
       create: { userId, profileStatus: "incomplete" },
       update: {},
     });
+  } else if (role === "student") {
+    const profile = await prisma.profile.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true, fullName: true },
+    });
+    const nameParts = (profile?.fullName ?? "").split(/\s+/).filter(Boolean);
+    const firstName = profile?.firstName ?? nameParts[0] ?? "Student";
+    const lastName = profile?.lastName ?? nameParts.slice(1).join(" ") ?? "";
+    const age = getAge(options.birthDate);
+
+    await prisma.student.upsert({
+      where: { studentUserId: userId },
+      create: {
+        parentUserId: userId,
+        studentUserId: userId,
+        firstName,
+        lastName,
+        birthDate: options.birthDate ?? null,
+        ageVerified: age !== null && age >= 16,
+        status: "active",
+        createdBy: userId,
+      },
+      update: {
+        parentUserId: userId,
+        firstName,
+        lastName,
+        ...(options.birthDate
+          ? {
+              birthDate: options.birthDate,
+              ageVerified: age !== null && age >= 16,
+            }
+          : {}),
+        status: "active",
+      },
+    });
   }
 }
 
@@ -166,7 +237,22 @@ export async function syncAccountSetupProgress(userId: string, role: PortalRole)
 
   if (!profile) return null;
 
-  const progress = calculateAccountTypeProgress(profile, role);
+  const selfStudent =
+    role === "student"
+      ? await prisma.student.findUnique({
+          where: { studentUserId: userId },
+          select: {
+            firstName: true,
+            lastName: true,
+            schoolId: true,
+            grade: true,
+            birthDate: true,
+            ageVerified: true,
+          },
+        })
+      : null;
+
+  const progress = calculateAccountTypeProgress(profile, role, selfStudent);
 
   await prisma.accountSetupProgress.upsert({
     where: { userId_role: { userId, role } },
@@ -216,9 +302,24 @@ export async function getAccountTypeSummaries(userId: string): Promise<AccountTy
   const assigned = new Set(profile.userRoles.map((row) => row.role).filter((role): role is PortalRole => {
     return (PORTAL_ROLES as readonly string[]).includes(role);
   }));
+  const selfStudent = await prisma.student.findUnique({
+    where: { studentUserId: userId },
+    select: {
+      firstName: true,
+      lastName: true,
+      schoolId: true,
+      grade: true,
+      birthDate: true,
+      ageVerified: true,
+    },
+  });
 
   return PORTAL_ROLES.map((role) => {
-    const fresh = calculateAccountTypeProgress(profile, role);
+    const fresh = calculateAccountTypeProgress(
+      profile,
+      role,
+      role === "student" ? selfStudent : null
+    );
     const isActive = assigned.has(role);
     const completionPercent = isActive ? fresh.completionPercent : 0;
     const missingFields = isActive ? fresh.missingFields : fresh.requiredFields;

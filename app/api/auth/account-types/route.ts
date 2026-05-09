@@ -18,6 +18,22 @@ function isPortalRoleStr(value: string): value is PortalRole {
   return (PORTAL_ROLES as readonly string[]).includes(value);
 }
 
+function parseBirthDate(value: unknown): Date | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function ageFromBirthDate(birthDate: Date): number {
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getUTCFullYear();
+  const monthDelta = today.getMonth() - birthDate.getUTCMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getUTCDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
 const COOKIE_OPTS = {
   httpOnly: true,
   sameSite: "lax" as const,
@@ -100,7 +116,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { userId, email, name, session } = await getRequestIdentity();
-  const body = (await request.json().catch(() => null)) as { role?: string } | null;
+  const body = (await request.json().catch(() => null)) as { role?: string; birthDate?: string } | null;
   const role = body?.role ?? "";
 
   if (!isPortalRoleStr(role)) {
@@ -113,6 +129,14 @@ export async function POST(request: Request) {
 
   if (session?.role === "super_admin") {
     return NextResponse.json({ error: "Use the admin dashboard." }, { status: 400 });
+  }
+
+  const birthDate = role === "student" ? parseBirthDate(body?.birthDate) : null;
+  if (role === "student" && (!birthDate || ageFromBirthDate(birthDate) < 16)) {
+    return NextResponse.json(
+      { error: "Students must be 16 or older to add a self-managed student account." },
+      { status: 400 }
+    );
   }
 
   let roles = session?.roles ?? [];
@@ -141,7 +165,7 @@ export async function POST(request: Request) {
       },
     });
 
-    await ensureRoleScaffold(userId, role);
+    await ensureRoleScaffold(userId, role, { birthDate });
     await syncAccountSetupProgress(userId, role);
 
     const freshRoles = await prisma.userRoleRecord.findMany({

@@ -295,6 +295,8 @@ model Student {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// auth.users UUID of the parent who created this student record
   parentUserId   String    @map("parent_user_id") @db.Uuid
+  /// auth.users UUID for a 16+ self-managed student account
+  studentUserId  String?   @unique @map("student_user_id") @db.Uuid
   schoolId       String?   @map("school_id") @db.Uuid
   firstName      String    @map("first_name")
   lastName       String?   @map("last_name")
