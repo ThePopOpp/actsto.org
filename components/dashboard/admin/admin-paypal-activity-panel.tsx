@@ -14,11 +14,13 @@ function money(value: unknown) {
 function dt(value: Date | null | undefined) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Phoenix",
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZoneName: "short",
   }).format(value);
 }
 
