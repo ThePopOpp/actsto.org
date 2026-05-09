@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -65,6 +65,8 @@ export function AdminInboxWorkspace() {
   const [messages, setMessages] = useState<InboundMessage[]>(() => [...MOCK_INBOUND_MESSAGES]);
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(MOCK_INBOUND_MESSAGES[0]?.id ?? null);
+  const [syncHint, setSyncHint] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const [recipientMode, setRecipientMode] = useState<"individual" | "group">("individual");
   const recipientOptions = useMemo(() => getComposeRecipientOptions(), []);
@@ -75,6 +77,23 @@ export function AdminInboxWorkspace() {
   const [body, setBody] = useState("");
   const [sendHint, setSendHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  async function loadInbox() {
+    try {
+      const res = await fetch("/api/admin/email/inbox", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as { messages?: InboundMessage[] } | null;
+      if (res.ok && Array.isArray(data?.messages) && data.messages.length > 0) {
+        setMessages(data.messages);
+        setSelectedId((current) => current ?? data.messages?.[0]?.id ?? null);
+      }
+    } catch {
+      // Keep demo data visible until the server inbox is configured.
+    }
+  }
+
+  useEffect(() => {
+    void loadInbox();
+  }, []);
 
   const filtered = useMemo(() => {
     return messages.filter((m) => {
@@ -127,7 +146,31 @@ export function AdminInboxWorkspace() {
     setTemplateId(id);
   }
 
-  function submitSend(e: React.FormEvent) {
+  async function syncInbox() {
+    setSyncing(true);
+    setSyncHint(null);
+    try {
+      const res = await fetch("/api/admin/email/inbox/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 25 }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        imported?: number;
+        scanned?: number;
+        error?: string;
+      } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not sync inbox.");
+      setSyncHint(`Synced ${data?.scanned ?? 0} messages; imported ${data?.imported ?? 0} new.`);
+      await loadInbox();
+    } catch (error) {
+      setSyncHint(error instanceof Error ? error.message : "Could not sync inbox.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function submitSend(e: React.FormEvent) {
     e.preventDefault();
     setSendHint(null);
     if (!subject.trim() || !body.trim()) {
@@ -142,17 +185,28 @@ export function AdminInboxWorkspace() {
       setSendHint("Choose at least one audience segment.");
       return;
     }
+    if (recipientMode === "group") {
+      setSendHint("Group sending still needs segment-backed recipients before it can send.");
+      return;
+    }
     setBusy(true);
-    window.setTimeout(() => {
+    try {
+      const res = await fetch("/api/admin/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: individualEmail, subject, text: body }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not send email.");
+      setSendHint(`Sent 1 email to ${individualEmail}.`);
+      setSubject("");
+      setBody("");
+      await loadInbox();
+    } catch (error) {
+      setSendHint(error instanceof Error ? error.message : "Could not send email.");
+    } finally {
       setBusy(false);
-      if (recipientMode === "individual") {
-        setSendHint(`Demo only: queued 1 email to ${individualEmail}. Connect ESP (e.g. FluentCRM, SendGrid) to send.`);
-      } else {
-        setSendHint(
-          `Demo only: queued broadcast to ~${estimatedGroupReach} recipients (segments overlap is not deduped in this preview).`
-        );
-      }
-    }, 450);
+    }
   }
 
   const filters: { id: InboxFilter; label: string }[] = [
@@ -182,20 +236,26 @@ export function AdminInboxWorkspace() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {filters.map((f) => (
-            <Button
-              key={f.id}
-              type="button"
-              size="sm"
-              variant={filter === f.id ? "default" : "outline"}
-              className="h-8"
-              onClick={() => setFilter(f.id)}
-            >
-              {f.label}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {filters.map((f) => (
+              <Button
+                key={f.id}
+                type="button"
+                size="sm"
+                variant={filter === f.id ? "default" : "outline"}
+                className="h-8"
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+          <Button type="button" size="sm" variant="outline" disabled={syncing} onClick={() => void syncInbox()}>
+            {syncing ? "Syncing..." : "Sync hello@actsto.org"}
+          </Button>
         </div>
+        {syncHint ? <p className="mt-2 text-sm text-muted-foreground">{syncHint}</p> : null}
 
         <Card className="mt-4 overflow-hidden border-border/80">
           <div className="grid min-h-[420px] lg:grid-cols-[minmax(0,340px)_1fr]">
@@ -539,10 +599,10 @@ export function AdminInboxWorkspace() {
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="submit" disabled={busy}>
                   <Send className="mr-2 size-4" />
-                  {busy ? "Sending…" : "Send (demo)"}
+                  {busy ? "Sending..." : "Send email"}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Bulk email must include unsubscribe handling and Arizona disclosure rules where required.
+                  Sends through server-side SMTP as hello@actsto.org when configured.
                 </p>
               </div>
             </form>

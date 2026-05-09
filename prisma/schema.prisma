@@ -893,6 +893,50 @@ model EmailLog {
   @@map("email_logs")
 }
 
+model EmailThread {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel       String   @default("email")
+  subject       String?
+  fromName      String?  @map("from_name")
+  fromEmail     String?  @map("from_email")
+  campaignSlug  String?  @map("campaign_slug")
+  campaignTitle String?  @map("campaign_title")
+  unread        Boolean  @default(true)
+  flagged       Boolean  @default(false)
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  messages EmailMessage[]
+
+  @@index([lastMessageAt])
+  @@index([fromEmail])
+  @@map("email_threads")
+}
+
+model EmailMessage {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  threadId          String    @map("thread_id") @db.Uuid
+  providerMessageId String?   @unique @map("provider_message_id")
+  direction         String    @default("inbound")
+  fromName          String?   @map("from_name")
+  fromEmail         String?   @map("from_email")
+  toEmail           String?   @map("to_email")
+  subject           String?
+  bodyText          String?   @map("body_text")
+  bodyHtml          String?   @map("body_html")
+  receivedAt        DateTime? @map("received_at")
+  sentAt            DateTime? @map("sent_at")
+  raw               Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  thread EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([receivedAt])
+  @@map("email_messages")
+}
+
 model SmsLog {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String?  @map("user_id") @db.Uuid
