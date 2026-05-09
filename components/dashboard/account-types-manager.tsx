@@ -50,7 +50,7 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
   const [accounts, setAccounts] = useState<AccountTypeSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<PortalRole | null>(null);
-  const [studentBirthDate, setStudentBirthDate] = useState("");
+  const [studentInviteToken, setStudentInviteToken] = useState("");
   const activeCount = useMemo(() => accounts?.filter((account) => account.isActive).length ?? 0, [accounts]);
 
   async function loadAccountTypes() {
@@ -74,8 +74,8 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
   }, []);
 
   async function addRole(role: PortalRole) {
-    if (role === "student" && !studentBirthDate) {
-      setLoadError("Enter the student's date of birth to confirm they are 16 or older.");
+    if (role === "student" && !studentInviteToken.trim()) {
+      setLoadError("Enter the student invite token from a parent or guardian.");
       return;
     }
     setPendingRole(role);
@@ -84,7 +84,10 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
       const res = await fetch("/api/auth/account-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, birthDate: role === "student" ? studentBirthDate : undefined }),
+        body: JSON.stringify({
+          role,
+          studentInviteToken: role === "student" ? studentInviteToken.trim() : undefined,
+        }),
       });
       const data = (await res.json().catch(() => null)) as { redirect?: string; error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "Could not add account type.");
@@ -186,17 +189,17 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
                     </p>
                     {account.role === "student" ? (
                       <div className="max-w-xs space-y-2">
-                        <label htmlFor="student-birth-date" className="text-sm font-medium text-foreground">
-                          Date of birth
+                        <label htmlFor="student-invite-token" className="text-sm font-medium text-foreground">
+                          Student invite token
                         </label>
                         <Input
-                          id="student-birth-date"
-                          type="date"
-                          value={studentBirthDate}
-                          onChange={(event) => setStudentBirthDate(event.target.value)}
+                          id="student-invite-token"
+                          value={studentInviteToken}
+                          onChange={(event) => setStudentInviteToken(event.target.value)}
+                          placeholder="Paste invite token"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Students must be 16 or older to manage their own account.
+                          Parent-created student records issue this token for students 16 or older.
                         </p>
                       </div>
                     ) : null}

@@ -42,6 +42,16 @@ type SelfManagedStudent = {
   ageVerified: boolean;
 } | null;
 
+type StudentInvite = {
+  id: string;
+  studentInviteEmail: string | null;
+  studentInviteToken: string | null;
+  studentInviteExpiresAt: Date | null;
+  studentUserId: string | null;
+  birthDate: Date | null;
+  ageVerified: boolean;
+};
+
 const FIELD_LABELS = {
   name: "Name",
   email: "Email",
@@ -158,8 +168,7 @@ export function calculateAccountTypeProgress(
 
 export async function ensureRoleScaffold(
   userId: string,
-  role: PortalRole,
-  options: { birthDate?: Date | null } = {}
+  role: PortalRole
 ) {
   await prisma.userRoleRecord.upsert({
     where: { userId_role: { userId, role } },
@@ -185,42 +194,69 @@ export async function ensureRoleScaffold(
       create: { userId, profileStatus: "incomplete" },
       update: {},
     });
-  } else if (role === "student") {
-    const profile = await prisma.profile.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true, fullName: true },
-    });
-    const nameParts = (profile?.fullName ?? "").split(/\s+/).filter(Boolean);
-    const firstName = profile?.firstName ?? nameParts[0] ?? "Student";
-    const lastName = profile?.lastName ?? nameParts.slice(1).join(" ") ?? "";
-    const age = getAge(options.birthDate);
-
-    await prisma.student.upsert({
-      where: { studentUserId: userId },
-      create: {
-        parentUserId: userId,
-        studentUserId: userId,
-        firstName,
-        lastName,
-        birthDate: options.birthDate ?? null,
-        ageVerified: age !== null && age >= 16,
-        status: "active",
-        createdBy: userId,
-      },
-      update: {
-        parentUserId: userId,
-        firstName,
-        lastName,
-        ...(options.birthDate
-          ? {
-              birthDate: options.birthDate,
-              ageVerified: age !== null && age >= 16,
-            }
-          : {}),
-        status: "active",
-      },
-    });
   }
+}
+
+export function studentIsOldEnoughForLogin(student: { birthDate: Date | null; ageVerified: boolean }) {
+  const age = getAge(student.birthDate);
+  return student.ageVerified || (age !== null && age >= 16);
+}
+
+export async function consumeStudentInvite({
+  token,
+  userId,
+  email,
+}: {
+  token: string;
+  userId: string;
+  email: string;
+}) {
+  const normalizedToken = token.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedToken) {
+    throw new Error("Student invite token is required.");
+  }
+
+  const student = await prisma.student.findFirst({
+    where: { studentInviteToken: normalizedToken },
+    select: {
+      id: true,
+      studentInviteEmail: true,
+      studentInviteToken: true,
+      studentInviteExpiresAt: true,
+      studentUserId: true,
+      birthDate: true,
+      ageVerified: true,
+    },
+  }) as StudentInvite | null;
+
+  if (!student) {
+    throw new Error("Student invite was not found.");
+  }
+  if (student.studentUserId && student.studentUserId !== userId) {
+    throw new Error("This student invite has already been accepted.");
+  }
+  if (student.studentInviteExpiresAt && student.studentInviteExpiresAt < new Date()) {
+    throw new Error("This student invite has expired.");
+  }
+  if (student.studentInviteEmail && student.studentInviteEmail.trim().toLowerCase() !== normalizedEmail) {
+    throw new Error("This invite is for a different email address.");
+  }
+  if (!studentIsOldEnoughForLogin(student)) {
+    throw new Error("Student must be 16 or older to accept a student login invite.");
+  }
+
+  await prisma.student.update({
+    where: { id: student.id },
+    data: {
+      studentUserId: userId,
+      ageVerified: true,
+      studentInviteEmail: normalizedEmail,
+      studentInviteAcceptedAt: new Date(),
+    },
+  });
+
+  return student.id;
 }
 
 export async function syncAccountSetupProgress(userId: string, role: PortalRole) {

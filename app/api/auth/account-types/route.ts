@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import {
+  consumeStudentInvite,
   ensureRoleScaffold,
   getAccountTypeSummaries,
   syncAccountSetupProgress,
@@ -16,22 +17,6 @@ import { createServerClient } from "@/lib/supabase/server";
 
 function isPortalRoleStr(value: string): value is PortalRole {
   return (PORTAL_ROLES as readonly string[]).includes(value);
-}
-
-function parseBirthDate(value: unknown): Date | null {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function ageFromBirthDate(birthDate: Date): number {
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getUTCFullYear();
-  const monthDelta = today.getMonth() - birthDate.getUTCMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getUTCDate())) {
-    age -= 1;
-  }
-  return age;
 }
 
 const COOKIE_OPTS = {
@@ -116,7 +101,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { userId, email, name, session } = await getRequestIdentity();
-  const body = (await request.json().catch(() => null)) as { role?: string; birthDate?: string } | null;
+  const body = (await request.json().catch(() => null)) as { role?: string; studentInviteToken?: string } | null;
   const role = body?.role ?? "";
 
   if (!isPortalRoleStr(role)) {
@@ -131,10 +116,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Use the admin dashboard." }, { status: 400 });
   }
 
-  const birthDate = role === "student" ? parseBirthDate(body?.birthDate) : null;
-  if (role === "student" && (!birthDate || ageFromBirthDate(birthDate) < 16)) {
+  const studentInviteToken = (body?.studentInviteToken ?? "").trim();
+  if (role === "student" && !studentInviteToken) {
     return NextResponse.json(
-      { error: "Students must be 16 or older to add a self-managed student account." },
+      { error: "Student accounts require an invite from a parent or guardian." },
       { status: 400 }
     );
   }
@@ -144,7 +129,14 @@ export async function POST(request: Request) {
   if (userId) {
     const profile = await prisma.profile.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, fullName: true, displayName: true, primaryAccountType: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        displayName: true,
+        primaryAccountType: true,
+        activeAccountType: true,
+      },
     });
 
     await prisma.profile.upsert({
@@ -165,8 +157,31 @@ export async function POST(request: Request) {
       },
     });
 
-    await ensureRoleScaffold(userId, role, { birthDate });
-    await syncAccountSetupProgress(userId, role);
+    try {
+      if (role === "student") {
+        const inviteEmail = email ?? profile?.email ?? "";
+        if (!inviteEmail) {
+          throw new Error("Could not confirm this account email.");
+        }
+        await consumeStudentInvite({ token: studentInviteToken, userId, email: inviteEmail });
+      }
+      await ensureRoleScaffold(userId, role);
+      await syncAccountSetupProgress(userId, role);
+    } catch (error) {
+      await prisma.profile.update({
+        where: { id: userId },
+        data: { activeAccountType: profile?.activeAccountType ?? profile?.primaryAccountType ?? null },
+      }).catch(() => {});
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not add this account type.",
+        },
+        { status: 400 },
+      );
+    }
 
     const freshRoles = await prisma.userRoleRecord.findMany({
       where: { userId, status: "active" },

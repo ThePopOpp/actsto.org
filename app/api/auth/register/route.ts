@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { encodeSession, SESSION_COOKIE_NAME } from "@/lib/auth/cookie";
-import { ensureRoleScaffold, syncAccountSetupProgress } from "@/lib/auth/account-types";
+import {
+  consumeStudentInvite,
+  ensureRoleScaffold,
+  syncAccountSetupProgress,
+} from "@/lib/auth/account-types";
 import { dashboardPathForRole } from "@/lib/auth/paths";
 import type { ActSession, PortalRole } from "@/lib/auth/types";
 import { PORTAL_ROLES } from "@/lib/auth/types";
@@ -38,6 +42,7 @@ export async function POST(req: Request) {
     role?: string;
     displayName?: string;
     birthDate?: string;
+    studentInviteToken?: string;
   };
 
   const email = (body.email ?? "").trim().toLowerCase();
@@ -47,10 +52,7 @@ export async function POST(req: Request) {
   const phone = (body.phone ?? "").trim() || null;
   const role = body.role ?? "";
   const displayName = (body.displayName ?? "").trim() || null;
-  const birthDate =
-    typeof body.birthDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.birthDate)
-      ? new Date(`${body.birthDate}T00:00:00.000Z`)
-      : null;
+  const studentInviteToken = (body.studentInviteToken ?? "").trim();
 
   if (!email) return NextResponse.json({ error: "Email required." }, { status: 400 });
   if (password.length < 8)
@@ -58,8 +60,11 @@ export async function POST(req: Request) {
   if (!firstName) return NextResponse.json({ error: "First name required." }, { status: 400 });
   if (!isPortalRoleStr(role))
     return NextResponse.json({ error: "Invalid account type." }, { status: 400 });
-  if (role === "student" && !birthDate) {
-    return NextResponse.json({ error: "Birth date required for student accounts." }, { status: 400 });
+  if (role === "student" && !studentInviteToken) {
+    return NextResponse.json(
+      { error: "Student accounts require an invite from a parent or guardian." },
+      { status: 400 }
+    );
   }
 
   const fullName = [firstName, lastName].filter(Boolean).join(" ");
@@ -110,10 +115,25 @@ export async function POST(req: Request) {
       },
     });
 
-    await ensureRoleScaffold(userId, role, { birthDate });
+    await ensureRoleScaffold(userId, role);
+    if (role === "student") {
+      await consumeStudentInvite({ token: studentInviteToken, userId, email });
+    }
     await syncAccountSetupProgress(userId, role);
-  } catch {
-    // DB unavailable — the trigger will create the profile asynchronously
+  } catch (error) {
+    if (role === "student") {
+      await supabase.auth.admin.deleteUser(userId).catch(() => {});
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not connect this student invite.",
+        },
+        { status: 400 },
+      );
+    }
+    // DB unavailable: the trigger will create the profile asynchronously for non-student roles.
   }
 
   // Build session and set act_session cookie for immediate dashboard access
