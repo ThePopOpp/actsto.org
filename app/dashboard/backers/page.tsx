@@ -47,9 +47,8 @@ async function getProfileId(email: string) {
   return profile?.id ?? null;
 }
 
-function backerScope(userId: string | null, role: string) {
+function backerScope(userId: string, role: string) {
   if (role === "super_admin") return {};
-  if (!userId) return { id: "__none__" };
 
   if (role === "parent") {
     return {
@@ -78,40 +77,71 @@ function backerScope(userId: string | null, role: string) {
 
 async function getBackerData(email: string, role: string) {
   const userId = await getProfileId(email);
-  const where = backerScope(userId, role);
-  const rows = await prisma.campaignBacker.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: {
-      campaign: { select: { title: true, slug: true } },
-      donation: {
-        select: {
-          status: true,
-          paymentProviderOrderId: true,
-          taxReceipts: { orderBy: { createdAt: "desc" }, take: 1, select: { receiptNumber: true } },
+  if (!userId && role !== "super_admin") {
+    return {
+      userId,
+      rows: [],
+      error: null,
+      stats: {
+        totalBackers: 0,
+        visibleTotal: 0,
+        campaignsCount: 0,
+        messageCount: 0,
+        anonymousCount: 0,
+      },
+    };
+  }
+
+  try {
+    const where = backerScope(userId ?? "", role);
+    const rows = await prisma.campaignBacker.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        campaign: { select: { title: true, slug: true } },
+        donation: {
+          select: {
+            status: true,
+            paymentProviderOrderId: true,
+            taxReceipts: { orderBy: { createdAt: "desc" }, take: 1, select: { receiptNumber: true } },
+          },
         },
       },
-    },
-  });
+    });
 
-  const campaignIds = new Set(rows.map((row) => row.campaignId));
-  const visibleRows = rows.filter((row) => row.status === "visible");
-  const visibleTotal = visibleRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
-  const messageCount = rows.filter((row) => row.message && row.showMessage).length;
-  const anonymousCount = rows.filter((row) => row.isAnonymous).length;
+    const campaignIds = new Set(rows.map((row) => row.campaignId));
+    const visibleRows = rows.filter((row) => row.status === "visible");
+    const visibleTotal = visibleRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+    const messageCount = rows.filter((row) => row.message && row.showMessage).length;
+    const anonymousCount = rows.filter((row) => row.isAnonymous).length;
 
-  return {
-    userId,
-    rows,
-    stats: {
-      totalBackers: rows.length,
-      visibleTotal,
-      campaignsCount: campaignIds.size,
-      messageCount,
-      anonymousCount,
-    },
-  };
+    return {
+      userId,
+      rows,
+      error: null,
+      stats: {
+        totalBackers: rows.length,
+        visibleTotal,
+        campaignsCount: campaignIds.size,
+        messageCount,
+        anonymousCount,
+      },
+    };
+  } catch (error) {
+    return {
+      userId,
+      rows: [],
+      error: error instanceof Error ? error.message : "Backers could not be loaded.",
+      stats: {
+        totalBackers: 0,
+        visibleTotal: 0,
+        campaignsCount: 0,
+        messageCount: 0,
+        anonymousCount: 0,
+      },
+    };
+  }
 }
 
 export default async function BackersPage() {
@@ -151,6 +181,20 @@ export default async function BackersPage() {
         <StatCard icon={ExternalLink} label="Campaigns" value={String(data.stats.campaignsCount)} />
         <StatCard icon={MessageSquare} label="Messages" value={String(data.stats.messageCount)} />
       </div>
+
+      {data.error ? (
+        <Card className="mt-6 border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="font-heading text-base text-destructive">Backers could not load</CardTitle>
+            <CardDescription>
+              The page is available, but the live backer query failed. This usually means the deployed database needs the latest schema/migration or the relation query found old data in an unexpected shape.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground">
+            {data.error}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="mt-6 overflow-hidden border-border/80">
         <CardHeader>
