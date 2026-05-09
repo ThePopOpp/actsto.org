@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
 import { createPaypalOrder } from "@/lib/paypal/client";
+import { logPaypalPaymentEvent } from "@/lib/paypal/payment-records";
 
 /**
  * POST /api/paypal/create-order
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
   // Attach session userId if logged in (optional for anonymous donations)
   const session = await getActSession().catch(() => null);
   const userId = session?.email ? await getUserIdByEmail(session.email) : null;
+  let donationId: string | null = null;
 
   try {
     // 1. Create pending Donation row
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
         },
       },
     });
+    donationId = donation.id;
 
     // 2. Create PayPal order
     const { orderId } = await createPaypalOrder(amountUsd);
@@ -84,6 +87,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ orderId, donationId: donation.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to create order.";
+    if (donationId) {
+      await prisma.donation
+        .update({
+          where: { id: donationId },
+          data: { status: "failed" },
+        })
+        .catch(() => undefined);
+      await logPaypalPaymentEvent({
+        donationId,
+        orderId: null,
+        captureId: null,
+        eventType: "CHECKOUT.ORDER.CREATE.FAILED",
+        payload: { error: msg },
+        processed: true,
+      });
+    }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

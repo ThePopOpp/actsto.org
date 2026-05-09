@@ -82,6 +82,7 @@ export function CampaignDonationDialog({
   const [paypalConfigError, setPaypalConfigError] = React.useState<string | null>(null);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
   const donationIdRef = React.useRef<string | null>(null);
+  const createOrderErrorRef = React.useRef<string | null>(null);
 
   const taxCaps = TAX_CREDIT_MAX["2026"];
 
@@ -95,6 +96,7 @@ export function CampaignDonationDialog({
         setPaypalConfigError(null);
         setPaymentError(null);
         donationIdRef.current = null;
+        createOrderErrorRef.current = null;
       }, 200);
       return () => window.clearTimeout(t);
     }
@@ -105,6 +107,7 @@ export function CampaignDonationDialog({
     setPaypalConfigError(null);
     setPaymentError(null);
     donationIdRef.current = null;
+    createOrderErrorRef.current = null;
     return undefined;
   }, [open]);
 
@@ -115,6 +118,7 @@ export function CampaignDonationDialog({
     setPaypalConfigError(null);
     setPaymentError(null);
     donationIdRef.current = null;
+    createOrderErrorRef.current = null;
 
     fetch("/api/paypal/config")
       .then((r) => r.json() as Promise<PaypalConfig & { error?: string }>)
@@ -463,6 +467,7 @@ export function CampaignDonationDialog({
                     disabled={selectedAmount <= 0}
                     createOrder={async () => {
                       setPaymentError(null);
+                      createOrderErrorRef.current = null;
                       const res = await fetch("/api/paypal/create-order", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -475,7 +480,12 @@ export function CampaignDonationDialog({
                         }),
                       });
                       const data = (await res.json()) as { orderId?: string; donationId?: string; error?: string };
-                      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to create order.");
+                      if (!res.ok || data.error) {
+                        const msg = data.error ?? "Failed to create order.";
+                        createOrderErrorRef.current = msg;
+                        setPaymentError(msg);
+                        throw new Error(msg);
+                      }
                       donationIdRef.current = data.donationId ?? null;
                       return data.orderId!;
                     }}
@@ -507,7 +517,11 @@ export function CampaignDonationDialog({
                       setPaymentError("Payment was cancelled before completion.");
                     }}
                     onError={() => {
-                      setPaymentError("Payment was cancelled or failed. Please try again.");
+                      setPaymentError(
+                        createOrderErrorRef.current ??
+                          "Payment was cancelled or failed. Please try again."
+                      );
+                      createOrderErrorRef.current = null;
                     }}
                   />
                 </PayPalScriptProvider>
