@@ -1,11 +1,93 @@
 "use client";
 
+import { useRef, useState } from "react";
+import { ImageUp } from "lucide-react";
+
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 type OnPatch = (patch: Partial<CampaignFormValues>) => void;
+
+function CampaignImageUpload({
+  label = "Click or drop files to upload",
+  multiple = false,
+  onUploaded,
+}: {
+  label?: string;
+  multiple?: boolean;
+  onUploaded: (urls: string[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function uploadFiles(files: FileList | File[]) {
+    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (images.length === 0) return;
+
+    setIsUploading(true);
+    setStatus("Uploading...");
+
+    try {
+      const uploaded: string[] = [];
+      for (const file of images) {
+        const body = new FormData();
+        body.append("file", file);
+        const res = await fetch("/api/campaign-media/upload", { method: "POST", body });
+        const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+        if (!res.ok || !data?.url) {
+          throw new Error(data?.error ?? "Upload failed.");
+        }
+        uploaded.push(data.url);
+      }
+      if (uploaded.length > 0) {
+        onUploaded(uploaded);
+        setStatus(`Uploaded ${uploaded.length} image${uploaded.length === 1 ? "" : "s"}.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed.";
+      setStatus(message);
+    } finally {
+      setIsUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="mt-1.5 flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground transition-colors hover:border-primary/60 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-wait disabled:opacity-70"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(event) => {
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          void uploadFiles(event.dataTransfer.files);
+        }}
+        disabled={isUploading}
+      >
+        <ImageUp className="size-5" aria-hidden />
+        <span>{isUploading ? "Uploading..." : label}</span>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple={multiple}
+        className="sr-only"
+        onChange={(event) => {
+          if (event.currentTarget.files) void uploadFiles(event.currentTarget.files);
+        }}
+      />
+      {status ? <p className="mt-1 text-xs text-muted-foreground">{status}</p> : null}
+    </div>
+  );
+}
 
 export function CampaignFormPanelCampaign({
   values,
@@ -55,23 +137,11 @@ export function CampaignFormPanelCampaign({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="cf-start">Campaign start date</Label>
-          <Input
-            id="cf-start"
-            type="date"
-            className="mt-1.5"
-            value={values.startDate}
-            onChange={(e) => onPatch({ startDate: e.target.value })}
-          />
+          <DatePicker id="cf-start" value={values.startDate} onChange={(startDate) => onPatch({ startDate })} />
         </div>
         <div>
           <Label htmlFor="cf-end">Campaign end date</Label>
-          <Input
-            id="cf-end"
-            type="date"
-            className="mt-1.5"
-            value={values.endDate}
-            onChange={(e) => onPatch({ endDate: e.target.value })}
-          />
+          <DatePicker id="cf-end" value={values.endDate} onChange={(endDate) => onPatch({ endDate })} />
         </div>
       </div>
       <div>
@@ -96,9 +166,7 @@ export function CampaignFormPanelCampaign({
         <p className="mt-1 text-xs text-muted-foreground">
           Or use upload when storage is connected — same layout as campaign creation.
         </p>
-        <div className="mt-1.5 flex h-32 cursor-pointer items-center justify-center rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground">
-          Click or drop files to upload
-        </div>
+        <CampaignImageUpload onUploaded={([image]) => image && onPatch({ image })} />
       </div>
       <div>
         <Label htmlFor="cf-gallery">Photo gallery (one URL per line)</Label>
@@ -109,9 +177,14 @@ export function CampaignFormPanelCampaign({
           onChange={(e) => onPatch({ galleryText: e.target.value })}
           placeholder="https://..."
         />
-        <div className="mt-1.5 flex h-32 cursor-pointer items-center justify-center rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground">
-          Click or drop files to upload
-        </div>
+        <CampaignImageUpload
+          multiple
+          onUploaded={(urls) =>
+            onPatch({
+              galleryText: [values.galleryText, ...urls].filter(Boolean).join("\n"),
+            })
+          }
+        />
       </div>
     </div>
   );
@@ -156,9 +229,7 @@ export function CampaignFormPanelParent({
       </div>
       <div>
         <Label>Parent photo</Label>
-        <div className="mt-1.5 flex h-28 cursor-pointer items-center justify-center rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground">
-          Click or drop files to upload
-        </div>
+        <CampaignImageUpload label="Click or drop parent photo to upload" onUploaded={([parentPhoto]) => parentPhoto && onPatch({ parentPhoto })} />
       </div>
     </div>
   );
@@ -249,9 +320,7 @@ export function CampaignFormPanelStudent({
       </div>
       <div>
         <Label>Student photo</Label>
-        <div className="mt-1.5 flex h-28 cursor-pointer items-center justify-center rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground">
-          Click or drop files to upload
-        </div>
+        <CampaignImageUpload label="Click or drop student photo to upload" onUploaded={([studentPhoto]) => studentPhoto && onPatch({ studentPhoto })} />
       </div>
     </div>
   );
@@ -302,9 +371,7 @@ export function CampaignFormPanelSchool({
           value={values.schoolLogo}
           onChange={(e) => onPatch({ schoolLogo: e.target.value })}
         />
-        <div className="mt-1.5 flex h-28 cursor-pointer items-center justify-center rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground">
-          Click or drop files to upload
-        </div>
+        <CampaignImageUpload label="Click or drop school logo to upload" onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })} />
       </div>
     </div>
   );

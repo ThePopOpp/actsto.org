@@ -16,7 +16,7 @@ export function AdminPageTabs<T extends string>({
   initialTab,
   children,
 }: {
-  tabs: AdminPageTab<T>[];
+  tabs: readonly AdminPageTab<T>[];
   initialTab: T;
   children: (activeTab: T) => ReactNode;
 }) {

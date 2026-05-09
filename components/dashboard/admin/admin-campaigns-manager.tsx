@@ -67,6 +67,7 @@ export function AdminCampaignsManager() {
   >({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("list");
   const [screen, setScreen] = useState<"table" | "editor">("table");
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
@@ -123,6 +124,7 @@ export function AdminCampaignsManager() {
 
   async function persistRows(next: AdminCampaignRow[]) {
     setSaveError(null);
+    setSaveNotice(null);
     try {
       const res = await fetch("/api/admin/campaigns-directory", {
         method: "PUT",
@@ -134,6 +136,7 @@ export function AdminCampaignsManager() {
         throw new Error(data?.error ?? "Failed to save campaigns.");
       }
       setRows(next);
+      setSaveNotice("Campaign changes saved and will be reflected across campaign pages and dashboards.");
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Save failed.");
       throw e;
@@ -238,6 +241,11 @@ export function AdminCampaignsManager() {
       {saveError ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           {saveError}
+        </div>
+      ) : null}
+      {saveNotice ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300">
+          {saveNotice}
         </div>
       ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

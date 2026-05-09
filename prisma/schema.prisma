@@ -97,6 +97,35 @@ model AdminIntegrationSettings {
   @@map("admin_integration_settings")
 }
 
+/// Public-site CTA blocks managed by Super Admin Site Content
+model SiteCtaBlock {
+  key              String   @id
+  placement        String
+  path             String?
+  heading          String
+  subheading       String?
+  body             String?
+  primaryLabel     String   @map("primary_label")
+  primaryUrl       String   @map("primary_url")
+  primaryVariant   String   @default("default") @map("primary_variant")
+  showSecondary    Boolean  @default(true) @map("show_secondary")
+  secondaryLabel   String?  @map("secondary_label")
+  secondaryUrl     String?  @map("secondary_url")
+  imageUrl         String?  @map("image_url")
+  imageAlt         String?  @map("image_alt")
+  bgColor          String?  @map("bg_color")
+  bgColorEnd       String?  @map("bg_color_end")
+  useGradient      Boolean  @default(false) @map("use_gradient")
+  textColor        String?  @map("text_color")
+  padding          String   @default("default")
+  visible          Boolean  @default(true)
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("site_cta_blocks")
+}
+
 // ============================================================
 // Supabase Auth profile layer
 // NOTE: Profile.id = auth.users.id (UUID). No Prisma relation

@@ -1,23 +1,23 @@
-import { MOCK_CAMPAIGNS, type Campaign } from "@/lib/campaigns";
-import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
+import type { Campaign } from "@/lib/campaigns";
+import { getSiteCampaignBySlug, getSiteCampaigns } from "@/lib/campaigns-source";
 
 const SLUGS = new Set(["waters-family-fundraiser", "leavitt-family-fundraiser"]);
 
 /** Sample campaigns shown on parent / shared-family demo dashboards. */
-export function getDemoFamilyCampaigns(): Campaign[] {
-  return MOCK_CAMPAIGNS.filter((c) => SLUGS.has(c.slug));
+export async function getDemoFamilyCampaigns(): Promise<Campaign[]> {
+  return (await getSiteCampaigns()).filter((c) => SLUGS.has(c.slug));
 }
 
 /** Single-student demo campaign (Jace Waters). */
-export function getDemoStudentCampaigns(): Campaign[] {
-  const c = MOCK_CAMPAIGNS.find((x) => x.slug === "waters-family-fundraiser");
+export async function getDemoStudentCampaigns(): Promise<Campaign[]> {
+  const c = await getSiteCampaignBySlug("waters-family-fundraiser");
   return c ? [c] : [];
 }
 
 export async function getLiveDemoFamilyCampaigns(): Promise<Campaign[]> {
-  return applyLiveCampaignDonationTotals(getDemoFamilyCampaigns());
+  return getDemoFamilyCampaigns();
 }
 
 export async function getLiveDemoStudentCampaigns(): Promise<Campaign[]> {
-  return applyLiveCampaignDonationTotals(getDemoStudentCampaigns());
+  return getDemoStudentCampaigns();
 }

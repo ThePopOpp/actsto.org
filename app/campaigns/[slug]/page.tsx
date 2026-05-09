@@ -11,11 +11,10 @@ import { CampaignPeopleSection } from "@/components/campaign/campaign-people-sec
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  getCampaignBySlug,
   getCampaignGivingLevels,
   MOCK_CAMPAIGNS,
 } from "@/lib/campaigns";
-import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
+import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +26,14 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const c = getCampaignBySlug(slug);
+  const c = await getSiteCampaignBySlug(slug);
   if (!c) return {};
   return { title: c.title };
 }
 
 export default async function CampaignDetailPage({ params }: Props) {
   const { slug } = await params;
-  const baseCampaign = getCampaignBySlug(slug);
-  const c = baseCampaign ? (await applyLiveCampaignDonationTotals([baseCampaign]))[0] : undefined;
+  const c = await getSiteCampaignBySlug(slug);
   if (!c) notFound();
 
   const pct =

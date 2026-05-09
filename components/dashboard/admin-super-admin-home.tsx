@@ -98,7 +98,7 @@ const MODULE_REFERENCE: ModuleRef[] = [
     ],
   },
   {
-    title: "Site & content",
+    title: "Site Content",
     href: "/dashboard/admin/cms",
     summary: "Marketing copy blocks without touching code.",
     capabilities: [

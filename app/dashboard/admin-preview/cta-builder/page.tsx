@@ -1,1 +1,5 @@
-export { default } from "../../admin/cta-builder/page";
+import { redirect } from "next/navigation";
+
+export default function AdminPreviewCtaBuilderPage() {
+  redirect("/dashboard/admin-preview/cms?tab=cta-blocks");
+}

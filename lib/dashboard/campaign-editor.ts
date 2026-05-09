@@ -15,6 +15,7 @@ export type CampaignFormValues = {
   parentName: string;
   parentEmail: string;
   parentPhone: string;
+  parentPhoto: string;
   studentFirstName: string;
   studentLastName: string;
   studentNickname: string;
@@ -22,6 +23,7 @@ export type CampaignFormValues = {
   studentSchool: string;
   studentIndividualGoal: string;
   studentIndividualRaised: string;
+  studentPhoto: string;
   schoolName: string;
   schoolAddress: string;
   schoolWebsite: string;
@@ -43,6 +45,7 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     parentName: "",
     parentEmail: "",
     parentPhone: "",
+    parentPhoto: "",
     studentFirstName: "",
     studentLastName: "",
     studentNickname: "",
@@ -50,6 +53,7 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     studentSchool: "",
     studentIndividualGoal: "",
     studentIndividualRaised: "",
+    studentPhoto: "",
     schoolName: "",
     schoolAddress: "",
     schoolWebsite: "",
@@ -92,7 +96,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
     school: values.studentSchool.trim() || values.schoolName.trim() || "—",
     individualGoal: indGoal > 0 ? indGoal : Math.max(500, Math.round(goal / 4) || 1000),
     individualRaised: indRaised,
-    photo: previous?.students[0]?.photo,
+    photo: values.studentPhoto.trim() || previous?.students[0]?.photo,
     avatarInitials: previous?.students[0]?.avatarInitials,
   };
 
@@ -123,7 +127,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
       name: values.parentName.trim() || "—",
       email: values.parentEmail.trim() || "",
       phone: values.parentPhone.trim() || "",
-      photo: previous?.parent.photo,
+      photo: values.parentPhoto.trim() || previous?.parent.photo,
     },
     breadcrumbCategory: previous?.breadcrumbCategory ?? "Families",
     tags: previous?.tags ?? [],
@@ -149,6 +153,7 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     parentName: c.parent.name,
     parentEmail: c.parent.email,
     parentPhone: c.parent.phone,
+    parentPhoto: c.parent.photo ?? "",
     studentFirstName: s?.firstName ?? "",
     studentLastName: s?.lastName ?? "",
     studentNickname: s?.nickname ?? "",
@@ -156,6 +161,7 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     studentSchool: s?.school ?? "",
     studentIndividualGoal: s ? String(s.individualGoal) : "",
     studentIndividualRaised: s ? String(s.individualRaised) : "",
+    studentPhoto: s?.photo ?? "",
     schoolName: c.school.name,
     schoolAddress: c.school.address,
     schoolWebsite: c.school.website,

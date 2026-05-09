@@ -4,6 +4,7 @@ import { ArrowRight, Check, CircleCheck, Star } from "lucide-react";
 import { HomeHowItWorksSplit } from "@/components/home/home-sections";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
+import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 import { cn } from "@/lib/utils";
 
 import { TaxCreditsTabs } from "./tax-credits-tabs";
@@ -60,7 +61,13 @@ const trustItems = [
   "Faith-Based & Transparent",
 ];
 
-export function HowItWorksSections() {
+export async function HowItWorksSections() {
+  const [heroCta, individualsCta, bottomCta] = await Promise.all([
+    getCtaBlockByPlacement("how_it_works_hero"),
+    getCtaBlockByPlacement("how_it_works_individuals"),
+    getCtaBlockByPlacement("how_it_works_bottom"),
+  ]);
+
   return (
     <>
       <section className="bg-primary py-14 text-primary-foreground sm:py-16">
@@ -69,10 +76,10 @@ export function HowItWorksSections() {
             Simple process
           </p>
           <h1 className="mt-3 font-heading text-3xl font-semibold sm:text-4xl md:text-[2.75rem] md:leading-tight">
-            How It Works
+            {heroCta?.heading ?? "How It Works"}
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-primary-foreground/85 sm:text-base">
-            From application to impact, we make Christian school funding straightforward and stress-free.
+            {heroCta?.subheading ?? "From application to impact, we make Christian school funding straightforward and stress-free."}
           </p>
 
           <div className="mt-12 grid gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
@@ -94,22 +101,22 @@ export function HowItWorksSections() {
 
           <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/campaigns/new"
+              href={heroCta?.primaryUrl ?? "/campaigns/new"}
               className={cn(
                 buttonVariants({ variant: "cta", size: "lg" }),
                 "min-w-[200px] border border-white/30"
               )}
             >
-              Start a campaign
+              {heroCta?.primaryLabel ?? "Start a campaign"}
             </Link>
             <Link
-              href="/campaigns"
+              href={heroCta?.secondaryUrl ?? "/campaigns"}
               className={cn(
                 buttonVariants({ variant: "outline", size: "lg" }),
                 "min-w-[200px] border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
               )}
             >
-              Donate today
+              {heroCta?.secondaryLabel ?? "Donate today"}
             </Link>
           </div>
         </div>
@@ -195,14 +202,14 @@ export function HowItWorksSections() {
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/donate/detailed" className={cn(buttonVariants({ size: "lg" }), "min-w-[180px]")}>
-              Give now
+            <Link href={individualsCta?.primaryUrl ?? "/donate/detailed"} className={cn(buttonVariants({ size: "lg" }), "min-w-[180px]")}>
+              {individualsCta?.primaryLabel ?? "Give now"}
             </Link>
             <Link
-              href="/contact"
+              href={individualsCta?.secondaryUrl ?? "/contact"}
               className={cn(buttonVariants({ variant: "outline", size: "lg" }), "min-w-[180px]")}
             >
-              Talk to our team
+              {individualsCta?.secondaryLabel ?? "Talk to our team"}
             </Link>
           </div>
         </div>
@@ -214,31 +221,32 @@ export function HowItWorksSections() {
 
       <section className="bg-primary py-14 text-primary-foreground sm:py-16">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <p className="text-xs font-semibold tracking-widest text-act-red uppercase">Join the mission</p>
+          <p className="text-xs font-semibold tracking-widest text-act-red uppercase">{bottomCta?.subheading ?? "Join the mission"}</p>
           <h2 className="mt-4 font-heading text-3xl font-semibold sm:text-4xl md:text-[2.5rem] md:leading-tight">
-            Every Gift Plants a Seed of Faith
+            {bottomCta?.heading ?? "Every Gift Plants a Seed of Faith"}
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-primary-foreground/85 sm:text-base">
-            Whether you&apos;re a family in need or a believer ready to give, Arizona Christian Tuition is the bridge between generosity and opportunity.
+            {bottomCta?.body ??
+              "Whether you're a family in need or a believer ready to give, Arizona Christian Tuition is the bridge between generosity and opportunity."}
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/campaigns"
+              href={bottomCta?.primaryUrl ?? "/campaigns"}
               className={cn(
                 buttonVariants({ variant: "cta", size: "lg" }),
                 "w-full min-w-[220px] border border-white/25 sm:w-auto"
               )}
             >
-              Donate to a campaign
+              {bottomCta?.primaryLabel ?? "Donate to a campaign"}
             </Link>
             <Link
-              href="/campaigns/new"
+              href={bottomCta?.secondaryUrl ?? "/campaigns/new"}
               className={cn(
                 buttonVariants({ variant: "outline", size: "lg" }),
                 "w-full min-w-[220px] border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto"
               )}
             >
-              Start a campaign
+              {bottomCta?.secondaryLabel ?? "Start a campaign"}
             </Link>
           </div>
           <p className="mt-12 text-xs font-semibold tracking-wide text-primary-foreground/60 uppercase">

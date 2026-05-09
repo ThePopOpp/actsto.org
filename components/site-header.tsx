@@ -30,6 +30,7 @@ import { HeaderUserMenu } from "@/components/header-user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ACT_LOGO_FULL } from "@/lib/constants";
 import type { ActSession } from "@/lib/auth/types";
+import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -270,10 +271,25 @@ function MegaColumn({ title, items }: { title: string; items: MegaItem[] }) {
   );
 }
 
-function MobileMenu({ user, onClose }: { user: ActSession | null; onClose: () => void }) {
+function MobileMenu({
+  user,
+  ctas,
+  onClose,
+}: {
+  user: ActSession | null;
+  ctas?: {
+    primary?: SiteCtaBlockData | null;
+    secondary?: SiteCtaBlockData | null;
+    mobileExtra?: SiteCtaBlockData | null;
+  };
+  onClose: () => void;
+}) {
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const primaryCta = ctas?.primary;
+  const secondaryCta = ctas?.secondary;
+  const mobileExtraCta = ctas?.mobileExtra;
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -404,19 +420,28 @@ function MobileMenu({ user, onClose }: { user: ActSession | null; onClose: () =>
                 Sign In
               </Link>
               <Link
-                href="/register"
+                href={primaryCta?.primaryUrl ?? "/register"}
                 onClick={onClose}
                 className={cn(buttonVariants({ size: "sm" }), "justify-center")}
               >
-                Get Started
+                {primaryCta?.primaryLabel ?? "Get Started"}
               </Link>
               <Link
-                href="/campaigns/new"
+                href={secondaryCta?.primaryUrl ?? "/campaigns/new"}
                 onClick={onClose}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center")}
               >
-                Start Campaign
+                {secondaryCta?.primaryLabel ?? "Start Campaign"}
               </Link>
+              {mobileExtraCta?.visible ? (
+                <Link
+                  href={mobileExtraCta.primaryUrl}
+                  onClick={onClose}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center")}
+                >
+                  {mobileExtraCta.primaryLabel}
+                </Link>
+              ) : null}
             </>
           )}
         </div>
@@ -425,8 +450,20 @@ function MobileMenu({ user, onClose }: { user: ActSession | null; onClose: () =>
   );
 }
 
-export function SiteHeader({ user }: { user: ActSession | null }) {
+export function SiteHeader({
+  user,
+  ctas,
+}: {
+  user: ActSession | null;
+  ctas?: {
+    primary?: SiteCtaBlockData | null;
+    secondary?: SiteCtaBlockData | null;
+    mobileExtra?: SiteCtaBlockData | null;
+  };
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const primaryCta = ctas?.primary;
+  const secondaryCta = ctas?.secondary;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-sm backdrop-blur-md">
@@ -483,19 +520,19 @@ export function SiteHeader({ user }: { user: ActSession | null }) {
             </Link>
           )}
           <Link
-            href="/campaigns/new"
+            href={secondaryCta?.primaryUrl ?? "/campaigns/new"}
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
               "hidden sm:inline-flex"
             )}
           >
-            Start Campaign
+            {secondaryCta?.primaryLabel ?? "Start Campaign"}
           </Link>
           <Link
-            href="/register"
+            href={primaryCta?.primaryUrl ?? "/register"}
             className={cn(buttonVariants({ size: "sm" }), "hidden sm:inline-flex")}
           >
-            Get Started
+            {primaryCta?.primaryLabel ?? "Get Started"}
           </Link>
           {user ? (
             <HeaderUserMenu session={user} />
@@ -522,7 +559,7 @@ export function SiteHeader({ user }: { user: ActSession | null }) {
       </div>
 
       {mobileOpen && (
-        <MobileMenu user={user} onClose={() => setMobileOpen(false)} />
+        <MobileMenu user={user} ctas={ctas} onClose={() => setMobileOpen(false)} />
       )}
     </header>
   );

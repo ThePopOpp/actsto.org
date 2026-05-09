@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { Campaign } from "@/lib/campaigns";
-import { getDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +29,7 @@ const MOCK_STUDENTS = [
 ];
 
 export function ParentDashboardContent({
-  campaigns = getDemoFamilyCampaigns(),
+  campaigns = [],
 }: {
   campaigns?: Campaign[];
 }) {

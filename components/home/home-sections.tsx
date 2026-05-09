@@ -13,11 +13,14 @@ import {
 
 import { HomeTaxCreditInfoModals } from "@/components/home/tax-credit-info-modals";
 import { CampaignCard } from "@/components/campaign-card";
+import { SiteCtaBlock } from "@/components/site-cta-block";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BROWSE_SCHOOL_TYPE_LABELS, MOCK_CAMPAIGNS, type Campaign } from "@/lib/campaigns";
 import { buttonVariants } from "@/lib/button-variants";
+import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
+import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 import { cn } from "@/lib/utils";
 
 const impactStats = [
@@ -202,22 +205,28 @@ export function HomeImpactStats() {
   );
 }
 
-export function HomeNewCampaigns({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
+export function HomeNewCampaigns({
+  campaigns = MOCK_CAMPAIGNS,
+  cta,
+}: {
+  campaigns?: Campaign[];
+  cta?: SiteCtaBlockData | null;
+}) {
   return (
     <section className="bg-background py-14 sm:py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          eyebrow="Active campaigns"
-          title="New Student Campaigns"
+          eyebrow={cta?.subheading ?? "Active campaigns"}
+          title={cta?.heading ?? "New Student Campaigns"}
           action={
             <Link
-              href="/campaigns/new"
+              href={cta?.primaryUrl ?? "/campaigns/new"}
               className={cn(
                 buttonVariants({ variant: "outline", size: "sm" }),
                 "border-primary text-primary hover:bg-primary/5"
               )}
             >
-              Start a Campaign
+              {cta?.primaryLabel ?? "Start a Campaign"}
             </Link>
           }
         />
@@ -481,7 +490,9 @@ export function HomeWhoWeServe() {
   );
 }
 
-export function HomePreFooterCta() {
+export function HomePreFooterCta({ cta }: { cta?: SiteCtaBlockData | null }) {
+  if (cta) return <SiteCtaBlock block={cta} darkBand />;
+
   return (
     <>
       <section
@@ -524,18 +535,23 @@ export function HomePreFooterCta() {
   );
 }
 
-export function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
+export async function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
+  const [newCampaignsCta, preFooterCta] = await Promise.all([
+    getCtaBlockByPlacement("home_new_campaigns"),
+    getCtaBlockByPlacement("home_pre_footer"),
+  ]);
+
   return (
     <>
       <HomeImpactStats />
-      <HomeNewCampaigns campaigns={campaigns} />
+      <HomeNewCampaigns campaigns={campaigns} cta={newCampaignsCta} />
       <HomeFeaturedCampaigns campaigns={campaigns} />
       <HomeBrowseSchoolTypes />
       <HomeGainingMomentum campaigns={campaigns} />
       <HomeHowTaxCreditWorks />
       <HomeHowItWorksSplit />
       <HomeWhoWeServe />
-      <HomePreFooterCta />
+      <HomePreFooterCta cta={preFooterCta} />
     </>
   );
 }

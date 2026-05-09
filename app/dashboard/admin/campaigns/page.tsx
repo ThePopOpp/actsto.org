@@ -7,7 +7,7 @@ export default function AdminCampaignsPage() {
     <>
       <AdminPageHeader
         title="Campaign management"
-        description="Create, update, and delete campaigns with the full editor (all campaign fields). List/grid views persist in-browser for preview; wire saves to your API for production."
+        description="Create, update, and delete campaigns with the full editor. Saved campaign content now feeds the public campaign pages, cards, and role dashboards."
       />
       <AdminCampaignsManager />
       <Card className="mt-6 border-border/80">

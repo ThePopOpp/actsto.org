@@ -5,6 +5,7 @@ import { ConditionalSiteChrome } from "@/components/conditional-site-chrome";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getActSession } from "@/lib/auth/session-server";
 import { ACT_FAVICON } from "@/lib/constants";
+import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 
 import "./globals.css";
 
@@ -51,7 +52,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getActSession();
+  const [user, headerPrimaryCta, headerSecondaryCta, headerMobileExtraCta] = await Promise.all([
+    getActSession(),
+    getCtaBlockByPlacement("site_header_primary"),
+    getCtaBlockByPlacement("site_header_secondary"),
+    getCtaBlockByPlacement("site_header_mobile_extra"),
+  ]);
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -59,7 +65,16 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${roboto.variable} flex min-h-full flex-col bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
-          <ConditionalSiteChrome user={user}>{children}</ConditionalSiteChrome>
+          <ConditionalSiteChrome
+            user={user}
+            headerCtas={{
+              primary: headerPrimaryCta,
+              secondary: headerSecondaryCta,
+              mobileExtra: headerMobileExtraCta,
+            }}
+          >
+            {children}
+          </ConditionalSiteChrome>
         </ThemeProvider>
       </body>
     </html>

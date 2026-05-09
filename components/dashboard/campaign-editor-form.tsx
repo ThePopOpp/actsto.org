@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
+import { formValuesToCampaign } from "@/lib/dashboard/campaign-editor";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -35,15 +36,39 @@ export function CampaignEditorForm({
   const [tab, setTab] = useState<TabId>("campaign");
   const [values, setValues] = useState<CampaignFormValues>(initial);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   function onPatch(patch: Partial<CampaignFormValues>) {
     setValues((v) => ({ ...v, ...patch }));
+    setSaved(false);
+    setError(null);
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+    setIsSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const previous = formValuesToCampaign(initial);
+      const campaign = formValuesToCampaign(values, previous);
+      const res = await fetch(`/api/campaigns/${encodeURIComponent(initial.slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaign }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to save campaign.");
+      }
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save campaign.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -72,8 +97,8 @@ export function CampaignEditorForm({
           <CardHeader className="space-y-1 pb-2">
             <CardTitle className="font-heading text-lg text-primary">Campaign details</CardTitle>
             <CardDescription>
-              Same fields as campaign creation, organized in tabs. Changes are demo-only until your API is connected.
-              Slug stays fixed for SEO and donor links.
+              Same fields as campaign creation, organized in tabs. Saved changes feed the public page, campaign cards,
+              and dashboard views.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -133,11 +158,12 @@ export function CampaignEditorForm({
 
         {saved ? (
           <p className="text-sm text-emerald-600 dark:text-emerald-400">
-            Saved locally (demo). Production saves should validate moderation rules and notify reviewers.
+            Campaign saved.
           </p>
         ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
-          <Button type="submit">Save changes</Button>
+          <Button type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save changes"}</Button>
           <Button type="button" variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             Preview (scroll top)
           </Button>

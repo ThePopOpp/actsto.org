@@ -75,7 +75,7 @@ const tiles = [
   },
   {
     href: "/dashboard/admin/cms",
-    title: "Site & content",
+    title: "Site Content",
     desc: "Pages, legal, homepage blocks",
     icon: FileText,
   },

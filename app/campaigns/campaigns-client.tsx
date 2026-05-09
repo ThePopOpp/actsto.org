@@ -18,6 +18,7 @@ import {
   type Campaign,
   type CampaignFilter,
 } from "@/lib/campaigns";
+import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 import { cn } from "@/lib/utils";
 
 const FILTERS: { id: CampaignFilter; label: string }[] = [
@@ -52,7 +53,13 @@ function useSyncedSearchParams() {
   return { replaceParams, searchParams };
 }
 
-export function CampaignsPageClient({ campaigns }: { campaigns: Campaign[] }) {
+export function CampaignsPageClient({
+  campaigns,
+  topCta,
+}: {
+  campaigns: Campaign[];
+  topCta?: SiteCtaBlockData | null;
+}) {
   const { replaceParams, searchParams } = useSyncedSearchParams();
 
   const [filter, setFilter] = useState<CampaignFilter>(() =>
@@ -112,8 +119,9 @@ export function CampaignsPageClient({ campaigns }: { campaigns: Campaign[] }) {
               Active campaigns
             </p>
             <h1 className="mt-2 font-heading text-3xl font-semibold sm:text-4xl">
-              Support a student today
+              {topCta?.heading ?? "Support a student today"}
             </h1>
+            {topCta?.body ? <p className="mt-3 max-w-2xl text-sm text-primary-foreground/75">{topCta.body}</p> : null}
           </div>
           <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3 sm:text-right">
             <div>
