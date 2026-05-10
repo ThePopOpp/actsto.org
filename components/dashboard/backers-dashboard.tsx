@@ -169,10 +169,10 @@ export async function BackersDashboard({
   const data = await getBackerData(session.email, session.role);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="w-full space-y-6">
       <Link
         href={backHref}
-        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-6 -ml-2 gap-1.5")}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 gap-1.5")}
       >
         <ArrowLeft className="size-4" />
         {backLabel}
@@ -185,7 +185,7 @@ export async function BackersDashboard({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Users} label="Backer records" value={String(data.stats.totalBackers)} />
         <StatCard icon={Heart} label="Visible support" value={money(data.stats.visibleTotal)} />
         <StatCard icon={ExternalLink} label="Campaigns" value={String(data.stats.campaignsCount)} />
@@ -193,7 +193,7 @@ export async function BackersDashboard({
       </div>
 
       {data.error ? (
-        <Card className="mt-6 border-destructive/40 bg-destructive/5">
+        <Card className="border-destructive/40 bg-destructive/5">
           <CardHeader>
             <CardTitle className="font-heading text-base text-destructive">Backers could not load</CardTitle>
             <CardDescription>
@@ -206,7 +206,7 @@ export async function BackersDashboard({
         </Card>
       ) : null}
 
-      <Card className="mt-6 overflow-hidden border-border/80">
+      <Card className="overflow-hidden border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-primary">Backer activity</CardTitle>
           <CardDescription>

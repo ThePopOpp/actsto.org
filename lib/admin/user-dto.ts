@@ -1,6 +1,7 @@
 import type { AccountStatus, Prisma, User } from "@prisma/client";
 
 import type { AdminUserSample } from "@/lib/admin/mock-users";
+import { canAccessSuperAdminDashboard } from "@/lib/auth/admin-allowlist";
 import type { UserRole } from "@/lib/auth/types";
 import { PORTAL_ROLES, type PortalRole } from "@/lib/auth/types";
 
@@ -30,7 +31,7 @@ export function prismaUserToAdminSample(
     id: u.id,
     name: u.name ?? "Unnamed user",
     email: u.email,
-    role: u.role as UserRole,
+    role: canAccessSuperAdminDashboard(u.email) ? "super_admin" : (u.role as UserRole),
     status: statusMap[u.accountStatus] ?? "active",
     lastActive: u.lastLoginAt ? formatLastActive(u.lastLoginAt) : "—",
     campaignsCount,
@@ -54,12 +55,13 @@ export function profileToAdminSample(
   profile: AdminProfile,
   campaignsCount: number
 ): AdminUserSample {
+  const isSuperAdmin = profile.isSuperAdmin || canAccessSuperAdminDashboard(profile.email);
   const roles = profile.userRoles
     .filter((role) => role.status === "active")
     .map((role) => role.role)
     .filter(isPortalRoleString);
   const activeRole =
-    profile.isSuperAdmin
+    isSuperAdmin
       ? "super_admin"
       : isPortalRoleString(profile.activeAccountType) && roles.includes(profile.activeAccountType)
         ? profile.activeAccountType
