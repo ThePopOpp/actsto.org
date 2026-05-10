@@ -544,13 +544,13 @@ export async function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?
   return (
     <>
       <HomeImpactStats />
-      <HomeNewCampaigns campaigns={campaigns} cta={newCampaignsCta} />
-      <HomeFeaturedCampaigns campaigns={campaigns} />
       <HomeBrowseSchoolTypes />
-      <HomeGainingMomentum campaigns={campaigns} />
+      <HomeNewCampaigns campaigns={campaigns} cta={newCampaignsCta} />
       <HomeHowTaxCreditWorks />
       <HomeHowItWorksSplit />
+      <HomeFeaturedCampaigns campaigns={campaigns} />
       <HomeWhoWeServe />
+      <HomeGainingMomentum campaigns={campaigns} />
       <HomePreFooterCta cta={preFooterCta} />
     </>
   );
