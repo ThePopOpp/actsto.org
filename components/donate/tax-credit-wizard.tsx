@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { ChevronRight, CreditCard } from "lucide-react";
 
 import { DonationFormStepper, StepBanner } from "@/components/donate/form-stepper";
@@ -40,10 +40,30 @@ import {
 import { cn, formatCheckoutUsd } from "@/lib/utils";
 
 type StoRow = { id: string; organization: string; amount: number };
+type PaypalConfig = { clientId: string; environment: string };
+type DonationCampaignOption = {
+  slug: string;
+  title: string;
+  campaignId: string | null;
+  studentId: string | null;
+  schoolId: string | null;
+  studentFirstName: string;
+  studentLastName: string;
+  schoolName: string;
+  grade: string;
+};
 
 const CAMP_NONE = "__none__";
 const GRADE_NONE = "__none__";
 const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
+
+function normalizeGradeValue(value: string | undefined) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (/kindergarten/i.test(trimmed)) return "K";
+  const match = /^\d+/.exec(trimmed);
+  return match?.[0] ?? trimmed;
+}
 
 function TogglePair({
   value,
@@ -435,6 +455,27 @@ export function TaxCreditWizard({
   const [campaignSlug, setCampaignSlug] = useState(
     initialCampaignSlug ?? MOCK_CAMPAIGNS[0]?.slug ?? ""
   );
+  const fallbackCampaignOptions = useMemo<DonationCampaignOption[]>(
+    () =>
+      MOCK_CAMPAIGNS.map((campaign) => {
+        const student = campaign.students[0];
+        return {
+          slug: campaign.slug,
+          title: campaign.title,
+          campaignId: null,
+          studentId: null,
+          schoolId: null,
+          studentFirstName: student?.firstName ?? "",
+          studentLastName: student?.lastName ?? "",
+          schoolName: student?.school ?? campaign.school.name,
+          grade: normalizeGradeValue(student?.gradeDisplay),
+        };
+      }),
+    []
+  );
+  const [campaignOptions, setCampaignOptions] =
+    useState<DonationCampaignOption[]>(fallbackCampaignOptions);
+  const [campaignOptionsError, setCampaignOptionsError] = useState<string | null>(null);
   const [studentFirst, setStudentFirst] = useState("");
   const [studentLast, setStudentLast] = useState("");
   const [schoolName, setSchoolName] = useState("");
@@ -460,6 +501,12 @@ export function TaxCreditWizard({
 
   /** Embedded step 4: PayPal row vs inline card form (must not call onExitFlow until checkout completes). */
   const [embedPaymentView, setEmbedPaymentView] = useState<"methods" | "card">("methods");
+  const [paypalConfig, setPaypalConfig] = useState<PaypalConfig | null>(null);
+  const [paypalConfigError, setPaypalConfigError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [taxPaymentComplete, setTaxPaymentComplete] = useState(false);
+  const donationIdRef = useRef<string | null>(null);
+  const createOrderErrorRef = useRef<string | null>(null);
 
   const otherStoTotal = useMemo(
     () => stoRows.reduce((s, r) => s + (Number.isFinite(r.amount) ? r.amount : 0), 0),
@@ -483,6 +530,10 @@ export function TaxCreditWizard({
   );
 
   const maxForSelection = getMaxForYearAndFiling(taxYear, filing);
+  const selectedCampaign = useMemo(
+    () => campaignOptions.find((campaign) => campaign.slug === campaignSlug) ?? null,
+    [campaignOptions, campaignSlug]
+  );
 
   useEffect(() => {
     if (initialCampaignSlug) setCampaignSlug(initialCampaignSlug);
@@ -491,6 +542,51 @@ export function TaxCreditWizard({
   useEffect(() => {
     if (step !== 4) setEmbedPaymentView("methods");
   }, [step]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/campaigns/donation-options")
+      .then((res) => res.json() as Promise<{ campaigns?: DonationCampaignOption[]; error?: string }>)
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data.campaigns) && data.campaigns.length > 0) {
+          setCampaignOptions(data.campaigns);
+          setCampaignOptionsError(null);
+        } else if (data.error) {
+          setCampaignOptionsError(data.error);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCampaignOptionsError("Live campaign list could not load. Showing fallback campaigns.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!designateStudent || !selectedCampaign) return;
+    setStudentFirst(selectedCampaign.studentFirstName);
+    setStudentLast(selectedCampaign.studentLastName);
+    setSchoolName(selectedCampaign.schoolName);
+    setGrade(selectedCampaign.grade);
+  }, [designateStudent, selectedCampaign]);
+
+  useEffect(() => {
+    if (step !== 4) return;
+    setPaymentError(null);
+    setPaypalConfigError(null);
+    donationIdRef.current = null;
+    createOrderErrorRef.current = null;
+
+    fetch("/api/paypal/config")
+      .then((res) => res.json() as Promise<PaypalConfig & { error?: string }>)
+      .then((data) => {
+        if (data.error) setPaypalConfigError(data.error);
+        else setPaypalConfig(data);
+      })
+      .catch(() => setPaypalConfigError("Failed to load payment options. Please try again."));
+  }, [createOrderErrorRef, donationIdRef, step]);
 
   function addStoRow() {
     setStoRows((r) => [
@@ -501,6 +597,48 @@ export function TaxCreditWizard({
 
   function removeStoRow(id: string) {
     setStoRows((r) => (r.length <= 1 ? r : r.filter((x) => x.id !== id)));
+  }
+
+  function createTaxCreditOrderPayload() {
+    return {
+      amount: donationAmount.toFixed(2),
+      donationType: "tax_credit",
+      campaignId: selectedCampaign?.campaignId ?? null,
+      campaignSlug: designateStudent ? campaignSlug || null : null,
+      campaignTitle: selectedCampaign?.title ?? null,
+      anonymous: false,
+      taxCredit: {
+        donorFirstName: firstName,
+        donorMiddleName: middleName,
+        donorLastName: lastName,
+        donorEmail: email,
+        donorPhone: phone,
+        billingAddressLine1: billingAddress,
+        billingAddressLine2: unit,
+        billingCity: city,
+        billingState: state,
+        billingZip: zip,
+        taxYear,
+        filingStatus: filing,
+        designateStudent,
+        campaignId: selectedCampaign?.campaignId ?? null,
+        campaignSlug: designateStudent ? campaignSlug || null : null,
+        campaignTitle: selectedCampaign?.title ?? null,
+        studentId: selectedCampaign?.studentId ?? null,
+        schoolId: selectedCampaign?.schoolId ?? null,
+        studentFirstName: studentFirst,
+        studentLastName: studentLast,
+        schoolName,
+        grade,
+        relationshipAck,
+        termsAccepted: terms,
+        privacyConsent: gdpr,
+        creditLimit: maxForSelection,
+        eligibleCredit: summary.eligibleCredit,
+        previousStoTotal: otherStoTotal,
+        priorActDonationsThisYear,
+      },
+    };
   }
 
   const campaignSelectValue = campaignSlug || CAMP_NONE;
@@ -718,13 +856,16 @@ export function TaxCreditWizard({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={CAMP_NONE}>Select a campaign…</SelectItem>
-                        {MOCK_CAMPAIGNS.map((c) => (
+                        {campaignOptions.map((c) => (
                           <SelectItem key={c.slug} value={c.slug}>
                             {c.title}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {campaignOptionsError ? (
+                      <p className="text-xs text-muted-foreground">{campaignOptionsError}</p>
+                    ) : null}
                   </FormField>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FormField label="Student first name">
@@ -1316,51 +1457,96 @@ export function TaxCreditWizard({
                   <p className="text-center text-sm font-medium text-foreground">
                     Complete your {formatCheckoutUsd(donationAmount)} donation via PayPal
                   </p>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="paypal"
-                      className="h-11 w-full gap-2"
-                      disabled={!terms || !gdpr}
-                      onClick={() => {
-                        /* PayPal Smart Payment Buttons in production */
+                  {paymentError ? (
+                    <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {paymentError}
+                    </p>
+                  ) : null}
+                  {taxPaymentComplete ? (
+                    <div className="rounded-lg border border-act-action/30 bg-act-action/10 p-4 text-center text-sm text-act-action">
+                      Thank you. Your tax credit donation has been received and your receipt is being generated.
+                    </div>
+                  ) : paypalConfigError ? (
+                    <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {paypalConfigError}
+                    </p>
+                  ) : paypalConfig ? (
+                    <PayPalScriptProvider
+                      options={{
+                        clientId: paypalConfig.clientId,
+                        currency: "USD",
+                        intent: "capture",
+                        components: "buttons",
                       }}
                     >
-                      <Image
-                        src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
-                        alt=""
-                        width={20}
-                        height={20}
-                        className="size-5"
-                        unoptimized
+                      <PayPalButtons
+                        style={{ layout: "vertical", shape: "rect", label: "donate" }}
+                        disabled={!terms || !gdpr || donationAmount <= 0}
+                        createOrder={async () => {
+                          setPaymentError(null);
+                          createOrderErrorRef.current = null;
+                          const res = await fetch("/api/paypal/create-order", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(createTaxCreditOrderPayload()),
+                          });
+                          const data = (await res.json()) as {
+                            orderId?: string;
+                            donationId?: string;
+                            error?: string;
+                          };
+                          if (!res.ok || data.error || !data.orderId) {
+                            const msg = data.error ?? "Failed to create tax credit donation order.";
+                            createOrderErrorRef.current = msg;
+                            setPaymentError(msg);
+                            throw new Error(msg);
+                          }
+                          donationIdRef.current = data.donationId ?? null;
+                          return data.orderId;
+                        }}
+                        onApprove={async (data) => {
+                          const res = await fetch("/api/paypal/capture-order", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              orderId: data.orderID,
+                              donationId: donationIdRef.current,
+                            }),
+                          });
+                          const json = (await res.json()) as { ok?: boolean; error?: string };
+                          if (!res.ok || json.error) {
+                            setPaymentError(json.error ?? "Payment capture failed. Please contact us.");
+                            return;
+                          }
+                          setTaxPaymentComplete(true);
+                          onExitFlow?.();
+                        }}
+                        onCancel={async (data) => {
+                          await fetch("/api/paypal/cancel-order", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              orderId: data.orderID,
+                              donationId: donationIdRef.current,
+                            }),
+                          }).catch(() => undefined);
+                          setPaymentError("Payment was cancelled before completion.");
+                        }}
+                        onError={() => {
+                          setPaymentError(
+                            createOrderErrorRef.current ?? "Payment was cancelled or failed. Please try again."
+                          );
+                          createOrderErrorRef.current = null;
+                        }}
                       />
-                      PayPal Donate
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="paypal"
-                      className="h-11 w-full gap-2"
-                      disabled={!terms || !gdpr}
-                      onClick={() => {
-                        /* PayPal Pay Later in production */
-                      }}
-                    >
-                      <span className="text-lg font-bold text-[#003087]">P</span>
-                      Pay Later
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="paypalCard"
-                      className="h-11 w-full gap-2"
-                      disabled={!terms || !gdpr}
-                      onClick={() => setEmbedPaymentView("card")}
-                    >
-                      <CreditCard className="size-5" aria-hidden />
-                      Debit or Credit Card
-                    </Button>
-                  </div>
+                    </PayPalScriptProvider>
+                  ) : (
+                    <p className="text-center text-sm text-muted-foreground">
+                      Loading payment options…
+                    </p>
+                  )}
                   <p className="text-center text-[10px] text-muted-foreground">
-                    Powered by PayPal — connect keys in production.
+                    Payments processed securely by PayPal.
                   </p>
                 </>
               ) : (
@@ -1552,14 +1738,102 @@ export function TaxCreditWizard({
 
               <LiabilityWaiverBlock />
 
-              <Button
-                type="button"
-                className="h-10 w-full text-base sm:h-11"
-                disabled={!terms || !gdpr}
-                onClick={() => onExitFlow?.()}
-              >
-                Complete donation
-              </Button>
+              <div className="space-y-3">
+                <p className="text-center text-sm font-medium text-foreground">
+                  Complete your {formatCheckoutUsd(donationAmount)} donation via PayPal
+                </p>
+                {paymentError ? (
+                  <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {paymentError}
+                  </p>
+                ) : null}
+                {taxPaymentComplete ? (
+                  <div className="rounded-lg border border-act-action/30 bg-act-action/10 p-4 text-center text-sm text-act-action">
+                    Thank you. Your tax credit donation has been received and your receipt is being generated.
+                  </div>
+                ) : paypalConfigError ? (
+                  <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {paypalConfigError}
+                  </p>
+                ) : paypalConfig ? (
+                  <PayPalScriptProvider
+                    options={{
+                      clientId: paypalConfig.clientId,
+                      currency: "USD",
+                      intent: "capture",
+                      components: "buttons",
+                    }}
+                  >
+                    <PayPalButtons
+                      style={{ layout: "vertical", shape: "rect", label: "donate" }}
+                      disabled={!terms || !gdpr || donationAmount <= 0}
+                      createOrder={async () => {
+                        setPaymentError(null);
+                        createOrderErrorRef.current = null;
+                        const res = await fetch("/api/paypal/create-order", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(createTaxCreditOrderPayload()),
+                        });
+                        const data = (await res.json()) as {
+                          orderId?: string;
+                          donationId?: string;
+                          error?: string;
+                        };
+                        if (!res.ok || data.error || !data.orderId) {
+                          const msg = data.error ?? "Failed to create tax credit donation order.";
+                          createOrderErrorRef.current = msg;
+                          setPaymentError(msg);
+                          throw new Error(msg);
+                        }
+                        donationIdRef.current = data.donationId ?? null;
+                        return data.orderId;
+                      }}
+                      onApprove={async (data) => {
+                        const res = await fetch("/api/paypal/capture-order", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            orderId: data.orderID,
+                            donationId: donationIdRef.current,
+                          }),
+                        });
+                        const json = (await res.json()) as { ok?: boolean; error?: string };
+                        if (!res.ok || json.error) {
+                          setPaymentError(json.error ?? "Payment capture failed. Please contact us.");
+                          return;
+                        }
+                        setTaxPaymentComplete(true);
+                        onExitFlow?.();
+                      }}
+                      onCancel={async (data) => {
+                        await fetch("/api/paypal/cancel-order", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            orderId: data.orderID,
+                            donationId: donationIdRef.current,
+                          }),
+                        }).catch(() => undefined);
+                        setPaymentError("Payment was cancelled before completion.");
+                      }}
+                      onError={() => {
+                        setPaymentError(
+                          createOrderErrorRef.current ?? "Payment was cancelled or failed. Please try again."
+                        );
+                        createOrderErrorRef.current = null;
+                      }}
+                    />
+                  </PayPalScriptProvider>
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground">
+                    Loading payment options…
+                  </p>
+                )}
+                <p className="text-center text-[10px] text-muted-foreground">
+                  Payments processed securely by PayPal.
+                </p>
+              </div>
             </div>
           )}
         </WizardShell>

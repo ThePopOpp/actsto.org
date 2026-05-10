@@ -109,15 +109,6 @@ export function CampaignDetailSidebar({
             Donate today
           </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full font-medium"
-            onClick={() => openDonation()}
-          >
-            Quick donation
-          </Button>
-
           <div className="flex gap-2 rounded-lg border border-sky-200/80 bg-sky-50/80 px-3 py-3 text-sm text-sky-950 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-100">
             <Check className="mt-0.5 size-4 shrink-0 text-act-action" aria-hidden />
             <p>
