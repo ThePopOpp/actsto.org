@@ -14,6 +14,7 @@ import {
   getCampaignGivingLevels,
   MOCK_CAMPAIGNS,
 } from "@/lib/campaigns";
+import { getCampaignDetailRecords } from "@/lib/campaign-detail-records";
 import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
 
 export const dynamic = "force-dynamic";
@@ -33,12 +34,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CampaignDetailPage({ params }: Props) {
   const { slug } = await params;
-  const c = await getSiteCampaignBySlug(slug);
+  const [c, detailRecords] = await Promise.all([
+    getSiteCampaignBySlug(slug),
+    getCampaignDetailRecords(slug),
+  ]);
   if (!c) notFound();
 
   const pct =
     c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://arizonachristiantuition.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.APP_URL ?? "https://actsto.org";
   const shareUrl = `${siteUrl}/campaigns/${c.slug}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`;
 
@@ -133,6 +137,9 @@ export default async function CampaignDetailPage({ params }: Props) {
               updateCount={updateCount}
               donorCount={c.donorCount}
               gallery={c.gallery}
+              updates={detailRecords.updates}
+              donors={detailRecords.donors}
+              faqs={detailRecords.faqs}
             />
           </article>
 
@@ -141,6 +148,7 @@ export default async function CampaignDetailPage({ params }: Props) {
             campaignTitle={c.title}
             schoolName={c.school.name}
             donationSubtitle={donationSubtitle}
+            shareUrl={shareUrl}
             goal={c.goal}
             raised={c.raised}
             donorCount={c.donorCount}

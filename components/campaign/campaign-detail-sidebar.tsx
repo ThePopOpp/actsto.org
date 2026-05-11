@@ -21,6 +21,7 @@ export function CampaignDetailSidebar({
   campaignTitle,
   schoolName,
   donationSubtitle,
+  shareUrl,
   goal,
   raised,
   donorCount,
@@ -35,6 +36,7 @@ export function CampaignDetailSidebar({
   schoolName: string;
   /** Shown in the tax donation dialog (e.g. “Jace Waters at Valley Christian Schools”). */
   donationSubtitle: string;
+  shareUrl: string;
   goal: number;
   raised: number;
   donorCount: number;
@@ -46,10 +48,62 @@ export function CampaignDetailSidebar({
 }) {
   const [donateOpen, setDonateOpen] = React.useState(false);
   const [preselectAmount, setPreselectAmount] = React.useState<number | undefined>();
+  const [saved, setSaved] = React.useState(false);
+  const [savePending, setSavePending] = React.useState(false);
+  const [shareLabel, setShareLabel] = React.useState("Share");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    async function loadSavedState() {
+      const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignSlug)}/saved`, {
+        cache: "no-store",
+      }).catch(() => null);
+      const data = (await res?.json().catch(() => null)) as { saved?: boolean } | null;
+      if (!cancelled) setSaved(Boolean(data?.saved));
+    }
+    void loadSavedState();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignSlug]);
 
   function openDonation(amount?: number) {
     setPreselectAmount(amount);
     setDonateOpen(true);
+  }
+
+  async function toggleSaved() {
+    setSavePending(true);
+    try {
+      const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignSlug)}/saved`, {
+        method: saved ? "DELETE" : "POST",
+      });
+      if (res.status === 401) {
+        window.location.href = `/login?next=${encodeURIComponent(`/campaigns/${campaignSlug}`)}`;
+        return;
+      }
+      const data = (await res.json().catch(() => null)) as { saved?: boolean } | null;
+      if (res.ok) setSaved(Boolean(data?.saved));
+    } finally {
+      setSavePending(false);
+    }
+  }
+
+  async function shareCampaign() {
+    const shareData = {
+      title: campaignTitle,
+      text: `Support ${campaignTitle} through Arizona Christian Tuition.`,
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      await navigator.share(shareData).catch(() => undefined);
+      return;
+    }
+
+    await navigator.clipboard?.writeText(shareUrl).catch(() => undefined);
+    setShareLabel("Copied link");
+    window.setTimeout(() => setShareLabel("Share"), 2200);
   }
 
   return (
@@ -119,13 +173,25 @@ export function CampaignDetailSidebar({
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant="outline" className="h-10 w-full gap-2 font-medium">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full gap-2 font-medium"
+              onClick={() => void toggleSaved()}
+              disabled={savePending}
+              aria-pressed={saved}
+            >
               <Heart className="size-4" />
-              Save
+              {saved ? "Saved" : "Save"}
             </Button>
-            <Button type="button" variant="outline" className="h-10 w-full gap-2 font-medium">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full gap-2 font-medium"
+              onClick={() => void shareCampaign()}
+            >
               <Share2 className="size-4" />
-              Share
+              {shareLabel}
             </Button>
           </div>
 
@@ -193,14 +259,34 @@ export function CampaignDetailSidebar({
           </div>
           <div className="flex justify-center gap-3 text-muted-foreground">
             <span className="sr-only">Social share</span>
-            {["Facebook", "X", "LinkedIn", "Email"].map((x) => (
-              <button
-                key={x}
-                type="button"
+            {[
+              {
+                label: "Facebook",
+                href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+              },
+              {
+                label: "X",
+                href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(campaignTitle)}`,
+              },
+              {
+                label: "LinkedIn",
+                href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+              },
+              {
+                label: "Email",
+                href: `mailto:?subject=${encodeURIComponent(campaignTitle)}&body=${encodeURIComponent(`Support this campaign: ${shareUrl}`)}`,
+              },
+            ].map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                target={item.label === "Email" ? undefined : "_blank"}
+                rel={item.label === "Email" ? undefined : "noreferrer"}
                 className="text-xs underline-offset-2 hover:text-foreground hover:underline"
+                aria-label={`Share on ${item.label}`}
               >
-                {x.slice(0, 1)}
-              </button>
+                {item.label.slice(0, 1)}
+              </a>
             ))}
           </div>
         </CardContent>

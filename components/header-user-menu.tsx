@@ -109,7 +109,7 @@ export function HeaderUserMenu({ session }: { session: ActSession }) {
             Campaigns
           </MenuRow>
           <MenuRow href="/dashboard/backers" icon={<Users className="size-4" strokeWidth={1.5} />}>
-            Backers
+            Donors
           </MenuRow>
           <MenuRow
             href={notificationsHref(session.role)}

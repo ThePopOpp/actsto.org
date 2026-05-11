@@ -563,6 +563,17 @@ model CampaignBacker {
   @@map("campaign_backers")
 }
 
+model SavedCampaign {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  campaignSlug String   @map("campaign_slug")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, campaignSlug])
+  @@index([campaignSlug])
+  @@map("saved_campaigns")
+}
+
 model CampaignComment {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   campaignId      String    @map("campaign_id") @db.Uuid

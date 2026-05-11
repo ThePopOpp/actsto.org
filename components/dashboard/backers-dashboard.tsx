@@ -129,7 +129,7 @@ async function getBackerData(email: string, role: string) {
   } catch (error) {
     return {
       rows: [],
-      error: error instanceof Error ? error.message : "Backers could not be loaded.",
+      error: error instanceof Error ? error.message : "Donors could not be loaded.",
       stats: {
         totalBackers: 0,
         visibleTotal: 0,
@@ -142,17 +142,17 @@ async function getBackerData(email: string, role: string) {
 }
 
 function titleForRole(role: string) {
-  if (role === "super_admin") return "Campaign backers";
+  if (role === "super_admin") return "Campaign donors";
   if (role === "donor_individual" || role === "donor_business") return "Campaigns you backed";
-  return "Backers";
+  return "Donors";
 }
 
 function descriptionForRole(role: string) {
   if (role === "super_admin") {
-    return "All paid campaign donation activity connected to campaign backer records, receipts, and donor visibility settings.";
+    return "All paid campaign donation activity connected to donor records, receipts, and donor visibility settings.";
   }
   if (role === "parent") {
-    return "Backers connected to the campaigns you manage and the students linked to your parent account.";
+    return "Donors connected to the campaigns you manage and the students linked to your parent account.";
   }
   return "Paid campaign donation activity connected to your account.";
 }
@@ -186,7 +186,7 @@ export async function BackersDashboard({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Users} label="Backer records" value={String(data.stats.totalBackers)} />
+        <StatCard icon={Users} label="Donor records" value={String(data.stats.totalBackers)} />
         <StatCard icon={Heart} label="Visible support" value={money(data.stats.visibleTotal)} />
         <StatCard icon={ExternalLink} label="Campaigns" value={String(data.stats.campaignsCount)} />
         <StatCard icon={MessageSquare} label="Messages" value={String(data.stats.messageCount)} />
@@ -195,9 +195,9 @@ export async function BackersDashboard({
       {data.error ? (
         <Card className="border-destructive/40 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="font-heading text-base text-destructive">Backers could not load</CardTitle>
+            <CardTitle className="font-heading text-base text-destructive">Donors could not load</CardTitle>
             <CardDescription>
-              The page is available, but the live backer query failed. This usually means the deployed
+              The page is available, but the live donor query failed. This usually means the deployed
               database needs the latest schema/migration or the relation query found old data in an
               unexpected shape.
             </CardDescription>
@@ -208,9 +208,9 @@ export async function BackersDashboard({
 
       <Card className="overflow-hidden border-border/80">
         <CardHeader>
-          <CardTitle className="font-heading text-primary">Backer activity</CardTitle>
+          <CardTitle className="font-heading text-primary">Donor activity</CardTitle>
           <CardDescription>
-            {data.stats.anonymousCount} anonymous backer{data.stats.anonymousCount === 1 ? "" : "s"} included.
+            {data.stats.anonymousCount} anonymous donor{data.stats.anonymousCount === 1 ? "" : "s"} included.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -219,7 +219,7 @@ export async function BackersDashboard({
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase text-muted-foreground">
                   <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Backer</th>
+                  <th className="px-4 py-3">Donor</th>
                   <th className="px-4 py-3">Campaign</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Payment</th>
@@ -262,7 +262,7 @@ export async function BackersDashboard({
                 ) : (
                   <tr>
                     <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                      No campaign backer activity is connected to this account yet.
+                      No campaign donor activity is connected to this account yet.
                     </td>
                   </tr>
                 )}

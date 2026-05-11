@@ -43,7 +43,7 @@ const nav = [
   { href: "/dashboard/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
-  { href: "/dashboard/admin/backers", label: "Backers", icon: UserRoundCheck },
+  { href: "/dashboard/admin/backers", label: "Donors", icon: UserRoundCheck },
   { href: "/dashboard/admin/credentials", label: "API & credentials", icon: KeyRound },
   { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/dashboard/admin/billing", label: "Payments", icon: CreditCard },

@@ -38,7 +38,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
   const messages = { href: `${b}/messages`, label: "Messages", icon: Mail };
   const notifications = { href: `${b}/notifications`, label: "Notifications", icon: Bell };
   const receipts = { href: `${b}/receipts`, label: "Receipts & tax", icon: Receipt };
-  const backers = { href: `${b}/backers`, label: "Backers", icon: Users };
+  const backers = { href: `${b}/backers`, label: "Donors", icon: Users };
 
   switch (role) {
     case "parent":

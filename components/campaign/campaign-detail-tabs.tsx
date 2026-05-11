@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import Image from "next/image";
+
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type { CampaignStorySection } from "@/lib/campaigns";
+import type {
+  CampaignDonorItem,
+  CampaignFaqItem,
+  CampaignUpdateItem,
+} from "@/lib/campaign-detail-record-types";
+import { cn } from "@/lib/utils";
 
 type TabId = "story" | "updates" | "donors" | "faq";
 
@@ -14,12 +20,18 @@ export function CampaignDetailTabs({
   updateCount,
   donorCount,
   gallery,
+  updates,
+  donors,
+  faqs,
 }: {
   storySections: CampaignStorySection[];
   description: string;
   updateCount: number;
   donorCount: number;
   gallery: string[];
+  updates: CampaignUpdateItem[];
+  donors: CampaignDonorItem[];
+  faqs: CampaignFaqItem[];
 }) {
   const [tab, setTab] = useState<TabId>("story");
 
@@ -52,7 +64,7 @@ export function CampaignDetailTabs({
               "relative -mb-px flex items-center gap-2 border-b-[3px] border-transparent px-3 py-3.5 text-sm font-medium transition-colors sm:px-4",
               tab === id
                 ? "border-act-action text-primary"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
             onClick={() => setTab(id)}
           >
@@ -91,54 +103,112 @@ export function CampaignDetailTabs({
         )}
 
         {tab === "updates" && (
-          <div className="space-y-4 text-muted-foreground">
-            <p className="text-sm leading-relaxed">
-              Campaign updates will appear here when the organizer posts news, photos, or thank-you
-              notes.
-            </p>
-            {updateCount > 0 ? (
-              <p className="text-sm font-medium text-foreground">
-                {updateCount} update{updateCount === 1 ? "" : "s"} — content wiring can connect to
-                your CMS.
+          <div className="space-y-5">
+            {updates.length > 0 ? (
+              updates.map((update) => (
+                <article key={update.id} className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {formatDate(update.publishedAt)}
+                  </p>
+                  <h3 className="mt-2 font-heading text-lg font-semibold text-primary">{update.title}</h3>
+                  {update.body ? (
+                    <p className="mt-2 leading-relaxed text-muted-foreground">{update.body}</p>
+                  ) : null}
+                </article>
+              ))
+            ) : updateCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {updateCount} update{updateCount === 1 ? "" : "s"} recorded. Published update content
+                will appear here once approved.
               </p>
             ) : (
-              <p className="text-sm">No updates yet.</p>
+              <p className="text-sm text-muted-foreground">No updates yet.</p>
             )}
           </div>
         )}
 
         {tab === "donors" && (
-          <div className="space-y-3 text-muted-foreground">
-            <p className="text-sm leading-relaxed">
-              Thank you to everyone who has given. Donor rolls can respect anonymity settings when you
-              connect your database.
-            </p>
+          <div className="space-y-4">
             <p className="text-sm font-medium text-foreground">
               {donorCount.toLocaleString()} donor{donorCount === 1 ? "" : "s"} so far
             </p>
+            {donors.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {donors.map((donor) => (
+                  <div key={donor.id} className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-foreground">{donor.displayName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatDate(donor.createdAt)}</p>
+                      </div>
+                      {donor.showAmount && donor.amount != null ? (
+                        <p className="font-heading font-semibold tabular-nums text-primary">
+                          {formatMoney(donor.amount)}
+                        </p>
+                      ) : null}
+                    </div>
+                    {donor.message ? (
+                      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{donor.message}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Donor names and messages will appear here when paid campaign gifts are marked visible.
+              </p>
+            )}
           </div>
         )}
 
         {tab === "faq" && (
           <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
-            <p>
-              <strong className="text-foreground">Is my gift a tax credit?</strong> Qualified Arizona
-              private school tax-credit contributions may reduce your state tax liability dollar for
-              dollar within annual limits. Consult a tax professional for your situation.
-            </p>
-            <p>
-              <strong className="text-foreground">Can I recommend a student?</strong> You may
-              express a recommendation; scholarships must comply with state law and cannot be
-              directed to benefit your own dependents.
-            </p>
-            <p>
-              <strong className="text-foreground">Who receives my donation?</strong> Gifts are made
-              to the tuition organization for scholarship awards; this page is a family fundraising
-              campaign.
-            </p>
+            {faqs.length > 0 ? (
+              faqs.map((faq) => (
+                <p key={faq.id}>
+                  <strong className="text-foreground">{faq.question}</strong> {faq.answer}
+                </p>
+              ))
+            ) : (
+              <>
+                <p>
+                  <strong className="text-foreground">Is my gift a tax credit?</strong> Qualified Arizona
+                  private school tax-credit contributions may reduce your state tax liability dollar for
+                  dollar within annual limits. Consult a tax professional for your situation.
+                </p>
+                <p>
+                  <strong className="text-foreground">Can I recommend a student?</strong> You may
+                  express a recommendation; scholarships must comply with state law and cannot be
+                  directed to benefit your own dependents.
+                </p>
+                <p>
+                  <strong className="text-foreground">Who receives my donation?</strong> Gifts are made
+                  to the tuition organization for scholarship awards; this page is a family fundraising
+                  campaign.
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "Update";
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Phoenix",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
