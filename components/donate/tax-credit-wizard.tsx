@@ -33,8 +33,9 @@ import {
   getMaxForYearAndFiling,
   getOriginalOverflowForYear,
   summarizeTaxCredit,
-  TAX_CREDIT_MAX,
+  DEFAULT_TAX_CREDIT_LIMITS,
   type FilingStatus,
+  type TaxCreditLimitConfig,
   type TaxYear,
 } from "@/lib/tax-credit";
 import { cn, formatCheckoutUsd } from "@/lib/utils";
@@ -326,11 +327,13 @@ function TaxCreditBreakdownCard({
 function TaxCreditLimitsSummaryCard({
   taxYear,
   filing,
+  taxLimits,
 }: {
   taxYear: TaxYear;
   filing: FilingStatus;
+  taxLimits: TaxCreditLimitConfig;
 }) {
-  const caps = getOriginalOverflowForYear(taxYear);
+  const caps = getOriginalOverflowForYear(taxYear, taxLimits);
   const row = filing === "single" ? caps.single : caps.married;
   const filingLabel = filing === "single" ? "Single Taxpayer" : "Married Filing Jointly";
 
@@ -439,17 +442,18 @@ export function TaxCreditWizard({
   onExitFlow?: () => void;
 } = {}) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [taxLimits, setTaxLimits] = useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
 
-  const [firstName, setFirstName] = useState("Jeremy");
+  const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
-  const [lastName, setLastName] = useState("Waters");
-  const [billingAddress, setBillingAddress] = useState("3605 W Harrison St");
+  const [lastName, setLastName] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
   const [unit, setUnit] = useState("");
-  const [city, setCity] = useState("Chandler");
+  const [city, setCity] = useState("");
   const [state, setState] = useState("AZ");
-  const [zip, setZip] = useState("85226");
-  const [email, setEmail] = useState("jwaters@qallus.co");
-  const [phone, setPhone] = useState("+1 (480) 352-7598");
+  const [zip, setZip] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   const [designateStudent, setDesignateStudent] = useState(!embedInDialog);
   const [campaignSlug, setCampaignSlug] = useState(
@@ -525,11 +529,12 @@ export function TaxCreditWizard({
         otherStoTotal,
         priorActDonationsThisYear,
         actDonation: donationAmount,
+        limits: taxLimits,
       }),
-    [donationAmount, filing, otherStoTotal, priorActDonationsThisYear, taxYear]
+    [donationAmount, filing, otherStoTotal, priorActDonationsThisYear, taxLimits, taxYear]
   );
 
-  const maxForSelection = getMaxForYearAndFiling(taxYear, filing);
+  const maxForSelection = getMaxForYearAndFiling(taxYear, filing, taxLimits);
   const selectedCampaign = useMemo(
     () => campaignOptions.find((campaign) => campaign.slug === campaignSlug) ?? null,
     [campaignOptions, campaignSlug]
@@ -538,6 +543,19 @@ export function TaxCreditWizard({
   useEffect(() => {
     if (initialCampaignSlug) setCampaignSlug(initialCampaignSlug);
   }, [initialCampaignSlug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tax-credit-limits")
+      .then((res) => res.json() as Promise<{ limits?: TaxCreditLimitConfig }>)
+      .then((data) => {
+        if (!cancelled && data.limits) setTaxLimits(data.limits);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (step !== 4) setEmbedPaymentView("methods");
@@ -917,8 +935,8 @@ export function TaxCreditWizard({
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                 <ChoiceLegend>Tax year {taxYear}</ChoiceLegend>
                 <span className="text-muted-foreground">
-                  Single {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].single)} · Married{" "}
-                  {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].married)}
+                  Single {formatCheckoutUsd(taxLimits[taxYear].single.combined)} · Married{" "}
+                  {formatCheckoutUsd(taxLimits[taxYear].married.combined)}
                 </span>
               </div>
               <TogglePair
@@ -936,11 +954,11 @@ export function TaxCreditWizard({
               <p className="text-sm text-muted-foreground">
                 Annual credit limit — Single{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].single)}
+                  {formatCheckoutUsd(taxLimits[taxYear].single.combined)}
                 </span>{" "}
                 · Married{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  {formatCheckoutUsd(TAX_CREDIT_MAX[taxYear].married)}
+                  {formatCheckoutUsd(taxLimits[taxYear].married.combined)}
                 </span>
               </p>
               <ChoiceLegend>Select Your Tax Filing Status</ChoiceLegend>
@@ -1425,7 +1443,7 @@ export function TaxCreditWizard({
                 futureCarryForward={summary.futureCarryForward}
               />
 
-              <TaxCreditLimitsSummaryCard taxYear={taxYear} filing={filing} />
+              <TaxCreditLimitsSummaryCard taxYear={taxYear} filing={filing} taxLimits={taxLimits} />
 
               <p className="text-center text-muted-foreground">
                 Please review your donation information above before completing.
@@ -1714,7 +1732,7 @@ export function TaxCreditWizard({
                 futureCarryForward={summary.futureCarryForward}
               />
 
-              <TaxCreditLimitsSummaryCard taxYear={taxYear} filing={filing} />
+              <TaxCreditLimitsSummaryCard taxYear={taxYear} filing={filing} taxLimits={taxLimits} />
 
               <Alert>
                 <AlertDescription>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Building2, ChevronLeft, Eye, EyeOff, User } from "lucide-react";
@@ -12,12 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
+import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 
 export default function RegisterDonorPage() {
   const [showPw, setShowPw] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [taxLimits, setTaxLimits] = useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -32,6 +34,19 @@ export default function RegisterDonorPage() {
   function set(field: keyof typeof form, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tax-credit-limits")
+      .then((res) => res.json() as Promise<{ limits?: TaxCreditLimitConfig }>)
+      .then((data) => {
+        if (!cancelled && data.limits) setTaxLimits(data.limits);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit() {
     setError(null);
@@ -182,7 +197,8 @@ export default function RegisterDonorPage() {
               <Building2 className="mt-0.5 size-5 shrink-0" />
               <p>
                 Arizona tax credit: As an individual donor you may contribute up to{" "}
-                <strong>$1,459 (single)</strong> or <strong>$2,918 (married filing jointly)</strong>{" "}
+                <strong>${taxLimits["2026"].single.combined.toLocaleString()} (single)</strong> or{" "}
+                <strong>${taxLimits["2026"].married.combined.toLocaleString()} (married filing jointly)</strong>{" "}
                 — confirm current-year amounts with a tax advisor.
               </p>
             </div>

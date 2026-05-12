@@ -5,6 +5,7 @@ import { HomeHowItWorksSplit } from "@/components/home/home-sections";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
+import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 import { cn } from "@/lib/utils";
 
 import { TaxCreditsTabs } from "./tax-credits-tabs";
@@ -62,11 +63,14 @@ const trustItems = [
 ];
 
 export async function HowItWorksSections() {
-  const [heroCta, individualsCta, bottomCta] = await Promise.all([
+  const [heroCta, individualsCta, bottomCta, taxLimits] = await Promise.all([
     getCtaBlockByPlacement("how_it_works_hero"),
     getCtaBlockByPlacement("how_it_works_individuals"),
     getCtaBlockByPlacement("how_it_works_bottom"),
+    getTaxCreditLimitConfig(),
   ]);
+  const currentTaxYear = "2026";
+  const currentLimits = taxLimits[currentTaxYear];
 
   return (
     <>
@@ -172,18 +176,30 @@ export async function HowItWorksSections() {
               <tbody className="text-foreground">
                 <tr className="border-t border-border">
                   <td className="px-4 py-3 font-medium">Original credit max</td>
-                  <td className="px-4 py-3 font-semibold tabular-nums">$769</td>
-                  <td className="px-4 py-3 font-semibold tabular-nums">$1,535</td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">
+                    ${currentLimits.single.original.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">
+                    ${currentLimits.married.original.toLocaleString()}
+                  </td>
                 </tr>
                 <tr className="border-t border-border">
                   <td className="px-4 py-3 font-medium">Overflow max</td>
-                  <td className="px-4 py-3 font-semibold tabular-nums">$766</td>
-                  <td className="px-4 py-3 font-semibold tabular-nums">$1,527</td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">
+                    ${currentLimits.single.overflow.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">
+                    ${currentLimits.married.overflow.toLocaleString()}
+                  </td>
                 </tr>
                 <tr className="border-t border-border bg-muted/40">
                   <td className="px-4 py-3 font-semibold">Tuition credits max</td>
-                  <td className="px-4 py-3 font-bold tabular-nums">$1,535</td>
-                  <td className="px-4 py-3 font-bold tabular-nums">$3,062</td>
+                  <td className="px-4 py-3 font-bold tabular-nums">
+                    ${currentLimits.single.combined.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 font-bold tabular-nums">
+                    ${currentLimits.married.combined.toLocaleString()}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -217,7 +233,7 @@ export async function HowItWorksSections() {
 
       <TaxCreditsTabs />
 
-      <HomeHowItWorksSplit />
+      <HomeHowItWorksSplit taxLimits={taxLimits} />
 
       <section className="bg-primary py-14 text-primary-foreground sm:py-16">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">

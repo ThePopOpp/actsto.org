@@ -26,7 +26,6 @@ function LoginFormInner() {
   const requestedRole = roleParam && ROLES.includes(roleParam) ? roleParam : undefined;
 
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,7 +41,7 @@ function LoginFormInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          name: name || email.split("@")[0],
+          name: email.split("@")[0],
           password,
           role: requestedRole,
           next: nextFromUrl || undefined,
@@ -86,17 +85,6 @@ function LoginFormInner() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-            />
-          </div>
-          <div>
-            <Label htmlFor="name">Display name (optional)</Label>
-            <Input
-              id="name"
-              className="mt-1.5"
-              autoComplete="off"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="First name or organization"
             />
           </div>
           <div>

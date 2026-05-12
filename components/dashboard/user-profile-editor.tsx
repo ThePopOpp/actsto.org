@@ -259,22 +259,41 @@ export function UserProfileEditor({
                 </SelectContent>
               </Select>
             </div>
-            <div className="sm:col-span-2">
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80">
+          <CardHeader>
+            <CardTitle className="font-heading text-lg text-primary">Address</CardTitle>
+            <CardDescription>
+              Used for donation receipts, tax-credit records, and account correspondence.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-6">
+            <div className="sm:col-span-6">
               <Label htmlFor="dp-addr">Street address</Label>
               <Input id="dp-addr" className="mt-1.5" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
-            <div>
+            <div className="sm:col-span-3">
               <Label htmlFor="dp-city">City</Label>
               <Input id="dp-city" className="mt-1.5" value={city} onChange={(e) => setCity(e.target.value)} />
             </div>
-            <div>
+            <div className="sm:col-span-1">
               <Label htmlFor="dp-state">State</Label>
               <Input id="dp-state" className="mt-1.5" value={state} onChange={(e) => setState(e.target.value)} />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <Label htmlFor="dp-zip">ZIP</Label>
               <Input id="dp-zip" className="mt-1.5" value={zip} onChange={(e) => setZip(e.target.value)} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80">
+          <CardHeader>
+            <CardTitle className="font-heading text-lg text-primary">Story</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="sm:col-span-2">
               <Label htmlFor="dp-bio">Short bio (optional)</Label>
               <Textarea

@@ -1,69 +1,59 @@
 export type TaxYear = "2025" | "2026";
 export type FilingStatus = "single" | "married";
+export type TaxCreditLimitConfig = Record<TaxYear, {
+  single: { original: number; overflow: number; combined: number };
+  married: { original: number; overflow: number; combined: number };
+}>;
 
 /** Statutory-style caps for UI; confirm annually with legal / AZ DOR guidance. */
 export const TAX_CREDIT_MAX: Record<
   TaxYear,
   { single: number; married: number }
 > = {
-  "2025": { single: 1459, married: 2918 },
+  "2025": { single: 1535, married: 3062 },
   "2026": { single: 1571, married: 3131 },
 };
 
-export function getMaxForYearAndFiling(
-  taxYear: TaxYear,
-  filing: FilingStatus
-): number {
-  const row = TAX_CREDIT_MAX[taxYear];
-  return filing === "single" ? row.single : row.married;
-}
+export const DEFAULT_TAX_CREDIT_LIMITS: TaxCreditLimitConfig = {
+  "2025": {
+    single: { original: 769, overflow: 766, combined: 1535 },
+    married: { original: 1535, overflow: 1527, combined: 3062 },
+  },
+  "2026": {
+    single: { original: 787, overflow: 784, combined: 1571 },
+    married: { original: 1570, overflow: 1561, combined: 3131 },
+  },
+};
 
-/** 2026 statutory-style original / overflow split (sums to TAX_CREDIT_MAX["2026"]). */
-const ORIGINAL_OVERFLOW_2026 = {
-  single: { original: 787, overflow: 784 },
-  married: { original: 1570, overflow: 1561 },
-} as const;
-
-/**
- * Original vs overflow caps for a tax year (each column sums to TAX_CREDIT_MAX for that year).
- * 2026 uses published-style splits; 2025 is derived with the same ratios so totals match our caps.
- */
-export function getOriginalOverflowForYear(taxYear: TaxYear): {
-  single: { original: number; overflow: number; combined: number };
-  married: { original: number; overflow: number; combined: number };
-} {
-  if (taxYear === "2026") {
-    const max = TAX_CREDIT_MAX["2026"];
-    return {
-      single: {
-        original: ORIGINAL_OVERFLOW_2026.single.original,
-        overflow: ORIGINAL_OVERFLOW_2026.single.overflow,
-        combined: max.single,
-      },
-      married: {
-        original: ORIGINAL_OVERFLOW_2026.married.original,
-        overflow: ORIGINAL_OVERFLOW_2026.married.overflow,
-        combined: max.married,
-      },
-    };
-  }
-  const max = TAX_CREDIT_MAX["2025"];
-  const rSingle = ORIGINAL_OVERFLOW_2026.single.original / TAX_CREDIT_MAX["2026"].single;
-  const rMarried = ORIGINAL_OVERFLOW_2026.married.original / TAX_CREDIT_MAX["2026"].married;
-  const singleOriginal = Math.round(rSingle * max.single);
-  const marriedOriginal = Math.round(rMarried * max.married);
+export function combinedLimitsFromConfig(
+  limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
+): Record<TaxYear, { single: number; married: number }> {
   return {
-    single: {
-      original: singleOriginal,
-      overflow: max.single - singleOriginal,
-      combined: max.single,
+    "2025": {
+      single: limits["2025"].single.combined,
+      married: limits["2025"].married.combined,
     },
-    married: {
-      original: marriedOriginal,
-      overflow: max.married - marriedOriginal,
-      combined: max.married,
+    "2026": {
+      single: limits["2026"].single.combined,
+      married: limits["2026"].married.combined,
     },
   };
+}
+
+export function getMaxForYearAndFiling(
+  taxYear: TaxYear,
+  filing: FilingStatus,
+  limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
+): number {
+  return limits[taxYear][filing].combined;
+}
+
+/** Original vs overflow caps for a tax year. */
+export function getOriginalOverflowForYear(
+  taxYear: TaxYear,
+  limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
+) {
+  return limits[taxYear];
 }
 
 /**
@@ -77,8 +67,9 @@ export function summarizeTaxCredit(args: {
   /** Gifts to this ACT toward the same credit already made this tax year */
   priorActDonationsThisYear?: number;
   actDonation: number;
+  limits?: TaxCreditLimitConfig;
 }) {
-  const max = getMaxForYearAndFiling(args.taxYear, args.filing);
+  const max = getMaxForYearAndFiling(args.taxYear, args.filing, args.limits);
   const other = Math.max(0, args.otherStoTotal);
   const priorAct = Math.max(0, args.priorActDonationsThisYear ?? 0);
   const usedTowardCap = other + priorAct;

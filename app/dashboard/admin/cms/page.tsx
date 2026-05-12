@@ -7,7 +7,8 @@ export default async function AdminCmsPage({
   searchParams?: Promise<{ tab?: string }>;
 }) {
   const params = await searchParams;
-  const initialTab = params?.tab === "cta-blocks" ? "cta-blocks" : "content";
+  const initialTab =
+    params?.tab === "cta-blocks" || params?.tab === "tax-credits" ? params.tab : "content";
 
   return (
     <>

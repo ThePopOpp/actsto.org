@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import type { CtaPlacement, SiteCtaBlockData } from "@/lib/site-cta-block-types";
+import { TAX_CREDIT_MAX } from "@/lib/tax-credit";
 
 export type { CtaPlacement, SiteCtaBlockData } from "@/lib/site-cta-block-types";
 
@@ -45,7 +46,7 @@ export const DEFAULT_CTA_BLOCKS: SiteCtaBlockData[] = [
     heading: "Give Today. Owe Less in April.",
     subheading: "Arizona Tax Credit - A.R.S. § 43-1089",
     body:
-      "Singles can redirect up to $1,459 and married couples up to $2,918 of Arizona state taxes to certified Christian school scholarships.",
+      `Singles can redirect up to $${TAX_CREDIT_MAX["2026"].single.toLocaleString()} and married couples up to $${TAX_CREDIT_MAX["2026"].married.toLocaleString()} of Arizona state taxes to certified Christian school scholarships.`,
     primaryLabel: "Donate Today",
     primaryUrl: "/campaigns",
     primaryVariant: "secondary",

@@ -113,6 +113,22 @@ export async function GET() {
     });
   }
 
+  if (session.role === "donor_individual") {
+    const billing = await prisma.donorBillingProfile
+      .findFirst({ where: { userId: profile.id, isDefault: true }, orderBy: { updatedAt: "desc" } })
+      .catch(() => null);
+    return NextResponse.json({
+      profile: {
+        ...base,
+        email: profile.email,
+        address: billing?.addressLine1 ?? "",
+        city: billing?.city ?? "",
+        state: billing?.state ?? "AZ",
+        zip: billing?.zip ?? "",
+      },
+    });
+  }
+
   return NextResponse.json({
     profile: {
       ...base,
@@ -202,6 +218,48 @@ export async function PUT(request: Request) {
         profileStatus: address && city && state && zip ? "complete" : "incomplete",
       },
     });
+  }
+
+  if (identity.session.role === "donor_individual") {
+    const nameParts = name.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] ?? null;
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+    const existing = await prisma.donorBillingProfile.findFirst({
+      where: { userId: profile.id, isDefault: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (existing) {
+      await prisma.donorBillingProfile.update({
+        where: { id: existing.id },
+        data: {
+          firstName,
+          lastName,
+          email: profile.email,
+          phone,
+          addressLine1: address,
+          city,
+          state,
+          zip,
+          isDefault: true,
+        },
+      });
+    } else {
+      await prisma.donorBillingProfile.create({
+        data: {
+          userId: profile.id,
+          firstName,
+          lastName,
+          email: profile.email,
+          phone,
+          addressLine1: address,
+          city,
+          state,
+          zip,
+          isDefault: true,
+        },
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });

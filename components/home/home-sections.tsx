@@ -21,6 +21,8 @@ import { BROWSE_SCHOOL_TYPE_LABELS, MOCK_CAMPAIGNS, type Campaign } from "@/lib/
 import { buttonVariants } from "@/lib/button-variants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
+import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
+import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 import { cn } from "@/lib/utils";
 
 const impactStats = [
@@ -358,7 +360,12 @@ export function HomeHowTaxCreditWorks() {
   );
 }
 
-export function HomeHowItWorksSplit() {
+export function HomeHowItWorksSplit({
+  taxLimits = DEFAULT_TAX_CREDIT_LIMITS,
+}: {
+  taxLimits?: TaxCreditLimitConfig;
+}) {
+  const current = taxLimits["2026"];
   return (
     <section className="bg-slate-50 py-14 dark:bg-white/[0.08] sm:py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -407,20 +414,20 @@ export function HomeHowItWorksSplit() {
                 <p className="text-xs font-semibold tracking-wide text-primary-foreground/80 uppercase">
                   Single filer
                 </p>
-                <Row label="Original Tax Credit" value="$787" />
-                <Row label="Overflow Tax Credit" value="$784" />
+                <Row label="Original Tax Credit" value={`$${current.single.original.toLocaleString()}`} />
+                <Row label="Overflow Tax Credit" value={`$${current.single.overflow.toLocaleString()}`} />
                 <Separator className="bg-primary-foreground/20" />
-                <Row label="Combined Maximum" value="$1,571" highlight />
+                <Row label="Combined Maximum" value={`$${current.single.combined.toLocaleString()}`} highlight />
               </div>
 
               <div className="space-y-4 rounded-xl border border-primary-foreground/20 p-4">
                 <p className="text-xs font-semibold tracking-wide text-primary-foreground/80 uppercase">
                   Married filing jointly
                 </p>
-                <Row label="Original Tax Credit" value="$1,570" />
-                <Row label="Overflow Tax Credit" value="$1,561" />
+                <Row label="Original Tax Credit" value={`$${current.married.original.toLocaleString()}`} />
+                <Row label="Overflow Tax Credit" value={`$${current.married.overflow.toLocaleString()}`} />
                 <Separator className="bg-primary-foreground/20" />
-                <Row label="Combined Maximum" value="$3,131" highlight />
+                <Row label="Combined Maximum" value={`$${current.married.combined.toLocaleString()}`} highlight />
               </div>
 
               <Link
@@ -490,8 +497,17 @@ export function HomeWhoWeServe() {
   );
 }
 
-export function HomePreFooterCta({ cta }: { cta?: SiteCtaBlockData | null }) {
+export function HomePreFooterCta({
+  cta,
+  taxLimits = DEFAULT_TAX_CREDIT_LIMITS,
+}: {
+  cta?: SiteCtaBlockData | null;
+  taxLimits?: TaxCreditLimitConfig;
+}) {
   if (cta) return <SiteCtaBlock block={cta} darkBand />;
+  const current = taxLimits["2026"];
+  const singleLimit = `$${current.single.combined.toLocaleString()}`;
+  const marriedLimit = `$${current.married.combined.toLocaleString()}`;
 
   return (
     <>
@@ -511,8 +527,8 @@ export function HomePreFooterCta({ cta }: { cta?: SiteCtaBlockData | null }) {
               Give Today. Owe Less in April.
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-primary-foreground/85 sm:text-base dark:text-white/85">
-              Singles can redirect up to $1,459 and married couples up to $2,918 of Arizona
-              state taxes to certified Christian school scholarships — completely
+              Singles can redirect up to {singleLimit} and married couples up to {marriedLimit}{" "}
+              of Arizona state taxes to certified Christian school scholarships — completely
               dollar-for-dollar.
             </p>
           </div>
@@ -536,9 +552,10 @@ export function HomePreFooterCta({ cta }: { cta?: SiteCtaBlockData | null }) {
 }
 
 export async function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
-  const [newCampaignsCta, preFooterCta] = await Promise.all([
+  const [newCampaignsCta, preFooterCta, taxLimits] = await Promise.all([
     getCtaBlockByPlacement("home_new_campaigns"),
     getCtaBlockByPlacement("home_pre_footer"),
+    getTaxCreditLimitConfig(),
   ]);
 
   return (
@@ -547,11 +564,11 @@ export async function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?
       <HomeBrowseSchoolTypes />
       <HomeNewCampaigns campaigns={campaigns} cta={newCampaignsCta} />
       <HomeHowTaxCreditWorks />
-      <HomeHowItWorksSplit />
+      <HomeHowItWorksSplit taxLimits={taxLimits} />
       <HomeFeaturedCampaigns campaigns={campaigns} />
       <HomeWhoWeServe />
       <HomeGainingMomentum campaigns={campaigns} />
-      <HomePreFooterCta cta={preFooterCta} />
+      <HomePreFooterCta cta={preFooterCta} taxLimits={taxLimits} />
     </>
   );
 }

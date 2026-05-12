@@ -12,10 +12,6 @@ export default async function BusinessProfilePage() {
     <UserProfileEditor
       defaultName={s.name}
       defaultEmail={s.email}
-      defaultPhone="(602) 421-8301"
-      defaultAddress="2200 E Camelback Rd"
-      defaultCity="Phoenix"
-      defaultZip="85016"
     />
   );
 }

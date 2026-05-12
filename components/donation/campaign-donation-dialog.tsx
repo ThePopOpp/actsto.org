@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { CampaignGivingLevel } from "@/lib/campaigns";
-import { TAX_CREDIT_MAX } from "@/lib/tax-credit";
+import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn } from "@/lib/utils";
 
 const QUICK_CHOOSE_PILLS = [250, 1500, 3750] as const;
@@ -81,10 +81,12 @@ export function CampaignDonationDialog({
   const [paypalConfig, setPaypalConfig] = React.useState<PaypalConfig | null>(null);
   const [paypalConfigError, setPaypalConfigError] = React.useState<string | null>(null);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
+  const [taxLimits, setTaxLimits] =
+    React.useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
   const donationIdRef = React.useRef<string | null>(null);
   const createOrderErrorRef = React.useRef<string | null>(null);
 
-  const taxCaps = TAX_CREDIT_MAX["2026"];
+  const taxCaps = taxLimits["2026"];
 
   React.useEffect(() => {
     if (!open) {
@@ -110,6 +112,19 @@ export function CampaignDonationDialog({
     createOrderErrorRef.current = null;
     return undefined;
   }, [open]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tax-credit-limits")
+      .then((res) => res.json() as Promise<{ limits?: TaxCreditLimitConfig }>)
+      .then((data) => {
+        if (!cancelled && data.limits) setTaxLimits(data.limits);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fetch PayPal config when entering quick-pay
   React.useEffect(() => {
@@ -261,11 +276,11 @@ export function CampaignDonationDialog({
                     4-step guided form that calculates your Arizona Private School Tax Credit. Get
                     up to{" "}
                     <span className="font-semibold text-act-action">
-                      ${taxCaps.single.toLocaleString()}
+                      ${taxCaps.single.combined.toLocaleString()}
                     </span>{" "}
                     (single) or{" "}
                     <span className="font-semibold text-act-action">
-                      ${taxCaps.married.toLocaleString()}
+                      ${taxCaps.married.combined.toLocaleString()}
                     </span>{" "}
                     (married) back on your state taxes.
                   </p>

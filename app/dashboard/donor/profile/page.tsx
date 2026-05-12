@@ -12,8 +12,6 @@ export default async function DonorProfilePage() {
     <UserProfileEditor
       defaultName={s.name}
       defaultEmail={s.email}
-      defaultPhone="(602) 555-0144"
-      defaultCity="Scottsdale"
     />
   );
 }

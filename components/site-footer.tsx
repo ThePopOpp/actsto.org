@@ -1,7 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { ACT_LOGO_FULL } from "@/lib/constants";
+import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn } from "@/lib/utils";
 
 /** Footer sits on brand navy; keep links explicitly light across themes. */
@@ -53,6 +57,24 @@ const resources = [
 ];
 
 export function SiteFooter() {
+  const [taxLimits, setTaxLimits] = useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
+  const current = taxLimits["2026"];
+  const singleLimit = `$${current.single.combined.toLocaleString()}`;
+  const marriedLimit = `$${current.married.combined.toLocaleString()}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tax-credit-limits")
+      .then((res) => res.json() as Promise<{ limits?: TaxCreditLimitConfig }>)
+      .then((data) => {
+        if (!cancelled && data.limits) setTaxLimits(data.limits);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <footer
       className={cn(
@@ -78,7 +100,7 @@ export function SiteFooter() {
               scholarships.
             </p>
             <div className="mt-4 inline-flex rounded-full bg-primary-foreground/10 px-4 py-2 text-xs text-sky-200">
-              Singles up to $1,571 &middot; Married up to $3,131 tax credit
+              Singles up to {singleLimit} &middot; Married up to {marriedLimit} tax credit
             </div>
           </div>
 

@@ -12,8 +12,6 @@ export default async function ParentProfilePage() {
     <UserProfileEditor
       defaultName={s.name}
       defaultEmail={s.email}
-      defaultPhone="(480) 352-7598"
-      defaultCity="Phoenix"
     />
   );
 }
