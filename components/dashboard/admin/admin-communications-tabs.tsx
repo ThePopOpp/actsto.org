@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { MessageSquare, Send, Upload, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FileText, MessageSquare, Send, Upload } from "lucide-react";
 
 import { AdminPageTabs, type AdminPageTab } from "@/components/dashboard/admin/admin-page-tabs";
 import { AdminTwilioSettingsForm } from "@/components/dashboard/admin/admin-twilio-settings-form";
@@ -13,6 +13,26 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 type CommunicationsTab = "messages" | "send" | "bulk" | "templates" | "credentials";
+type SmsLogRow = {
+  id: string;
+  direction: string;
+  fromPhone?: string | null;
+  toPhone: string;
+  message: string;
+  status?: string | null;
+  providerMessageId?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+};
+type SmsTemplate = { id: string; title: string; message: string; category?: string | null };
+type Runtime = {
+  ready: boolean;
+  hasAccountSid: boolean;
+  hasAuthToken: boolean;
+  hasPhoneNumber: boolean;
+  hasMessagingServiceSid: boolean;
+  sender: string;
+};
 
 const tabs: AdminPageTab<CommunicationsTab>[] = [
   { id: "messages", label: "SMS Messages" },
@@ -22,203 +42,264 @@ const tabs: AdminPageTab<CommunicationsTab>[] = [
   { id: "credentials", label: "Credentials" },
 ];
 
-const sampleMessages = [
-  {
-    from: "(602) 555-0134",
-    name: "Jeremy Waters",
-    body: "Can you confirm our campaign link before I send it to grandparents?",
-    when: "Today · 7:08 PM",
-    status: "Unread",
-  },
-  {
-    from: "(480) 555-0177",
-    name: "Leavitt Family",
-    body: "STOP",
-    when: "Yesterday · 4:22 PM",
-    status: "Opt-out",
-  },
-  {
-    from: "(623) 555-0189",
-    name: "Donor contact",
-    body: "Thank you, I received the receipt.",
-    when: "May 7 · 11:15 AM",
-    status: "Read",
-  },
-];
-
-const templateSamples = [
-  "Campaign milestone thank-you",
-  "Tax credit reminder",
-  "Receipt follow-up",
-  "Parent campaign launch",
-];
+function fmtDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Phoenix",
+  }).format(new Date(value));
+}
 
 export function AdminCommunicationsTabs() {
-  const [sendHint, setSendHint] = useState<string | null>(null);
-  const [bulkHint, setBulkHint] = useState<string | null>(null);
-  const [templateHint, setTemplateHint] = useState<string | null>(null);
+  const [runtime, setRuntime] = useState<Runtime | null>(null);
+  const [logs, setLogs] = useState<SmsLogRow[]>([]);
+  const [templates, setTemplates] = useState<SmsTemplate[]>([]);
+  const [to, setTo] = useState("");
+  const [message, setMessage] = useState("");
+  const [bulkContacts, setBulkContacts] = useState("");
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [templateTitle, setTemplateTitle] = useState("");
+  const [templateMessage, setTemplateMessage] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function loadSms() {
+    const res = await fetch("/api/admin/sms", { cache: "no-store" });
+    const data = (await res.json().catch(() => null)) as { runtime?: Runtime; logs?: SmsLogRow[] } | null;
+    if (res.ok) {
+      setRuntime(data?.runtime ?? null);
+      setLogs(data?.logs ?? []);
+    }
+  }
+
+  async function loadTemplates() {
+    const res = await fetch("/api/admin/sms/templates", { cache: "no-store" });
+    const data = (await res.json().catch(() => null)) as { templates?: SmsTemplate[] } | null;
+    if (res.ok) setTemplates(data?.templates ?? []);
+  }
+
+  useEffect(() => {
+    void loadSms();
+    void loadTemplates();
+  }, []);
+
+  async function sendSms(payload: { to?: string; contacts?: string; message: string; bulk?: boolean }) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string; sent?: number; failed?: number } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not send SMS.");
+      setNotice(`Sent ${data?.sent ?? 0} message(s). Failed ${data?.failed ?? 0}.`);
+      await loadSms();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not send SMS.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveTemplate() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/sms/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: templateTitle, message: templateMessage }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not save template.");
+      setTemplateTitle("");
+      setTemplateMessage("");
+      setNotice("Template saved.");
+      await loadTemplates();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save template.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <AdminPageTabs tabs={tabs} initialTab="messages">
-      {(activeTab) => (
-        <>
-          {activeTab === "messages" ? (
-            <Card className="border-border/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-primary">
-                  <MessageSquare className="size-5" />
-                  SMS messages
-                </CardTitle>
-                <CardDescription>
-                  Inbox-style SMS review. This is ready for Twilio inbound message and delivery log wiring.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {sampleMessages.map((message) => (
-                  <div key={`${message.from}-${message.when}`} className="rounded-lg border border-border/80 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-foreground">{message.name}</p>
-                        <p className="text-sm tabular-nums text-muted-foreground">{message.from}</p>
+    <div className="space-y-4">
+      <Card className="border-dashed border-primary/25 bg-muted/15">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+          <span className="text-muted-foreground">
+            Twilio status:{" "}
+            <strong className={runtime?.ready ? "text-emerald-600" : "text-destructive"}>
+              {runtime?.ready ? "Ready" : "Needs configuration"}
+            </strong>
+            {runtime?.sender ? ` · Sender: ${runtime.sender}` : ""}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Env/database credentials are read server-side only; tokens are never sent to Twilio from the browser.
+          </span>
+        </CardContent>
+      </Card>
+      {notice ? (
+        <p className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-primary">{notice}</p>
+      ) : null}
+
+      <AdminPageTabs tabs={tabs} initialTab="messages">
+        {(activeTab) => (
+          <>
+            {activeTab === "messages" ? (
+              <Card className="border-border/80">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-heading text-primary">
+                    <MessageSquare className="size-5" />
+                    SMS messages
+                  </CardTitle>
+                  <CardDescription>Live Twilio send, delivery, error, and inbound log history.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {logs.length ? logs.map((row) => (
+                    <div key={row.id} className="rounded-lg border border-border/80 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {row.direction === "inbound" ? row.fromPhone : row.toPhone}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {row.direction} · {fmtDate(row.createdAt)}
+                          </p>
+                        </div>
+                        <Badge variant={row.status === "failed" ? "destructive" : "outline"}>
+                          {row.status ?? "queued"}
+                        </Badge>
                       </div>
-                      <Badge variant={message.status === "Unread" ? "default" : "outline"}>
-                        {message.status}
-                      </Badge>
+                      <p className="mt-3 text-sm text-foreground">{row.message}</p>
+                      {row.errorMessage ? <p className="mt-2 text-xs text-destructive">{row.errorMessage}</p> : null}
                     </div>
-                    <p className="mt-3 text-sm text-foreground">{message.body}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">{message.when}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ) : null}
+                  )) : (
+                    <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
+                      No SMS messages have been logged yet.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
 
-          {activeTab === "send" ? (
-            <Card className="border-border/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-primary">
-                  <Send className="size-5" />
-                  Send SMS
-                </CardTitle>
-                <CardDescription>
-                  Compose a one-to-one SMS. Server-side Twilio sending and consent checks still need to be wired.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="max-w-2xl space-y-5"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    setSendHint("Demo only: connect a server-side Twilio send route before sending live SMS.");
-                  }}
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="sms-to">Recipient phone</Label>
-                    <Input id="sms-to" placeholder="(602) 555-0100" autoComplete="off" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sms-body">Message</Label>
-                    <Textarea id="sms-body" className="min-h-[160px]" placeholder="Write your message..." />
-                  </div>
-                  {sendHint ? <p className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-primary">{sendHint}</p> : null}
-                  <Button type="submit">
-                    <Send className="mr-2 size-4" />
+            {activeTab === "send" ? (
+              <Card className="border-border/80">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-heading text-primary">
+                    <Send className="size-5" />
                     Send SMS
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {activeTab === "bulk" ? (
-            <Card className="border-border/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-primary">
-                  <Upload className="size-5" />
-                  Bulk SMS
-                </CardTitle>
-                <CardDescription>
-                  Upload contacts or paste comma-separated phone numbers. Production must dedupe, check opt-in, and respect quiet hours.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="space-y-5"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    setBulkHint("Demo only: bulk jobs need queueing, opt-in validation, and Twilio rate limiting.");
-                  }}
-                >
-                  <div className="max-w-3xl space-y-2">
-                    <Label htmlFor="bulk-contacts">Comma-separated contacts</Label>
-                    <Textarea
-                      id="bulk-contacts"
-                      className="min-h-[120px]"
-                      placeholder="6025550100, 4805550101, 6235550102"
-                    />
-                  </div>
-                  <div className="max-w-lg space-y-2">
-                    <Label htmlFor="bulk-upload">Upload CSV</Label>
-                    <Input id="bulk-upload" type="file" accept=".csv,text/csv" />
-                  </div>
-                  <div className="max-w-3xl space-y-2">
-                    <Label htmlFor="bulk-message">Bulk message</Label>
-                    <Textarea id="bulk-message" className="min-h-[160px]" placeholder="Write your bulk message..." />
-                  </div>
-                  {bulkHint ? <p className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-primary">{bulkHint}</p> : null}
-                  <Button type="submit">Prepare Bulk SMS</Button>
-                </form>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {activeTab === "templates" ? (
-            <Card className="border-border/80">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-primary">
-                  <FileText className="size-5" />
-                  SMS templates
-                </CardTitle>
-                <CardDescription>
-                  Draft reusable SMS copy. Template persistence can later move to a database-backed table.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {templateSamples.map((template) => (
-                    <div key={template} className="rounded-lg border border-border/80 p-4">
-                      <p className="font-medium text-foreground">{template}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Draft template placeholder. Wire to SMS template storage before production use.
-                      </p>
+                  </CardTitle>
+                  <CardDescription>Compose a one-to-one SMS through the server-side Twilio route.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="max-w-2xl space-y-5"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void sendSms({ to, message });
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="sms-to">Recipient phone</Label>
+                      <Input id="sms-to" value={to} onChange={(e) => setTo(e.target.value)} placeholder="(602) 555-0100" />
                     </div>
-                  ))}
-                </div>
-                <form
-                  className="max-w-3xl space-y-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    setTemplateHint("Demo only: save templates to a database table before enabling live use.");
-                  }}
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="template-title">Template title</Label>
-                    <Input id="template-title" placeholder="Campaign launch reminder" autoComplete="off" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="template-message">Template message</Label>
-                    <Textarea id="template-message" className="min-h-[140px]" placeholder="Hi {{first_name}}, ..." />
-                  </div>
-                  {templateHint ? <p className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-primary">{templateHint}</p> : null}
-                  <Button type="submit">Save Template</Button>
-                </form>
-              </CardContent>
-            </Card>
-          ) : null}
+                    <div className="space-y-2">
+                      <Label htmlFor="sms-body">Message</Label>
+                      <Textarea id="sms-body" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-[160px]" />
+                    </div>
+                    <Button type="submit" disabled={busy || !runtime?.ready}>
+                      <Send className="mr-2 size-4" />
+                      Send SMS
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
 
-          {activeTab === "credentials" ? <AdminTwilioSettingsForm /> : null}
-        </>
-      )}
-    </AdminPageTabs>
+            {activeTab === "bulk" ? (
+              <Card className="border-border/80">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-heading text-primary">
+                    <Upload className="size-5" />
+                    Bulk SMS
+                  </CardTitle>
+                  <CardDescription>Paste comma-separated contacts. Sends are capped at 50 recipients per request.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="space-y-5"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void sendSms({ contacts: bulkContacts, message: bulkMessage, bulk: true });
+                    }}
+                  >
+                    <div className="max-w-3xl space-y-2">
+                      <Label htmlFor="bulk-contacts">Comma-separated contacts</Label>
+                      <Textarea id="bulk-contacts" value={bulkContacts} onChange={(e) => setBulkContacts(e.target.value)} className="min-h-[120px]" />
+                    </div>
+                    <div className="max-w-3xl space-y-2">
+                      <Label htmlFor="bulk-message">Bulk message</Label>
+                      <Textarea id="bulk-message" value={bulkMessage} onChange={(e) => setBulkMessage(e.target.value)} className="min-h-[160px]" />
+                    </div>
+                    <Button type="submit" disabled={busy || !runtime?.ready}>Send Bulk SMS</Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {activeTab === "templates" ? (
+              <Card className="border-border/80">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-heading text-primary">
+                    <FileText className="size-5" />
+                    SMS templates
+                  </CardTitle>
+                  <CardDescription>Reusable SMS copy stored in Supabase via Prisma.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {templates.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        className="rounded-lg border border-border/80 p-4 text-left hover:bg-muted/30"
+                        onClick={() => setMessage(template.message)}
+                      >
+                        <p className="font-medium text-foreground">{template.title}</p>
+                        <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">{template.message}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <form
+                    className="max-w-3xl space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveTemplate();
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="template-title">Template title</Label>
+                      <Input id="template-title" value={templateTitle} onChange={(e) => setTemplateTitle(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="template-message">Template message</Label>
+                      <Textarea id="template-message" value={templateMessage} onChange={(e) => setTemplateMessage(e.target.value)} className="min-h-[140px]" />
+                    </div>
+                    <Button type="submit" disabled={busy}>Save Template</Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {activeTab === "credentials" ? <AdminTwilioSettingsForm /> : null}
+          </>
+        )}
+      </AdminPageTabs>
+    </div>
   );
 }

@@ -30,11 +30,16 @@ export async function GET(
     return NextResponse.json({ payload: normalizeTwilioPayload(null), persisted: false });
   }
 
-  const payload =
-    key === "paypal"
-      ? normalizePaypalPayload(row.payload)
-      : normalizeTwilioPayload(row.payload);
+  if (key === "twilio") {
+    const payload = normalizeTwilioPayload(row.payload);
+    return NextResponse.json({
+      payload: { ...payload, authToken: "" },
+      persisted: true,
+      hasAuthToken: Boolean(payload.authToken),
+    });
+  }
 
+  const payload = normalizePaypalPayload(row.payload);
   return NextResponse.json({ payload, persisted: true });
 }
 
@@ -69,12 +74,17 @@ export async function PUT(
     return NextResponse.json({ ok: true });
   }
 
-  const parsed = parseTwilioPayload(raw);
+  let parsed = parseTwilioPayload(raw);
   if (!parsed) {
     return NextResponse.json(
       { error: "Body must include a payload object with Twilio string fields." },
       { status: 400 },
     );
+  }
+  if (!parsed.authToken) {
+    const existing = await prisma.adminIntegrationSettings.findUnique({ where: { key: "twilio" } });
+    const existingPayload = normalizeTwilioPayload(existing?.payload);
+    parsed = { ...parsed, authToken: existingPayload.authToken };
   }
   await prisma.adminIntegrationSettings.upsert({
     where: { key: "twilio" },

@@ -990,14 +990,38 @@ model EmailMessage {
 model SmsLog {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String?  @map("user_id") @db.Uuid
+  direction         String   @default("outbound")
+  fromPhone         String?  @map("from_phone")
   toPhone           String   @map("to_phone")
   message           String
   provider          String   @default("twilio")
   providerMessageId String?  @map("provider_message_id")
   status            String?
+  errorMessage      String?  @map("error_message")
+  segments          Int?
+  price             Decimal? @db.Decimal(10, 4)
+  priceUnit         String?  @map("price_unit")
+  sentAt            DateTime? @map("sent_at")
+  deliveredAt       DateTime? @map("delivered_at")
   createdAt         DateTime @default(now()) @map("created_at")
 
+  @@index([createdAt])
+  @@index([providerMessageId])
   @@map("sms_logs")
+}
+
+model SmsTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  message     String
+  category    String?
+  active      Boolean  @default(true)
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@map("sms_templates")
 }
 
 /// In-app dashboard notifications (maps to existing `notifications` table for new entries)

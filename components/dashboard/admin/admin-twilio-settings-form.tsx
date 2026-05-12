@@ -19,6 +19,7 @@ export function AdminTwilioSettingsForm() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [hasSavedToken, setHasSavedToken] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +35,7 @@ export function AdminTwilioSettingsForm() {
             phoneNumber?: string;
             messagingServiceSid?: string;
           };
+          hasAuthToken?: boolean;
           error?: string;
         } | null;
         if (!res.ok) {
@@ -45,6 +47,7 @@ export function AdminTwilioSettingsForm() {
         setAuthToken(p.authToken ?? "");
         setPhoneNumber(p.phoneNumber ?? "");
         setMessagingServiceSid(p.messagingServiceSid ?? "");
+        setHasSavedToken(Boolean(data.hasAuthToken));
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof Error ? e.message : "Could not load Twilio settings.");
@@ -94,8 +97,8 @@ export function AdminTwilioSettingsForm() {
       <CardHeader>
         <CardTitle className="font-heading text-primary">Twilio credentials</CardTitle>
         <CardDescription>
-          Account SID and Auth Token from the Twilio Console. Saved to the database for Super Admins
-          only; call Twilio from server routes only.
+          Prefer Coolify env vars for live credentials. This form can hold fallback values, but the
+          Auth Token is never loaded back into the browser after saving.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -143,6 +146,11 @@ export function AdminTwilioSettingsForm() {
                 {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </Button>
             </div>
+            {hasSavedToken && !authToken ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                A saved token exists. Leave this blank to keep it unchanged.
+              </p>
+            ) : null}
           </div>
           <div>
             <Label htmlFor="tw-phone-number">Twilio phone number</Label>
