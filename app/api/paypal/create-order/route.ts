@@ -5,6 +5,7 @@ import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
 import { createPaypalOrder } from "@/lib/paypal/client";
 import { logPaypalPaymentEvent } from "@/lib/paypal/payment-records";
+import { normalizePhone } from "@/lib/sms/twilio";
 
 /**
  * POST /api/paypal/create-order
@@ -130,6 +131,7 @@ export async function POST(req: Request) {
                 donorLastName: taxCredit.donorLastName,
                 donorEmail: taxCredit.donorEmail,
                 donorPhone: taxCredit.donorPhone,
+                donorPhoneNormalized: taxCredit.donorPhone ? normalizePhone(taxCredit.donorPhone) : null,
                 billingAddressLine1: taxCredit.billingAddressLine1,
                 billingAddressLine2: taxCredit.billingAddressLine2,
                 billingCity: taxCredit.billingCity,

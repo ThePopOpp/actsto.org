@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
+import { resolveSmsContact } from "@/lib/sms/contact-matching";
 import { getTwilioRuntimeStatus, parsePhoneList, sendTwilioSms } from "@/lib/sms/twilio";
 
 const MAX_BULK_RECIPIENTS = 50;
@@ -24,6 +25,14 @@ export async function GET() {
     getTwilioRuntimeStatus(),
     prisma.smsLog.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []),
   ]);
+  const campaignIds = Array.from(new Set(logs.map((log) => log.campaignId).filter(Boolean))) as string[];
+  const campaigns = campaignIds.length
+    ? await prisma.campaign.findMany({
+        where: { id: { in: campaignIds } },
+        select: { id: true, title: true, slug: true },
+      })
+    : [];
+  const campaignMap = new Map(campaigns.map((campaign) => [campaign.id, campaign]));
 
   return NextResponse.json({
     runtime,
@@ -36,6 +45,15 @@ export async function GET() {
       status: log.status,
       providerMessageId: log.providerMessageId,
       errorMessage: log.errorMessage,
+      contactName: log.contactName,
+      contactEmail: log.contactEmail,
+      roleType: log.roleType,
+      profileId: log.profileId,
+      campaignId: log.campaignId,
+      campaignTitle: log.campaignId ? campaignMap.get(log.campaignId)?.title ?? null : null,
+      campaignSlug: log.campaignId ? campaignMap.get(log.campaignId)?.slug ?? null : null,
+      matchedPhone: log.matchedPhone,
+      contactSource: log.contactSource,
       createdAt: log.createdAt.toISOString(),
       sentAt: log.sentAt?.toISOString() ?? null,
       deliveredAt: log.deliveredAt?.toISOString() ?? null,
@@ -64,9 +82,18 @@ export async function POST(request: Request) {
 
   const results = [];
   for (const to of recipients) {
+    const contact = await resolveSmsContact(to);
     const result = await sendTwilioSms({ to, body: message });
     const log = await prisma.smsLog.create({
       data: {
+        userId: contact.userId,
+        profileId: contact.profileId,
+        roleType: contact.roleType,
+        campaignId: contact.campaignId,
+        contactName: contact.contactName,
+        contactEmail: contact.contactEmail,
+        contactSource: contact.contactSource,
+        matchedPhone: contact.matchedPhone,
         direction: "outbound",
         fromPhone: result.ok ? result.from : null,
         toPhone: to,
@@ -81,7 +108,15 @@ export async function POST(request: Request) {
         sentAt: result.ok ? new Date() : null,
       },
     });
-    results.push({ to, ok: result.ok, error: result.ok ? null : result.error, logId: log.id });
+    results.push({
+      to,
+      ok: result.ok,
+      error: result.ok ? null : result.error,
+      logId: log.id,
+      contactName: contact.contactName,
+      roleType: contact.roleType,
+      campaignId: contact.campaignId,
+    });
   }
 
   const sent = results.filter((result) => result.ok).length;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/sms/twilio";
 import { createServerClient } from "@/lib/supabase/server";
 
 const MAX_FIELD_LENGTH = 8192;
@@ -163,6 +164,7 @@ export async function PUT(request: Request) {
 
   const name = text(body.name).trim();
   const phone = text(body.phone).trim();
+  const phoneNormalized = phone ? normalizePhone(phone) : null;
   const address = text(body.address).trim();
   const city = text(body.city).trim();
   const state = text(body.state).trim() || "AZ";
@@ -174,6 +176,7 @@ export async function PUT(request: Request) {
       displayName: name || identity.profile.displayName,
       fullName: name || identity.profile.fullName,
       phone,
+      phoneNormalized,
       avatarUrl,
     },
   });
@@ -237,6 +240,7 @@ export async function PUT(request: Request) {
           lastName,
           email: profile.email,
           phone,
+          phoneNormalized,
           addressLine1: address,
           city,
           state,
@@ -252,6 +256,7 @@ export async function PUT(request: Request) {
           lastName,
           email: profile.email,
           phone,
+          phoneNormalized,
           addressLine1: address,
           city,
           state,

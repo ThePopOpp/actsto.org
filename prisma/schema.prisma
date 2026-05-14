@@ -155,6 +155,7 @@ model Profile {
   displayName        String?  @map("display_name")
   avatarUrl          String?  @map("avatar_url")
   phone              String?
+  phoneNormalized    String?  @map("phone_normalized")
   primaryAccountType String?  @map("primary_account_type")
   activeAccountType  String?  @map("active_account_type")
   status             String   @default("active")
@@ -227,6 +228,7 @@ model ParentGuardianProfile {
   zip                   String?
   emergencyContactName  String?  @map("emergency_contact_name")
   emergencyContactPhone String?  @map("emergency_contact_phone")
+  emergencyContactPhoneNormalized String? @map("emergency_contact_phone_normalized")
   profileStatus         String   @default("incomplete") @map("profile_status")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
@@ -261,6 +263,7 @@ model BusinessDonorProfile {
   ein           String?
   businessEmail String?  @map("business_email")
   businessPhone String?  @map("business_phone")
+  businessPhoneNormalized String? @map("business_phone_normalized")
   businessType  String?  @map("business_type")
   addressLine1  String?  @map("address_line_1")
   addressLine2  String?  @map("address_line_2")
@@ -289,6 +292,7 @@ model School {
   logoUrl      String?  @map("logo_url")
   website      String?
   phone        String?
+  phoneNormalized String? @map("phone_normalized")
   email        String?
   addressLine1 String?  @map("address_line1")
   addressLine2 String?  @map("address_line2")
@@ -348,6 +352,8 @@ model Student {
   birthDate               DateTime? @map("birth_date") @db.Date
   ageVerified             Boolean   @default(false) @map("age_verified")
   profilePhotoUrl         String?   @map("profile_photo_url")
+  phone                   String?
+  phoneNormalized         String?   @map("phone_normalized")
   bio                     String?
   createdBy               String?   @map("created_by") @db.Uuid
   status                  String    @default("pending")
@@ -671,6 +677,7 @@ model DonationDetail {
   donorLastName       String?  @map("donor_last_name")
   donorEmail          String?  @map("donor_email")
   donorPhone          String?  @map("donor_phone")
+  donorPhoneNormalized String? @map("donor_phone_normalized")
   billingAddressLine1 String?  @map("billing_address_line_1")
   billingAddressLine2 String?  @map("billing_address_line_2")
   billingCity         String?  @map("billing_city")
@@ -723,6 +730,7 @@ model DonorBillingProfile {
   lastName     String?  @map("last_name")
   email        String?
   phone        String?
+  phoneNormalized String? @map("phone_normalized")
   addressLine1 String?  @map("address_line_1")
   addressLine2 String?  @map("address_line_2")
   city         String?
@@ -990,6 +998,13 @@ model EmailMessage {
 model SmsLog {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String?  @map("user_id") @db.Uuid
+  profileId         String?  @map("profile_id") @db.Uuid
+  roleType          String?  @map("role_type")
+  campaignId        String?  @map("campaign_id") @db.Uuid
+  contactName       String?  @map("contact_name")
+  contactEmail      String?  @map("contact_email")
+  contactSource     String?  @map("contact_source")
+  matchedPhone      String?  @map("matched_phone")
   direction         String   @default("outbound")
   fromPhone         String?  @map("from_phone")
   toPhone           String   @map("to_phone")
@@ -1007,6 +1022,9 @@ model SmsLog {
 
   @@index([createdAt])
   @@index([providerMessageId])
+  @@index([profileId])
+  @@index([campaignId])
+  @@index([matchedPhone])
   @@map("sms_logs")
 }
 

@@ -10,6 +10,7 @@ import { dashboardPathForRole } from "@/lib/auth/paths";
 import type { ActSession, PortalRole } from "@/lib/auth/types";
 import { PORTAL_ROLES } from "@/lib/auth/types";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/sms/twilio";
 import { createServiceClient } from "@/lib/supabase/server";
 
 function isPortalRoleStr(s: string): s is PortalRole {
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
   const firstName = (body.firstName ?? "").trim();
   const lastName = (body.lastName ?? "").trim();
   const phone = (body.phone ?? "").trim() || null;
+  const phoneNormalized = phone ? normalizePhone(phone) : null;
   const role = body.role ?? "";
   const displayName = (body.displayName ?? "").trim() || null;
   const studentInviteToken = (body.studentInviteToken ?? "").trim();
@@ -100,6 +102,7 @@ export async function POST(req: Request) {
         lastName,
         displayName,
         phone,
+        phoneNormalized,
         primaryAccountType: role,
         activeAccountType: role,
         status: "active",
@@ -110,6 +113,7 @@ export async function POST(req: Request) {
         lastName,
         displayName,
         phone,
+        phoneNormalized,
         primaryAccountType: role,
         activeAccountType: role,
       },

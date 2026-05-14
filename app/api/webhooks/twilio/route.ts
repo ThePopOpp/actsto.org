@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { resolveSmsContact } from "@/lib/sms/contact-matching";
 import { normalizePhone, validateTwilioSignature } from "@/lib/sms/twilio";
 
 export async function POST(request: Request) {
@@ -21,8 +22,17 @@ export async function POST(request: Request) {
   const errorMessage = String(form.get("ErrorMessage") ?? "");
 
   if (body && from) {
+    const contact = await resolveSmsContact(from);
     await prisma.smsLog.create({
       data: {
+        userId: contact.userId,
+        profileId: contact.profileId,
+        roleType: contact.roleType,
+        campaignId: contact.campaignId,
+        contactName: contact.contactName,
+        contactEmail: contact.contactEmail,
+        contactSource: contact.contactSource,
+        matchedPhone: contact.matchedPhone,
         direction: "inbound",
         fromPhone: from,
         toPhone: to || "ACT",

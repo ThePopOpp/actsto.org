@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ensureRoleScaffold, syncAccountSetupProgress } from "@/lib/auth/account-types";
 import { decodeSession, SESSION_COOKIE_NAME } from "@/lib/auth/cookie";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/sms/twilio";
 import { createServerClient } from "@/lib/supabase/server";
 
 async function getCurrentUserId() {
@@ -90,6 +91,8 @@ export async function PATCH(request: Request) {
   const firstName = (body?.firstName ?? "").trim();
   const lastName = (body?.lastName ?? "").trim();
   const schoolId = (body?.schoolId ?? "").trim() || null;
+  const phone = (body?.phone ?? "").trim() || null;
+  const phoneNormalized = phone ? normalizePhone(phone) : null;
 
   if (!firstName) {
     return NextResponse.json({ error: "First name is required." }, { status: 400 });
@@ -113,6 +116,8 @@ export async function PATCH(request: Request) {
         schoolId,
         bio: (body?.bio ?? "").trim() || null,
         profilePhotoUrl: (body?.profilePhotoUrl ?? "").trim() || null,
+        phone,
+        phoneNormalized,
       },
     }),
     prisma.profile.update({
@@ -121,7 +126,8 @@ export async function PATCH(request: Request) {
         firstName,
         lastName,
         fullName: [firstName, lastName].filter(Boolean).join(" "),
-        phone: (body?.phone ?? "").trim() || null,
+        phone,
+        phoneNormalized,
       },
     }),
   ]);

@@ -18,6 +18,13 @@ type SmsLogRow = {
   direction: string;
   fromPhone?: string | null;
   toPhone: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  roleType?: string | null;
+  campaignTitle?: string | null;
+  campaignSlug?: string | null;
+  matchedPhone?: string | null;
+  contactSource?: string | null;
   message: string;
   status?: string | null;
   providerMessageId?: string | null;
@@ -50,6 +57,27 @@ function fmtDate(value: string) {
     minute: "2-digit",
     timeZone: "America/Phoenix",
   }).format(new Date(value));
+}
+
+function roleLabel(value?: string | null) {
+  switch (value) {
+    case "parent":
+      return "Parent";
+    case "student":
+      return "Student";
+    case "individual_donor":
+    case "donor_individual":
+      return "Individual Donor";
+    case "business_donor":
+    case "donor_business":
+      return "Business Donor";
+    case "super_admin":
+      return "Super Admin";
+    case "school":
+      return "School";
+    default:
+      return value ?? null;
+  }
 }
 
 export function AdminCommunicationsTabs() {
@@ -165,11 +193,16 @@ export function AdminCommunicationsTabs() {
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-foreground">
-                            {row.direction === "inbound" ? row.fromPhone : row.toPhone}
+                            {row.contactName ?? (row.direction === "inbound" ? row.fromPhone : row.toPhone)}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {row.direction} · {fmtDate(row.createdAt)}
                           </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {roleLabel(row.roleType) ? <Badge variant="secondary">{roleLabel(row.roleType)}</Badge> : null}
+                            {row.campaignTitle ? <Badge variant="outline">{row.campaignTitle}</Badge> : null}
+                            {row.contactSource ? <Badge variant="outline">{row.contactSource}</Badge> : null}
+                          </div>
                         </div>
                         <Badge variant={row.status === "failed" ? "destructive" : "outline"}>
                           {row.status ?? "queued"}
