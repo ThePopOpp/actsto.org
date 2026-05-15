@@ -25,9 +25,16 @@ const STEPS = [
   { n: 4, label: "School" },
 ] as const;
 
-export function CreateCampaignWizard() {
+export function CreateCampaignWizard({
+  initialValues,
+}: {
+  initialValues?: Partial<CampaignFormValues>;
+}) {
   const [step, setStep] = useState(1);
-  const [values, setValues] = useState(emptyCampaignFormValues);
+  const [values, setValues] = useState<CampaignFormValues>(() => ({
+    ...emptyCampaignFormValues(),
+    ...initialValues,
+  }));
   const [isSaving, setIsSaving] = useState(false);
   const [savingAction, setSavingAction] = useState<"draft" | "review" | null>(null);
   const [error, setError] = useState<string | null>(null);

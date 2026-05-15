@@ -1,6 +1,10 @@
 import { ParentDashboardContent } from "@/components/dashboard/parent-dashboard-content";
-import { getLiveDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
+import { getActSession } from "@/lib/auth/session-server";
+import { getDashboardCampaignsForSession } from "@/lib/campaigns-source";
 
 export default async function ParentDashboardPage() {
-  return <ParentDashboardContent campaigns={await getLiveDemoFamilyCampaigns()} />;
+  const session = await getActSession();
+  const campaigns = session ? await getDashboardCampaignsForSession(session) : [];
+
+  return <ParentDashboardContent campaigns={campaigns} />;
 }
