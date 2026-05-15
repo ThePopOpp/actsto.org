@@ -44,16 +44,36 @@ export function RoleCampaignsHub({
         <div className="grid gap-4 lg:grid-cols-2">
           {campaigns.map((c) => {
             const pct = c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
+            const isDraft = c.status === "draft";
+            const completion = typeof c.completionPercent === "number" ? c.completionPercent : null;
+            const missing = c.missingFields ?? [];
             return (
               <Card key={c.slug} className="border-border/80">
                 <CardHeader className="pb-2">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <CardTitle className="font-heading text-lg text-primary">{c.title}</CardTitle>
-                    <Badge variant="secondary">Live</Badge>
+                    <Badge variant={isDraft ? "outline" : "secondary"}>
+                      {isDraft ? "Draft" : "Live"}
+                    </Badge>
                   </div>
                   <p className="text-sm italic text-act-red">{c.tagline}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {completion !== null && completion < 100 ? (
+                    <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                      <div className="flex justify-between gap-3 font-medium">
+                        <span>Campaign setup</span>
+                        <span>{completion}% complete</span>
+                      </div>
+                      <Progress value={completion} className="mt-2 h-2" />
+                      {missing.length > 0 ? (
+                        <p className="mt-2">
+                          Missing: {missing.slice(0, 4).join(", ")}
+                          {missing.length > 4 ? ", and more" : ""}.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Progress</span>
@@ -67,7 +87,12 @@ export function RoleCampaignsHub({
                   <div className="flex flex-wrap gap-2">
                     <Link
                       href={`/campaigns/${c.slug}`}
-                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+                      className={cn(
+                        buttonVariants({ variant: "outline", size: "sm" }),
+                        "gap-1.5",
+                        isDraft && "pointer-events-none opacity-50",
+                      )}
+                      aria-disabled={isDraft}
                     >
                       <ExternalLink className="size-3.5" />
                       Public page

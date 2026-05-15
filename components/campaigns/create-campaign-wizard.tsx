@@ -27,15 +27,35 @@ const STEPS = [
 export function CreateCampaignWizard() {
   const [step, setStep] = useState(1);
   const [values, setValues] = useState(emptyCampaignFormValues);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function onPatch(patch: Partial<CampaignFormValues>) {
     setValues((v) => ({ ...v, ...patch }));
+    setError(null);
   }
 
-  function submitDemo(e: React.FormEvent) {
+  async function submitCampaign(e: React.FormEvent) {
     e.preventDefault();
-    // Demo only — replace with create API
-    window.alert("Campaign create (demo): form would POST to your API.");
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string; redirect?: string } | null;
+      if (!res.ok || !data?.redirect) {
+        throw new Error(data?.error ?? "Could not save this campaign draft.");
+      }
+      window.location.href = data.redirect;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save this campaign draft.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -51,11 +71,7 @@ export function CreateCampaignWizard() {
               <div
                 className={cn(
                   "h-px min-w-0 flex-1",
-                  i === 0
-                    ? "bg-transparent"
-                    : step >= s.n
-                      ? "bg-primary"
-                      : "bg-border"
+                  i === 0 ? "bg-transparent" : step >= s.n ? "bg-primary" : "bg-border",
                 )}
                 aria-hidden
               />
@@ -63,9 +79,7 @@ export function CreateCampaignWizard() {
                 type="button"
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                  step < s.n
-                    ? "bg-act-banner text-act-banner-foreground"
-                    : "bg-primary text-primary-foreground"
+                  step < s.n ? "bg-act-banner text-act-banner-foreground" : "bg-primary text-primary-foreground",
                 )}
                 onClick={() => setStep(s.n)}
                 aria-label={`Go to step ${s.n}: ${s.label}`}
@@ -76,11 +90,7 @@ export function CreateCampaignWizard() {
               <div
                 className={cn(
                   "h-px min-w-0 flex-1",
-                  i === STEPS.length - 1
-                    ? "bg-transparent"
-                    : step > s.n
-                      ? "bg-primary"
-                      : "bg-border"
+                  i === STEPS.length - 1 ? "bg-transparent" : step > s.n ? "bg-primary" : "bg-border",
                 )}
                 aria-hidden
               />
@@ -88,7 +98,7 @@ export function CreateCampaignWizard() {
             <span
               className={cn(
                 "max-w-full px-0.5 text-center text-xs leading-tight font-medium text-muted-foreground sm:text-sm",
-                step === s.n && "font-semibold text-primary"
+                step === s.n && "font-semibold text-primary",
               )}
             >
               {s.label}
@@ -97,11 +107,17 @@ export function CreateCampaignWizard() {
         ))}
       </div>
 
-      <form onSubmit={submitDemo} className="space-y-5">
+      <form onSubmit={submitCampaign} className="space-y-5">
         {step === 1 ? <CampaignFormPanelCampaign values={values} onPatch={onPatch} /> : null}
         {step === 2 ? <CampaignFormPanelParent values={values} onPatch={onPatch} /> : null}
         {step === 3 ? <CampaignFormPanelStudent values={values} onPatch={onPatch} /> : null}
         {step === 4 ? <CampaignFormPanelSchool values={values} onPatch={onPatch} /> : null}
+
+        {error ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap justify-between gap-3 pt-4">
           <Button
@@ -117,7 +133,9 @@ export function CreateCampaignWizard() {
               Next
             </Button>
           ) : (
-            <Button type="submit">Create campaign</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving draft..." : "Save campaign draft"}
+            </Button>
           )}
         </div>
       </form>

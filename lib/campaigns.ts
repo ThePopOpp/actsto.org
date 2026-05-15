@@ -113,6 +113,9 @@ export type Campaign = {
   browseSchoolTypes?: BrowseSchoolTypeLabel[];
   tags?: string[];
   updatesCount?: number;
+  status?: string;
+  completionPercent?: number;
+  missingFields?: string[];
   givingLevels?: CampaignGivingLevel[];
   storySections?: CampaignStorySection[];
 };
