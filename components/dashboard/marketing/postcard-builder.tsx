@@ -404,9 +404,11 @@ function PostcardFace({
 export function PostcardBuilder({
   channel,
   variant,
+  campaigns = MOCK_CAMPAIGNS,
 }: {
   channel: "digital" | "print";
   variant: "admin" | "parent";
+  campaigns?: Campaign[];
 }) {
   const [draft, setDraft] = useState<DraftShape>(defaultDraft);
   const [campaignSlug, setCampaignSlug] = useState<string>("");
@@ -443,9 +445,9 @@ export function PostcardBuilder({
 
   useEffect(() => {
     if (!campaignSlug) return;
-    const c = MOCK_CAMPAIGNS.find((x) => x.slug === campaignSlug);
+    const c = campaigns.find((x) => x.slug === campaignSlug);
     if (c) applyCampaign(c);
-  }, [campaignSlug, applyCampaign]);
+  }, [campaignSlug, campaigns, applyCampaign]);
 
   const size = getPostcardSize(draft.sizeId);
   const qrSrc = useMemo(() => {
@@ -583,7 +585,7 @@ export function PostcardBuilder({
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Link campaign (mock library)</Label>
+                <Label>{variant === "parent" ? "Link one of your campaigns" : "Link campaign"}</Label>
                 <Select
                   value={campaignSlug || "__none__"}
                   onValueChange={(v) => setCampaignSlug(!v || v === "__none__" ? "" : v)}
@@ -593,7 +595,12 @@ export function PostcardBuilder({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">None — manual copy</SelectItem>
-                    {MOCK_CAMPAIGNS.map((c) => (
+                    {campaigns.length === 0 ? (
+                      <SelectItem value="__empty__" disabled>
+                        No campaigns available
+                      </SelectItem>
+                    ) : null}
+                    {campaigns.map((c) => (
                       <SelectItem key={c.slug} value={c.slug}>
                         {c.title}
                       </SelectItem>

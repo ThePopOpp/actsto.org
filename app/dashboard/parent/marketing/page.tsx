@@ -1,6 +1,14 @@
-import { MarketingHub } from "@/components/dashboard/marketing/marketing-hub";
+import { redirect } from "next/navigation";
 
-export default function ParentMarketingPage() {
+import { MarketingHub } from "@/components/dashboard/marketing/marketing-hub";
+import { getActSession } from "@/lib/auth/session-server";
+import { getDashboardCampaignsForSession } from "@/lib/campaigns-source";
+
+export default async function ParentMarketingPage() {
+  const session = await getActSession();
+  if (!session) redirect("/login?next=/dashboard/parent/marketing");
+  const campaigns = await getDashboardCampaignsForSession(session);
+
   return (
     <div className="space-y-6">
       <div>
@@ -10,7 +18,7 @@ export default function ParentMarketingPage() {
           scoped for your family&apos;s fundraisers.
         </p>
       </div>
-      <MarketingHub variant="parent" />
+      <MarketingHub variant="parent" campaigns={campaigns} />
     </div>
   );
 }

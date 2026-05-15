@@ -9,6 +9,7 @@ import {
 } from "@/lib/campaigns";
 import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
 import type { ActSession } from "@/lib/auth/types";
+import { getProfileForEmail, managedCampaignWhere } from "@/lib/dashboard/parent-scope";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
@@ -153,13 +154,15 @@ export async function getSiteCampaignBySlug(slug: string): Promise<Campaign | un
 }
 
 export async function getDashboardCampaignsForSession(session: ActSession): Promise<Campaign[]> {
-  const profile = await prisma.profile.findFirst({
-    where: { email: session.email.toLowerCase() },
-    select: { id: true, email: true, displayName: true, fullName: true, phone: true },
-  });
+  const profile = await getProfileForEmail(session.email);
   if (!profile) return [];
 
-  const prismaCampaigns = await loadPrismaCampaignsForDisplay({ createdByUserId: profile.id }).catch(() => []);
+  const where =
+    session.role === "super_admin" || profile.isSuperAdmin
+      ? {}
+      : managedCampaignWhere(profile.id);
+
+  const prismaCampaigns = await loadPrismaCampaignsForDisplay(where).catch(() => []);
   const converted = prismaCampaigns.map((campaign) => ({
     ...prismaCampaignToSiteCampaign(campaign),
     parent: {

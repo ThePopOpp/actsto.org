@@ -217,7 +217,13 @@ function SocialCreativeCanvas({
   );
 }
 
-export function SocialCampaignBuilder({ variant }: { variant: "admin" | "parent" }) {
+export function SocialCampaignBuilder({
+  variant,
+  campaigns = MOCK_CAMPAIGNS,
+}: {
+  variant: "admin" | "parent";
+  campaigns?: Campaign[];
+}) {
   const [draft, setDraft] = useState<SocialDraft>(defaultSocialDraft);
   const [campaignSlug, setCampaignSlug] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -239,9 +245,9 @@ export function SocialCampaignBuilder({ variant }: { variant: "admin" | "parent"
 
   useEffect(() => {
     if (!campaignSlug) return;
-    const c = MOCK_CAMPAIGNS.find((x) => x.slug === campaignSlug);
+    const c = campaigns.find((x) => x.slug === campaignSlug);
     if (c) applyCampaign(c);
-  }, [campaignSlug, applyCampaign]);
+  }, [campaignSlug, campaigns, applyCampaign]);
 
   useEffect(() => {
     try {
@@ -341,7 +347,9 @@ export function SocialCampaignBuilder({ variant }: { variant: "admin" | "parent"
                 <Sparkles className="size-5" />
                 Campaign source
               </CardTitle>
-              <CardDescription>Optional: pull copy and hero image from a mock campaign.</CardDescription>
+              <CardDescription>
+                Optional: pull copy and hero image from {variant === "parent" ? "one of your campaigns" : "a campaign"}.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Label>Link campaign</Label>
@@ -354,7 +362,12 @@ export function SocialCampaignBuilder({ variant }: { variant: "admin" | "parent"
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
-                  {MOCK_CAMPAIGNS.map((c) => (
+                  {campaigns.length === 0 ? (
+                    <SelectItem value="__empty__" disabled>
+                      No campaigns available
+                    </SelectItem>
+                  ) : null}
+                  {campaigns.map((c) => (
                     <SelectItem key={c.slug} value={c.slug}>
                       {c.title}
                     </SelectItem>

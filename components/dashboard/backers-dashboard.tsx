@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ActSession } from "@/lib/auth/types";
 import { buttonVariants } from "@/lib/button-variants";
+import { getProfileForEmail, managedCampaignWhere } from "@/lib/dashboard/parent-scope";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -35,31 +36,11 @@ function backerStatusBadge(status: string) {
   return <Badge variant="outline">{status}</Badge>;
 }
 
-async function getProfileId(email: string) {
-  try {
-    const profile = await prisma.profile.findFirst({
-      where: { email: email.toLowerCase() },
-      select: { id: true },
-    });
-    return profile?.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function backerScope(userId: string, role: string) {
   if (role === "super_admin") return {};
 
   if (role === "parent") {
-    return {
-      campaign: {
-        OR: [
-          { createdByUserId: userId },
-          { campaignStudents: { some: { student: { parentUserId: userId } } } },
-          { campaignStudents: { some: { student: { guardians: { some: { guardianUserId: userId } } } } } },
-        ],
-      },
-    };
+    return { campaign: managedCampaignWhere(userId) };
   }
 
   if (role === "student") {
@@ -76,7 +57,8 @@ function backerScope(userId: string, role: string) {
 }
 
 async function getBackerData(email: string, role: string) {
-  const userId = await getProfileId(email);
+  const profile = await getProfileForEmail(email).catch(() => null);
+  const userId = profile?.id ?? null;
   if (!userId && role !== "super_admin") {
     return {
       rows: [],

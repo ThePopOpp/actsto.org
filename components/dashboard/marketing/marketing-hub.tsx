@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { PostcardBuilder } from "@/components/dashboard/marketing/postcard-builder";
 import { SocialCampaignBuilder } from "@/components/dashboard/marketing/social-campaign-builder";
+import type { Campaign } from "@/lib/campaigns";
 import { cn } from "@/lib/utils";
 
 type MarketingTab = "digital" | "print" | "social";
@@ -26,7 +27,13 @@ const tabs: { id: MarketingTab; label: string; description: string }[] = [
   },
 ];
 
-export function MarketingHub({ variant }: { variant: "admin" | "parent" }) {
+export function MarketingHub({
+  variant,
+  campaigns,
+}: {
+  variant: "admin" | "parent";
+  campaigns?: Campaign[];
+}) {
   const [tab, setTab] = useState<MarketingTab>("digital");
 
   return (
@@ -50,9 +57,9 @@ export function MarketingHub({ variant }: { variant: "admin" | "parent" }) {
       </div>
       <p className="text-sm text-muted-foreground">{tabs.find((x) => x.id === tab)?.description}</p>
 
-      {tab === "digital" ? <PostcardBuilder channel="digital" variant={variant} /> : null}
-      {tab === "print" ? <PostcardBuilder channel="print" variant={variant} /> : null}
-      {tab === "social" ? <SocialCampaignBuilder variant={variant} /> : null}
+      {tab === "digital" ? <PostcardBuilder channel="digital" variant={variant} campaigns={campaigns} /> : null}
+      {tab === "print" ? <PostcardBuilder channel="print" variant={variant} campaigns={campaigns} /> : null}
+      {tab === "social" ? <SocialCampaignBuilder variant={variant} campaigns={campaigns} /> : null}
     </div>
   );
 }
