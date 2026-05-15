@@ -176,10 +176,24 @@ export async function POST(request: Request) {
       schoolId = school.id;
     }
 
+    const campaignType = await tx.campaignType.upsert({
+      where: { slug: "private-schools" },
+      create: {
+        slug: "private-schools",
+        name: "Private Schools",
+        description: "General private school tuition support",
+        sortOrder: 60,
+      },
+      update: {},
+      select: { id: true },
+    });
+
     const created = await tx.campaign.create({
       data: {
         createdByUserId: profile.id,
         schoolId,
+        campaignTypeId: campaignType.id,
+        campaignType: "private-schools",
         title: values.title || "Untitled campaign",
         slug,
         tagline: values.tagline || null,
