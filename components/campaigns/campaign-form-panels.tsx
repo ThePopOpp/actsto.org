@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImageUp } from "lucide-react";
+import { ImageUp, Plus, Trash2 } from "lucide-react";
 
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
+import { emptyCampaignFormStudent, getCampaignFormStudents } from "@/lib/dashboard/campaign-editor";
+import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -238,90 +240,193 @@ export function CampaignFormPanelParent({
 export function CampaignFormPanelStudent({
   values,
   onPatch,
+  onSkip,
 }: {
   values: CampaignFormValues;
   onPatch: OnPatch;
+  onSkip?: () => void;
 }) {
+  const students = getCampaignFormStudents(values);
+  const campaignGoal = Number.parseFloat(values.goal.replace(/,/g, ""));
+  const defaultGoal =
+    Number.isFinite(campaignGoal) && campaignGoal > 0
+      ? String(Math.round(campaignGoal / Math.max(1, students.length || 1)))
+      : "";
+
+  function ensureStudentList() {
+    return students.length > 0 ? students : [{ ...emptyCampaignFormStudent(), individualGoal: defaultGoal }];
+  }
+
+  function patchStudent(index: number, patch: Partial<(typeof students)[number]>) {
+    const next = ensureStudentList();
+    next[index] = { ...next[index], ...patch };
+    onPatch({
+      students: next,
+      studentFirstName: next[0]?.firstName ?? "",
+      studentLastName: next[0]?.lastName ?? "",
+      studentNickname: next[0]?.nickname ?? "",
+      studentGrade: next[0]?.grade ?? "",
+      studentSchool: next[0]?.school ?? "",
+      studentIndividualGoal: next[0]?.individualGoal ?? "",
+      studentPhoto: next[0]?.photo ?? "",
+    });
+  }
+
+  function addStudent() {
+    const current = students.length > 0 ? students : [];
+    const splitGoal =
+      Number.isFinite(campaignGoal) && campaignGoal > 0
+        ? String(Math.round(campaignGoal / Math.max(1, current.length + 1)))
+        : "";
+    const next = [
+      ...current.map((student) => ({
+        ...student,
+        individualGoal: student.individualGoal || splitGoal,
+      })),
+      { ...emptyCampaignFormStudent(), individualGoal: splitGoal },
+    ];
+    onPatch({
+      students: next,
+      studentFirstName: next[0]?.firstName ?? "",
+      studentLastName: next[0]?.lastName ?? "",
+      studentNickname: next[0]?.nickname ?? "",
+      studentGrade: next[0]?.grade ?? "",
+      studentSchool: next[0]?.school ?? "",
+      studentIndividualGoal: next[0]?.individualGoal ?? "",
+      studentPhoto: next[0]?.photo ?? "",
+    });
+  }
+
+  function removeStudent(index: number) {
+    const next = ensureStudentList().filter((_, i) => i !== index);
+    onPatch({
+      students: next,
+      studentFirstName: next[0]?.firstName ?? "",
+      studentLastName: next[0]?.lastName ?? "",
+      studentNickname: next[0]?.nickname ?? "",
+      studentGrade: next[0]?.grade ?? "",
+      studentSchool: next[0]?.school ?? "",
+      studentIndividualGoal: next[0]?.individualGoal ?? "",
+      studentPhoto: next[0]?.photo ?? "",
+    });
+  }
+
+  function skipStudent() {
+    onPatch({
+      students: [],
+      studentFirstName: "",
+      studentLastName: "",
+      studentNickname: "",
+      studentGrade: "",
+      studentSchool: "",
+      studentIndividualGoal: "",
+      studentIndividualRaised: "",
+      studentPhoto: "",
+    });
+    onSkip?.();
+  }
+
+  const visibleStudents = students;
+
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Primary student on this campaign (matches creation flow; additional students can be added when the API is
-        connected).
+        Add one or more students now, or skip this step and complete student details later from your dashboard.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="cf-student-first">First name</Label>
-          <Input
-            id="cf-student-first"
-            className="mt-1.5"
-            value={values.studentFirstName}
-            onChange={(e) => onPatch({ studentFirstName: e.target.value })}
-          />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={addStudent}>
+          <Plus className="size-4" />
+          {visibleStudents.length > 0 ? "Add Another Student" : "Add Student"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={skipStudent}>
+          Skip - Add Student Later
+        </Button>
+      </div>
+
+      {visibleStudents.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
+          No student added yet. You can skip this step and add student details later, or add one now.
         </div>
-        <div>
-          <Label htmlFor="cf-student-last">Last name</Label>
-          <Input
-            id="cf-student-last"
-            className="mt-1.5"
-            value={values.studentLastName}
-            onChange={(e) => onPatch({ studentLastName: e.target.value })}
-          />
+      ) : null}
+
+      {visibleStudents.map((student, index) => (
+        <div key={index} className="space-y-5 rounded-lg border border-border bg-card/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-heading text-base font-semibold text-primary">Student {index + 1}</h3>
+            {visibleStudents.length > 1 ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => removeStudent(index)}>
+                <Trash2 className="size-4" />
+                Remove
+              </Button>
+            ) : null}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor={`cf-student-first-${index}`}>First name</Label>
+              <Input
+                id={`cf-student-first-${index}`}
+                className="mt-1.5"
+                value={student.firstName}
+                onChange={(e) => patchStudent(index, { firstName: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor={`cf-student-last-${index}`}>Last name</Label>
+              <Input
+                id={`cf-student-last-${index}`}
+                className="mt-1.5"
+                value={student.lastName}
+                onChange={(e) => patchStudent(index, { lastName: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor={`cf-student-nick-${index}`}>Nickname (optional)</Label>
+            <Input
+              id={`cf-student-nick-${index}`}
+              className="mt-1.5"
+              value={student.nickname}
+              onChange={(e) => patchStudent(index, { nickname: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`cf-student-grade-${index}`}>Grade</Label>
+            <Input
+              id={`cf-student-grade-${index}`}
+              className="mt-1.5"
+              placeholder="e.g. 5th Grade"
+              value={student.grade}
+              onChange={(e) => patchStudent(index, { grade: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`cf-student-school-${index}`}>Student school (display)</Label>
+            <Input
+              id={`cf-student-school-${index}`}
+              className="mt-1.5"
+              value={student.school}
+              onChange={(e) => patchStudent(index, { school: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`cf-student-goal-${index}`}>Individual goal ($)</Label>
+            <Input
+              id={`cf-student-goal-${index}`}
+              inputMode="decimal"
+              className="mt-1.5"
+              value={student.individualGoal}
+              onChange={(e) => patchStudent(index, { individualGoal: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Student photo</Label>
+            <CampaignImageUpload
+              label="Click or drop student photo to upload"
+              onUploaded={([photo]) => photo && patchStudent(index, { photo })}
+            />
+          </div>
         </div>
-      </div>
-      <div>
-        <Label htmlFor="cf-student-nick">Nickname (optional)</Label>
-        <Input
-          id="cf-student-nick"
-          className="mt-1.5"
-          value={values.studentNickname}
-          onChange={(e) => onPatch({ studentNickname: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="cf-student-grade">Grade</Label>
-        <Input
-          id="cf-student-grade"
-          className="mt-1.5"
-          placeholder="e.g. 5th Grade"
-          value={values.studentGrade}
-          onChange={(e) => onPatch({ studentGrade: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="cf-student-school">Student school (display)</Label>
-        <Input
-          id="cf-student-school"
-          className="mt-1.5"
-          value={values.studentSchool}
-          onChange={(e) => onPatch({ studentSchool: e.target.value })}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="cf-student-goal">Individual goal ($)</Label>
-          <Input
-            id="cf-student-goal"
-            inputMode="decimal"
-            className="mt-1.5"
-            value={values.studentIndividualGoal}
-            onChange={(e) => onPatch({ studentIndividualGoal: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="cf-student-raised">Raised toward individual goal ($)</Label>
-          <Input
-            id="cf-student-raised"
-            inputMode="decimal"
-            className="mt-1.5"
-            value={values.studentIndividualRaised}
-            onChange={(e) => onPatch({ studentIndividualRaised: e.target.value })}
-          />
-        </div>
-      </div>
-      <div>
-        <Label>Student photo</Label>
-        <CampaignImageUpload label="Click or drop student photo to upload" onUploaded={([studentPhoto]) => studentPhoto && onPatch({ studentPhoto })} />
-      </div>
+      ))}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
+import { getCampaignFormStudents, type CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 
 export type CampaignCompletion = {
   percent: number;
@@ -31,6 +31,11 @@ function hasPositiveMoney(value: string) {
 
 export function calculateCampaignCompletion(values: CampaignFormValues): CampaignCompletion {
   const missingFields = REQUIRED_FIELDS.filter(({ key }) => {
+    if (key === "studentFirstName") return getCampaignFormStudents(values).length === 0;
+    if (key === "studentGrade") {
+      const students = getCampaignFormStudents(values);
+      return students.length === 0 || students.every((student) => !student.grade.trim());
+    }
     if (key === "goal") return !hasPositiveMoney(values.goal);
     return !hasValue(values[key]);
   }).map(({ label }) => label);

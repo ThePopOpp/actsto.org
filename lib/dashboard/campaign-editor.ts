@@ -1,6 +1,16 @@
 import type { Campaign, CampaignStudent } from "@/lib/campaigns";
 
-/** Shared shape for create wizard + dashboard edit (demo-local state). */
+export type CampaignFormStudent = {
+  firstName: string;
+  lastName: string;
+  nickname: string;
+  grade: string;
+  school: string;
+  individualGoal: string;
+  photo: string;
+};
+
+/** Shared shape for create wizard + dashboard edit. */
 export type CampaignFormValues = {
   slug: string;
   title: string;
@@ -24,11 +34,24 @@ export type CampaignFormValues = {
   studentIndividualGoal: string;
   studentIndividualRaised: string;
   studentPhoto: string;
+  students: CampaignFormStudent[];
   schoolName: string;
   schoolAddress: string;
   schoolWebsite: string;
   schoolLogo: string;
 };
+
+export function emptyCampaignFormStudent(): CampaignFormStudent {
+  return {
+    firstName: "",
+    lastName: "",
+    nickname: "",
+    grade: "",
+    school: "",
+    individualGoal: "",
+    photo: "",
+  };
+}
 
 export function emptyCampaignFormValues(): CampaignFormValues {
   return {
@@ -54,6 +77,7 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     studentIndividualGoal: "",
     studentIndividualRaised: "",
     studentPhoto: "",
+    students: [],
     schoolName: "",
     schoolAddress: "",
     schoolWebsite: "",
@@ -73,6 +97,32 @@ export function slugifyCampaignSlug(raw: string, fallbackTitle: string): string 
   return fromTitle || `campaign-${Date.now()}`;
 }
 
+export function getCampaignFormStudents(values: CampaignFormValues): CampaignFormStudent[] {
+  if (values.students.length > 0) return values.students;
+  if (
+    values.studentFirstName.trim() ||
+    values.studentLastName.trim() ||
+    values.studentNickname.trim() ||
+    values.studentGrade.trim() ||
+    values.studentSchool.trim() ||
+    values.studentIndividualGoal.trim() ||
+    values.studentPhoto.trim()
+  ) {
+    return [
+      {
+        firstName: values.studentFirstName,
+        lastName: values.studentLastName,
+        nickname: values.studentNickname,
+        grade: values.studentGrade,
+        school: values.studentSchool,
+        individualGoal: values.studentIndividualGoal,
+        photo: values.studentPhoto,
+      },
+    ];
+  }
+  return [];
+}
+
 /** Build a full `Campaign` from admin/parent form values; preserves stats from `previous` when updating. */
 export function formValuesToCampaign(values: CampaignFormValues, previous?: Campaign): Campaign {
   const goal = Math.max(0, Number.parseFloat(String(values.goal).replace(/,/g, "")) || 0);
@@ -80,25 +130,26 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const indGoalRaw = Number.parseFloat(String(values.studentIndividualGoal).replace(/,/g, ""));
-  const indRaisedRaw = Number.parseFloat(String(values.studentIndividualRaised).replace(/,/g, ""));
-  const indGoal = Number.isFinite(indGoalRaw) ? Math.max(0, indGoalRaw) : 0;
-  const indRaised = Number.isFinite(indRaisedRaw)
-    ? Math.max(0, indRaisedRaw)
-    : (previous?.students[0]?.individualRaised ?? 0);
   const slug = slugifyCampaignSlug(values.slug, values.title);
+  const formStudents = getCampaignFormStudents(values);
+  const studentCount = Math.max(1, formStudents.length);
+  const defaultStudentGoal = Math.max(500, Math.round(goal / studentCount) || 1000);
 
-  const student: CampaignStudent = {
-    firstName: values.studentFirstName.trim() || "Student",
-    lastName: values.studentLastName.trim() || "",
-    nickname: values.studentNickname.trim() || undefined,
-    gradeDisplay: values.studentGrade.trim() || "—",
-    school: values.studentSchool.trim() || values.schoolName.trim() || "—",
-    individualGoal: indGoal > 0 ? indGoal : Math.max(500, Math.round(goal / 4) || 1000),
-    individualRaised: indRaised,
-    photo: values.studentPhoto.trim() || previous?.students[0]?.photo,
-    avatarInitials: previous?.students[0]?.avatarInitials,
-  };
+  const students: CampaignStudent[] = formStudents.map((student, index) => {
+    const indGoalRaw = Number.parseFloat(String(student.individualGoal).replace(/,/g, ""));
+    const indGoal = Number.isFinite(indGoalRaw) ? Math.max(0, indGoalRaw) : 0;
+    return {
+      firstName: student.firstName.trim() || "Student",
+      lastName: student.lastName.trim() || "",
+      nickname: student.nickname.trim() || undefined,
+      gradeDisplay: student.grade.trim() || "-",
+      school: student.school.trim() || values.schoolName.trim() || "-",
+      individualGoal: indGoal > 0 ? indGoal : defaultStudentGoal,
+      individualRaised: previous?.students[index]?.individualRaised ?? 0,
+      photo: student.photo.trim() || previous?.students[index]?.photo,
+      avatarInitials: previous?.students[index]?.avatarInitials,
+    };
+  });
 
   const defaultImage =
     "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&q=80";
@@ -106,9 +157,9 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
   return {
     slug,
     title: values.title.trim() || "Untitled campaign",
-    tagline: values.tagline.trim() || "—",
-    excerpt: values.excerpt.trim() || values.description.slice(0, 280) || "—",
-    description: values.description.trim() || "—",
+    tagline: values.tagline.trim() || "-",
+    excerpt: values.excerpt.trim() || values.description.slice(0, 280) || "-",
+    description: values.description.trim() || "-",
     goal: goal > 0 ? goal : 1000,
     raised: previous?.raised ?? 0,
     donorCount: previous?.donorCount ?? 0,
@@ -116,7 +167,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
     endDate: values.endDate.trim() || previous?.endDate || "2026-12-31",
     image: values.image.trim() || previous?.image || defaultImage,
     gallery: gallery.length > 0 ? gallery : (previous?.gallery ?? []),
-    students: [student],
+    students,
     school: {
       name: values.schoolName.trim() || "School",
       address: values.schoolAddress.trim() || "",
@@ -124,7 +175,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
       logo: values.schoolLogo.trim() || previous?.school.logo,
     },
     parent: {
-      name: values.parentName.trim() || "—",
+      name: values.parentName.trim() || "-",
       email: values.parentEmail.trim() || "",
       phone: values.parentPhone.trim() || "",
       photo: values.parentPhoto.trim() || previous?.parent.photo,
@@ -132,6 +183,9 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
     breadcrumbCategory: previous?.breadcrumbCategory ?? "Families",
     tags: previous?.tags ?? [],
     updatesCount: previous?.updatesCount ?? 0,
+    status: previous?.status,
+    completionPercent: previous?.completionPercent,
+    missingFields: previous?.missingFields,
     givingLevels: previous?.givingLevels,
     storySections: previous?.storySections,
   };
@@ -139,6 +193,15 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
 
 export function campaignToFormValues(c: Campaign): CampaignFormValues {
   const s = c.students[0];
+  const students = c.students.map((student) => ({
+    firstName: student.firstName,
+    lastName: student.lastName,
+    nickname: student.nickname ?? "",
+    grade: student.gradeDisplay,
+    school: student.school,
+    individualGoal: String(student.individualGoal),
+    photo: student.photo ?? "",
+  }));
   return {
     slug: c.slug,
     title: c.title,
@@ -160,8 +223,9 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     studentGrade: s?.gradeDisplay ?? "",
     studentSchool: s?.school ?? "",
     studentIndividualGoal: s ? String(s.individualGoal) : "",
-    studentIndividualRaised: s ? String(s.individualRaised) : "",
+    studentIndividualRaised: "",
     studentPhoto: s?.photo ?? "",
+    students,
     schoolName: c.school.name,
     schoolAddress: c.school.address,
     schoolWebsite: c.school.website,

@@ -12,6 +12,7 @@ import {
   CampaignFormPanelStudent,
 } from "@/components/campaigns/campaign-form-panels";
 import { Button } from "@/components/ui/button";
+import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { emptyCampaignFormValues } from "@/lib/dashboard/campaign-editor";
@@ -28,33 +29,41 @@ export function CreateCampaignWizard() {
   const [step, setStep] = useState(1);
   const [values, setValues] = useState(emptyCampaignFormValues);
   const [isSaving, setIsSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<"draft" | "review" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const completion = calculateCampaignCompletion(values);
 
   function onPatch(patch: Partial<CampaignFormValues>) {
     setValues((v) => ({ ...v, ...patch }));
     setError(null);
   }
 
-  async function submitCampaign(e: React.FormEvent) {
-    e.preventDefault();
+  async function saveCampaign(action: "draft" | "review") {
     setIsSaving(true);
+    setSavingAction(action);
     setError(null);
 
     try {
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values }),
+        body: JSON.stringify({ values, action }),
       });
-      const data = (await res.json().catch(() => null)) as { error?: string; redirect?: string } | null;
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        missingFields?: string[];
+        redirect?: string;
+      } | null;
       if (!res.ok || !data?.redirect) {
-        throw new Error(data?.error ?? "Could not save this campaign draft.");
+        const missing = data?.missingFields?.length ? ` Missing: ${data.missingFields.join(", ")}.` : "";
+        throw new Error(`${data?.error ?? "Could not save this campaign."}${missing}`);
       }
       window.location.href = data.redirect;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save this campaign draft.");
+      setError(err instanceof Error ? err.message : "Could not save this campaign.");
     } finally {
       setIsSaving(false);
+      setSavingAction(null);
     }
   }
 
@@ -107,10 +116,29 @@ export function CreateCampaignWizard() {
         ))}
       </div>
 
-      <form onSubmit={submitCampaign} className="space-y-5">
+      <div className="mb-6 rounded-lg border border-border bg-card/80 p-4 text-sm text-muted-foreground">
+        <p>
+          You can save a draft at any point and finish later from your dashboard. Campaigns are not posted publicly
+          until they are submitted and approved.
+        </p>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="h-2 flex-1 rounded-full bg-muted">
+            <div className="h-2 rounded-full bg-primary" style={{ width: `${completion.percent}%` }} />
+          </div>
+          <span className="shrink-0 font-medium text-primary">{completion.percent}% complete</span>
+        </div>
+      </div>
+
+      <div className="space-y-5">
         {step === 1 ? <CampaignFormPanelCampaign values={values} onPatch={onPatch} /> : null}
         {step === 2 ? <CampaignFormPanelParent values={values} onPatch={onPatch} /> : null}
-        {step === 3 ? <CampaignFormPanelStudent values={values} onPatch={onPatch} /> : null}
+        {step === 3 ? (
+          <CampaignFormPanelStudent
+            values={values}
+            onPatch={onPatch}
+            onSkip={() => setStep(4)}
+          />
+        ) : null}
         {step === 4 ? <CampaignFormPanelSchool values={values} onPatch={onPatch} /> : null}
 
         {error ? (
@@ -129,16 +157,36 @@ export function CreateCampaignWizard() {
             Back
           </Button>
           {step < 4 ? (
-            <Button type="button" variant="secondary" onClick={() => setStep((s) => Math.min(4, s + 1))}>
-              Next
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSaving}
+                onClick={() => void saveCampaign("draft")}
+              >
+                {savingAction === "draft" ? "Saving..." : "Save Draft"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setStep((s) => Math.min(4, s + 1))}>
+                Next
+              </Button>
+            </div>
           ) : (
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving draft..." : "Save campaign draft"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" disabled={isSaving} onClick={() => void saveCampaign("draft")}>
+                {savingAction === "draft" ? "Saving..." : "Save Draft"}
+              </Button>
+              <Button
+                type="button"
+                disabled={isSaving || !completion.readyForReview}
+                onClick={() => void saveCampaign("review")}
+                title={!completion.readyForReview ? `Missing: ${completion.missingFields.join(", ")}` : undefined}
+              >
+                {savingAction === "review" ? "Submitting..." : "Submit for Review"}
+              </Button>
+            </div>
           )}
         </div>
-      </form>
+      </div>
 
       <p className="mt-10 text-center">
         <Link

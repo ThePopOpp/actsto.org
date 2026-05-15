@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
 import { notifyIncompleteCampaignDraft } from "@/lib/campaigns/notifications";
 import { getActSession } from "@/lib/auth/session-server";
-import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
-import { slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
+import type { CampaignFormStudent, CampaignFormValues } from "@/lib/dashboard/campaign-editor";
+import { getCampaignFormStudents, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
 
@@ -21,6 +21,20 @@ function date(value: string) {
   if (!value) return null;
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function student(value: unknown): CampaignFormStudent | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<CampaignFormStudent>;
+  return {
+    firstName: text(raw.firstName),
+    lastName: text(raw.lastName),
+    nickname: text(raw.nickname),
+    grade: text(raw.grade),
+    school: text(raw.school),
+    individualGoal: text(raw.individualGoal),
+    photo: text(raw.photo),
+  };
 }
 
 async function uniqueCampaignSlug(base: string) {
@@ -41,15 +55,23 @@ async function profileForSession(email: string) {
 }
 
 export async function POST(request: Request) {
-  const session = await getActSession();
-  if (!session) return NextResponse.json({ error: "Please sign in before creating a campaign." }, { status: 401 });
+  try {
+    const session = await getActSession();
+    if (!session) return NextResponse.json({ error: "Please sign in before creating a campaign." }, { status: 401 });
 
-  const profile = await profileForSession(session.email);
-  if (!profile) return NextResponse.json({ error: "Profile record could not be loaded." }, { status: 400 });
+    const profile = await profileForSession(session.email);
+    if (!profile) return NextResponse.json({ error: "Profile record could not be loaded." }, { status: 400 });
 
-  const body = (await request.json().catch(() => null)) as { values?: Partial<CampaignFormValues> } | null;
-  const raw = body?.values ?? {};
-  const values: CampaignFormValues = {
+    const body = (await request.json().catch(() => null)) as {
+      action?: "draft" | "review";
+      values?: Partial<CampaignFormValues>;
+    } | null;
+    const action = body?.action === "review" ? "review" : "draft";
+    const raw = body?.values ?? {};
+    const parsedStudents = Array.isArray(raw.students)
+      ? raw.students.map(student).filter((item): item is CampaignFormStudent => Boolean(item))
+      : [];
+    const values: CampaignFormValues = {
     slug: text(raw.slug),
     title: text(raw.title),
     description: text(raw.description),
@@ -72,18 +94,30 @@ export async function POST(request: Request) {
     studentIndividualGoal: text(raw.studentIndividualGoal),
     studentIndividualRaised: text(raw.studentIndividualRaised),
     studentPhoto: text(raw.studentPhoto),
+    students: parsedStudents,
     schoolName: text(raw.schoolName),
     schoolAddress: text(raw.schoolAddress),
     schoolWebsite: text(raw.schoolWebsite),
     schoolLogo: text(raw.schoolLogo),
-  };
+    };
 
-  const completion = calculateCampaignCompletion(values);
-  const baseSlug = slugifyCampaignSlug(values.slug, values.title || `${values.parentName || "family"} campaign`);
-  const slug = await uniqueCampaignSlug(baseSlug);
-  const schoolName = values.schoolName || values.studentSchool;
+    const completion = calculateCampaignCompletion(values);
+    if (action === "review" && !completion.readyForReview) {
+      return NextResponse.json(
+        {
+          error: "This campaign needs a few more details before it can be submitted for review.",
+          missingFields: completion.missingFields,
+        },
+        { status: 422 },
+      );
+    }
+    const baseSlug = slugifyCampaignSlug(values.slug, values.title || `${values.parentName || "family"} campaign`);
+    const slug = await uniqueCampaignSlug(baseSlug);
+    const students = getCampaignFormStudents(values);
+    const schoolName = values.schoolName || students[0]?.school || values.studentSchool;
+    const status = action === "review" ? "pending_review" : "draft";
 
-  const campaign = await prisma.$transaction(async (tx) => {
+    const campaign = await prisma.$transaction(async (tx) => {
     await tx.userRoleRecord.upsert({
       where: { userId_role: { userId: profile.id, role: "parent" } },
       create: {
@@ -151,7 +185,7 @@ export async function POST(request: Request) {
         tagline: values.tagline || null,
         shortExcerpt: values.excerpt || null,
         story: values.description || null,
-        status: "draft",
+        status,
         startsAt: date(values.startDate),
         endsAt: date(values.endDate),
         goalAmount: money(values.goal) || 1000,
@@ -162,6 +196,17 @@ export async function POST(request: Request) {
       },
       select: { id: true, slug: true, title: true },
     });
+
+    if (action === "review") {
+      await tx.approvalQueue.create({
+        data: {
+          entityType: "campaign",
+          entityId: created.id,
+          submittedBy: profile.id,
+          status: "pending",
+        },
+      });
+    }
 
     if (values.image) {
       await tx.campaignMedia.create({
@@ -190,16 +235,18 @@ export async function POST(request: Request) {
       });
     }
 
-    if (values.studentFirstName) {
+    const studentRows = students.length > 0 ? students : [];
+    for (const [index, formStudent] of studentRows.entries()) {
+      if (!formStudent.firstName) continue;
       const student = await tx.student.create({
         data: {
           parentUserId: profile.id,
           schoolId,
-          firstName: values.studentFirstName,
-          lastName: values.studentLastName || null,
-          nickname: values.studentNickname || null,
-          grade: values.studentGrade || null,
-          profilePhotoUrl: values.studentPhoto || null,
+          firstName: formStudent.firstName,
+          lastName: formStudent.lastName || null,
+          nickname: formStudent.nickname || null,
+          grade: formStudent.grade || null,
+          profilePhotoUrl: formStudent.photo || null,
           phone: normalizePhone(values.parentPhone) || null,
           phoneNormalized: normalizePhone(values.parentPhone) || null,
           createdBy: profile.id,
@@ -211,17 +258,18 @@ export async function POST(request: Request) {
         data: {
           campaignId: created.id,
           studentId: student.id,
-          individualGoal: money(values.studentIndividualGoal) || money(values.goal) || 1000,
-          amountAllocated: money(values.studentIndividualRaised),
+          individualGoal: money(formStudent.individualGoal) || Math.round((money(values.goal) || 1000) / Math.max(1, studentRows.length)),
+          amountAllocated: 0,
+          sortOrder: index,
         },
       });
     }
 
     return created;
-  });
+    });
 
-  if (!completion.readyForReview) {
-    await notifyIncompleteCampaignDraft({
+    if (!completion.readyForReview) {
+      await notifyIncompleteCampaignDraft({
       userId: profile.id,
       campaignId: campaign.id,
       campaignSlug: campaign.slug,
@@ -229,13 +277,20 @@ export async function POST(request: Request) {
       email: values.parentEmail || profile.email,
       phone: values.parentPhone || profile.phone,
       missingFields: completion.missingFields,
-    });
-  }
+      });
+    }
 
-  return NextResponse.json({
-    ok: true,
-    campaign,
-    completion,
-    redirect: `/dashboard/parent/campaigns/${campaign.slug}/edit`,
-  });
+    return NextResponse.json({
+      ok: true,
+      campaign,
+      completion,
+      redirect: `/dashboard/parent/campaigns/${campaign.slug}/edit`,
+    });
+  } catch (error) {
+    console.error("Campaign create failed", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not save this campaign." },
+      { status: 500 },
+    );
+  }
 }
