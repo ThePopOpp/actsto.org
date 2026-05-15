@@ -928,6 +928,9 @@ model CommunicationPreference {
   userId                    String   @unique @map("user_id") @db.Uuid
   emailOptIn                Boolean  @default(true) @map("email_opt_in")
   smsOptIn                  Boolean  @default(false) @map("sms_opt_in")
+  smsConsentAt              DateTime? @map("sms_consent_at")
+  smsConsentVersion         String?  @map("sms_consent_version")
+  smsConsentSource          String?  @map("sms_consent_source")
   transactionalEmailEnabled Boolean  @default(true) @map("transactional_email_enabled")
   marketingEmailEnabled     Boolean  @default(false) @map("marketing_email_enabled")
   donationUpdatesEnabled    Boolean  @default(true) @map("donation_updates_enabled")
@@ -936,6 +939,33 @@ model CommunicationPreference {
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
   @@map("communication_preferences")
+}
+
+model SmsConsentRecord {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  smsConsent        Boolean  @default(false) @map("sms_consent")
+  smsConsentTimestamp DateTime @default(now()) @map("sms_consent_timestamp")
+  userId            String?  @map("user_id") @db.Uuid
+  email             String?
+  phone             String?  @map("sms_consent_phone_number")
+  phoneNormalized   String?  @map("phone_normalized")
+  source            String
+  sourceUrl         String?  @map("sms_consent_source_url")
+  formName          String   @map("sms_consent_form_name")
+  disclosureVersion String   @map("sms_consent_disclosure_version")
+  consentText       String   @map("consent_text")
+  ipAddress         String?  @map("sms_consent_ip_address")
+  userAgent         String?  @map("sms_consent_user_agent")
+  metadata          Json     @default("{}")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([phoneNormalized])
+  @@index([smsConsent])
+  @@index([source])
+  @@index([formName])
+  @@index([createdAt])
+  @@map("sms_consent_records")
 }
 
 model EmailLog {

@@ -53,6 +53,8 @@ const resources = [
   { href: "/login", label: "Login" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Support" },
+  { href: "/sms-opt-in", label: "SMS Opt-In" },
+  { href: "/sms-opt-out", label: "SMS Opt-Out" },
   { href: "/legal/terms", label: "Legal" },
 ];
 
