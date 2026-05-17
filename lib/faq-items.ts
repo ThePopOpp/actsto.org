@@ -281,6 +281,15 @@ export const faqItems: FaqItem[] = [
     ],
   },
   {
+    question: "How do I sign up for ACTSTO text messages?",
+    blocks: [
+      {
+        type: "p",
+        text: "You can choose to receive ACTSTO text messages by checking the optional SMS consent box on our contact, donor, business donor, parent registration, donation, campaign, or event forms. Text messages may include account alerts, donation confirmations, scholarship campaign updates, event reminders, program announcements, and support-related communications. Message frequency varies. Message and data rates may apply. You can reply STOP to opt out or HELP for assistance. SMS consent is optional and is not required to donate, register, create a campaign, or use ACTSTO services.",
+      },
+    ],
+  },
+  {
     question: "Who should I contact for help?",
     blocks: [
       {

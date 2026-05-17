@@ -6,6 +6,7 @@ import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { ChevronRight, CreditCard } from "lucide-react";
 
 import { DonationFormStepper, StepBanner } from "@/components/donate/form-stepper";
+import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -502,6 +503,7 @@ export function TaxCreditWizard({
 
   const [terms, setTerms] = useState(false);
   const [gdpr, setGdpr] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
 
   /** Embedded step 4: PayPal row vs inline card form (must not call onExitFlow until checkout completes). */
   const [embedPaymentView, setEmbedPaymentView] = useState<"methods" | "card">("methods");
@@ -651,6 +653,7 @@ export function TaxCreditWizard({
         relationshipAck,
         termsAccepted: terms,
         privacyConsent: gdpr,
+        smsConsent,
         creditLimit: maxForSelection,
         eligibleCredit: summary.eligibleCredit,
         previousStoTotal: otherStoTotal,
@@ -802,6 +805,12 @@ export function TaxCreditWizard({
                 <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </FormField>
             </div>
+            <SmsConsentCheckbox
+              id="tax-credit-sms-consent"
+              checked={smsConsent}
+              onCheckedChange={setSmsConsent}
+              copyKey="universal"
+            />
           </div>
         </WizardShell>
       )}

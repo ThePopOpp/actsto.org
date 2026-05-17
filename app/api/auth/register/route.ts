@@ -10,6 +10,7 @@ import { dashboardPathForRole } from "@/lib/auth/paths";
 import type { ActSession, PortalRole } from "@/lib/auth/types";
 import { PORTAL_ROLES } from "@/lib/auth/types";
 import { prisma } from "@/lib/prisma";
+import { recordSmsConsent, smsConsentRequestMetadata, type SmsConsentSource } from "@/lib/sms/consent";
 import { normalizePhone } from "@/lib/sms/twilio";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -44,6 +45,8 @@ export async function POST(req: Request) {
     displayName?: string;
     birthDate?: string;
     studentInviteToken?: string;
+    smsConsent?: boolean;
+    smsConsentSource?: SmsConsentSource;
   };
 
   const email = (body.email ?? "").trim().toLowerCase();
@@ -55,6 +58,7 @@ export async function POST(req: Request) {
   const role = body.role ?? "";
   const displayName = (body.displayName ?? "").trim() || null;
   const studentInviteToken = (body.studentInviteToken ?? "").trim();
+  const smsOptIn = body.smsConsent === true;
 
   if (!email) return NextResponse.json({ error: "Email required." }, { status: 400 });
   if (password.length < 8)
@@ -124,6 +128,20 @@ export async function POST(req: Request) {
       await consumeStudentInvite({ token: studentInviteToken, userId, email });
     }
     await syncAccountSetupProgress(userId, role);
+    await recordSmsConsent({
+      smsOptIn,
+      source: body.smsConsentSource ?? sourceForRole(role),
+      formName: formNameForRole(role),
+      copyKey: copyKeyForRole(role),
+      userId,
+      email,
+      phone,
+      ...smsConsentRequestMetadata(req),
+      metadata: {
+        role,
+        form: "registration",
+      },
+    });
   } catch (error) {
     if (role === "student") {
       await supabase.auth.admin.deleteUser(userId).catch(() => {});
@@ -154,4 +172,25 @@ export async function POST(req: Request) {
   });
   res.cookies.set(SESSION_COOKIE_NAME, encodeSession(session), COOKIE_OPTS);
   return res;
+}
+
+function sourceForRole(role: PortalRole): SmsConsentSource {
+  if (role === "parent") return "register_parent";
+  if (role === "student") return "register_student";
+  if (role === "donor_business") return "register_donor_business";
+  return "register_donor_individual";
+}
+
+function formNameForRole(role: PortalRole) {
+  if (role === "parent") return "Parent Account Signup";
+  if (role === "student") return "Student Account Signup";
+  if (role === "donor_business") return "Business Donor Signup";
+  return "Individual Donor Signup";
+}
+
+function copyKeyForRole(role: PortalRole) {
+  if (role === "parent") return "parent" as const;
+  if (role === "donor_business") return "donorBusiness" as const;
+  if (role === "donor_individual") return "donorIndividual" as const;
+  return "universal" as const;
 }

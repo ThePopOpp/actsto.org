@@ -139,6 +139,20 @@ export function PrivacyDocumentBody() {
           Campaign pages are publicly visible by default. Parents should not include sensitive personal data such as full
           home addresses or government ID numbers in campaign content.
         </p>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">
+          SMS Consent and Mobile Information
+        </h3>
+        <p className="mt-3 text-muted-foreground">
+          ACT does not sell, rent, share, or disclose mobile phone numbers, SMS opt-in data, or SMS consent records with
+          third parties or affiliates for their own marketing or promotional purposes. Mobile information and messaging
+          consent are used only to deliver ACT-related communications, support services, account notifications, donation
+          confirmations, campaign updates, event reminders, and other messages requested or authorized by the user.
+        </p>
+        <p className="mt-3 text-muted-foreground">
+          ACT may share mobile phone numbers and messaging data with service providers such as Twilio solely as necessary
+          to deliver, manage, secure, and document ACT communications. These providers are not permitted to use mobile
+          information or SMS consent data for their own marketing or promotional purposes.
+        </p>
       </section>
 
       <section>
@@ -219,6 +233,20 @@ export function PrivacyDocumentBody() {
             twilio.com/legal/privacy
           </a>
           .
+        </p>
+        <p className="mt-3 text-muted-foreground">
+          When you choose to opt in to SMS, ACT records that consent separately from Terms of Service or Privacy Policy
+          acceptance. Consent records may include your phone number, normalized phone number, email address, source form,
+          timestamp, IP address, user agent, disclosure version, and the consent language shown at the time of opt-in. SMS
+          consent is optional and can be withdrawn at any time by replying STOP or contacting ACT.
+        </p>
+        <h3 className="mt-4 font-heading text-base font-semibold text-foreground">SMS Program Disclosures</h3>
+        <p className="mt-3 text-muted-foreground">
+          By opting in to ACT SMS communications, users may receive text messages related to account alerts, donation
+          confirmations, scholarship campaigns, fundraising updates, event reminders, program announcements, support
+          responses, and other ACT-related notifications. Message frequency varies based on user activity and campaign
+          participation. Message and data rates may apply. Users may reply STOP to opt out at any time or HELP for
+          assistance.
         </p>
       </section>
 

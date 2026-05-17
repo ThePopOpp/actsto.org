@@ -214,7 +214,34 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>8. Scholarship Awards</h2>
+        <h2>8. SMS Terms</h2>
+        <p className="mt-3 text-muted-foreground">
+          By separately opting in to receive SMS communications from Arizona Christian Tuition (ACTSTO), you agree to
+          receive text messages related to your account, donation confirmations, scholarship campaigns, campaign updates,
+          event reminders, program announcements, and support-related communications.
+        </p>
+        <p className="mt-3 text-muted-foreground">
+          Message frequency varies based on your account activity, donation activity, campaign participation, and
+          communication preferences. Message and data rates may apply. You may opt out at any time by replying STOP to any
+          ACTSTO text message. For help, reply HELP or contact ACTSTO at (602) 421-8301 or{" "}
+          <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
+            hello@actsto.org
+          </a>
+          .
+        </p>
+        <p className="mt-3 text-muted-foreground">
+          Consent to receive SMS messages is not required to donate, create an account, create a campaign, apply for
+          scholarship support, or use ACTSTO services. SMS consent is collected through a separate optional checkbox or
+          other documented opt-in method. ACTSTO does not sell, rent, or share SMS consent or mobile phone numbers with
+          third parties or affiliates for their own marketing or promotional purposes.
+        </p>
+        <p className="mt-3 text-muted-foreground">
+          Wireless carriers are not liable for delayed or undelivered messages.
+        </p>
+      </section>
+
+      <section>
+        <h2>9. Scholarship Awards</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>Students must be Arizona residents enrolled in a qualifying private school under A.R.S. § 43-1089(G).</li>
           <li>Students may not be family members of an ACT board member or employee.</li>
@@ -227,7 +254,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>9. Prohibited Conduct</h2>
+        <h2>10. Prohibited Conduct</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>Using the Platform for any unlawful purpose.</li>
           <li>Creating fraudulent accounts, campaigns, or transactions.</li>
@@ -240,7 +267,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>10. Intellectual Property</h2>
+        <h2>11. Intellectual Property</h2>
         <p className="mt-3 text-muted-foreground">
           All Platform content not submitted by users — including text, logos, graphics, and software — is the property of
           ACT and protected by U.S. copyright and trademark law. The ACT name and logo (round and horizontal mark) are
@@ -249,7 +276,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>11. Disclaimers</h2>
+        <h2>12. Disclaimers</h2>
         <p className="mt-3 text-muted-foreground">
           THE PLATFORM IS PROVIDED &quot;AS IS&quot; WITHOUT WARRANTIES OF ANY KIND. ACT DOES NOT WARRANT THAT THE PLATFORM
           WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE. ACT IS NOT A TAX ADVISOR, FINANCIAL ADVISOR, OR LEGAL ADVISOR.
@@ -259,7 +286,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>12. Limitation of Liability</h2>
+        <h2>13. Limitation of Liability</h2>
         <p className="mt-3 text-muted-foreground">
           TO THE MAXIMUM EXTENT PERMITTED BY LAW, ACT SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
           CONSEQUENTIAL, OR PUNITIVE DAMAGES. ACT&apos;S TOTAL LIABILITY FOR ALL CLAIMS SHALL NOT EXCEED THE GREATER OF (A)
@@ -268,7 +295,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>13. Indemnification</h2>
+        <h2>14. Indemnification</h2>
         <p className="mt-3 text-muted-foreground">
           You agree to defend, indemnify, and hold harmless ACT, its officers, directors, employees, and volunteers from
           any claims, damages, costs, and expenses (including reasonable attorneys&apos; fees) arising from your use of the
@@ -277,7 +304,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>14. Dispute Resolution</h2>
+        <h2>15. Dispute Resolution</h2>
         <ul className="mt-3 text-muted-foreground">
           <li>
             Before filing legal action, contact{" "}
@@ -298,7 +325,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>15. Governing Law</h2>
+        <h2>16. Governing Law</h2>
         <p className="mt-3 text-muted-foreground">
           These Terms are governed by the laws of the State of Arizona. Any action not subject to arbitration shall be
           brought exclusively in the state or federal courts in Maricopa County, Arizona.
@@ -306,7 +333,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>16. Termination</h2>
+        <h2>17. Termination</h2>
         <p className="mt-3 text-muted-foreground">
           ACT may suspend or terminate your account at any time for conduct that violates these Terms, harms other users,
           violates applicable law, or jeopardizes ACT&apos;s 501(c)(3) or STO certification status. Provisions that by their
@@ -315,7 +342,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>17. Changes to Terms</h2>
+        <h2>18. Changes to Terms</h2>
         <p className="mt-3 text-muted-foreground">
           ACT may update these Terms at any time. Material changes will be communicated via email at least 14 days before
           taking effect. Continued use of the Platform after the effective date constitutes acceptance.
@@ -323,7 +350,7 @@ export function TermsDocumentBody() {
       </section>
 
       <section>
-        <h2>18. Contact</h2>
+        <h2>19. Contact</h2>
         <p className="mt-3 text-muted-foreground">
           <strong className="text-foreground">Arizona Christian Tuition</strong>
           <br />

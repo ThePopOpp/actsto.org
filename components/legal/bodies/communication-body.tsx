@@ -60,31 +60,40 @@ export function CommunicationDocumentBody() {
           mobile number is collected:
         </p>
         <blockquote className="mt-3 border-l-4 border-primary/40 bg-muted/40 py-3 pl-4 pr-3 text-sm text-muted-foreground">
-          &quot;By providing your mobile phone number and checking the opt-in box, you consent to receive recurring automated
-          text messages from Arizona Christian Tuition (ACT) at the number provided, including donation receipts, campaign
-          updates, and account alerts. Consent is not required to donate or use our services. Message and data rates may
-          apply. Message frequency varies. Reply STOP to opt out. Reply HELP for assistance. Privacy Policy:{" "}
-          <a
-            href="https://arizonachristiantuition.com/privacy-policy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            arizonachristiantuition.com/privacy-policy
+          &quot;By providing your mobile phone number and checking the optional SMS opt-in box, you consent to receive
+          recurring text messages from Arizona Christian Tuition (ACTSTO) at the number provided. Messages may include
+          account alerts, donation confirmations, scholarship campaign updates, fundraising reminders, event notifications,
+          program announcements, and support-related communications. Consent is not required to donate, register, create a
+          campaign, apply for scholarship support, or use ACTSTO services. Message frequency varies. Message and data rates
+          may apply. Reply STOP to opt out. Reply HELP for assistance. View our Privacy Policy at{" "}
+          <a href="https://actsto.org/legal/privacy" className="text-primary underline-offset-4 hover:underline">
+            https://actsto.org/legal/privacy
+          </a>
+          , Terms of Service at{" "}
+          <a href="https://actsto.org/legal/terms" className="text-primary underline-offset-4 hover:underline">
+            https://actsto.org/legal/terms
+          </a>
+          , and Communication Policy at{" "}
+          <a href="https://actsto.org/legal/communication-policy" className="text-primary underline-offset-4 hover:underline">
+            https://actsto.org/legal/communication-policy
           </a>
           .&quot;
         </blockquote>
         <p className="mt-3 text-muted-foreground">
-          ACT retains records of all opt-in consents including timestamp, IP address, and disclosure version.
+          SMS consent is collected with a separate optional checkbox near the phone field. It is not pre-checked, not
+          required, and not bundled with acceptance of the Terms of Service or Privacy Policy. ACT retains records of all
+          opt-in consents including timestamp, source form, phone number, IP address, user agent, consent text, and
+          disclosure version.
         </p>
 
         <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.3 Opt-Out</h3>
         <ul className="text-muted-foreground">
           <li>
-            Reply STOP to any ACT text message. ACT will confirm: &quot;You have been unsubscribed from ACT messages.
-            Contact (602) 421-8301 or hello@actsto.org for support.&quot;
+            Reply STOP to any ACT text message. ACT will confirm: &quot;You have successfully been unsubscribed from Arizona
+            Christian Tuition (ACTSTO) SMS messages. You will no longer receive text messages from this number. Reply START
+            to resubscribe or contact hello@actsto.org for assistance.&quot;
           </li>
-          <li>Update preferences at my.actsto.org under Communication Settings.</li>
+          <li>Update preferences in the ACTSTO dashboard under Communication Settings.</li>
           <li>
             Email{" "}
             <a href="mailto:hello@actsto.org" className="text-primary underline-offset-4 hover:underline">
@@ -100,8 +109,8 @@ export function CommunicationDocumentBody() {
 
         <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.4 HELP Response</h3>
         <p className="mt-3 text-muted-foreground">
-          &quot;ACT Help: Arizona Christian Tuition SMS Program. Support: (602) 421-8301 or hello@actsto.org. Reply STOP to
-          cancel. Msg &amp; Data rates may apply.&quot;
+          &quot;Arizona Christian Tuition (ACTSTO) Help: For assistance, call (602) 421-8301 or email hello@actsto.org. Reply
+          STOP to opt out. Message and data rates may apply.&quot;
         </p>
 
         <h3 className="mt-4 font-heading text-base font-semibold text-foreground">2.5 Message Frequency</h3>

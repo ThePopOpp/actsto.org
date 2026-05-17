@@ -5,6 +5,7 @@ import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
 import { createPaypalOrder } from "@/lib/paypal/client";
 import { logPaypalPaymentEvent } from "@/lib/paypal/payment-records";
+import { recordSmsConsent, smsConsentRequestMetadata } from "@/lib/sms/consent";
 import { normalizePhone } from "@/lib/sms/twilio";
 
 /**
@@ -104,6 +105,7 @@ export async function POST(req: Request) {
               relationshipAck: taxCredit.relationshipAck,
               termsAccepted: taxCredit.termsAccepted,
               privacyConsent: taxCredit.privacyConsent,
+              smsConsent: taxCredit.smsConsent,
             },
           }
         : {}),
@@ -167,6 +169,25 @@ export async function POST(req: Request) {
       },
     });
     donationId = donation.id;
+
+    if (taxCredit) {
+      await recordSmsConsent({
+        smsOptIn: taxCredit.smsConsent,
+        source: "donation_tax_credit",
+        formName: "Tax Credit Donation",
+        copyKey: "universal",
+        userId,
+        email: taxCredit.donorEmail,
+        phone: taxCredit.donorPhone,
+        ...smsConsentRequestMetadata(req),
+        metadata: {
+          donationId: donation.id,
+          donationType,
+          campaignSlug,
+          campaignTitle,
+        },
+      });
+    }
 
     // 2. Create PayPal order
     const { orderId } = await createPaypalOrder(amountUsd);
@@ -250,6 +271,7 @@ type TaxCreditPayload = {
   relationshipAck?: boolean;
   termsAccepted?: boolean;
   privacyConsent?: boolean;
+  smsConsent?: boolean;
   creditLimit?: number;
   eligibleCredit?: number;
   previousStoTotal?: number;
@@ -293,6 +315,7 @@ function normalizeTaxCreditPayload(payload: TaxCreditPayload | undefined | null)
     relationshipAck: payload.relationshipAck === true,
     termsAccepted: payload.termsAccepted === true,
     privacyConsent: payload.privacyConsent === true,
+    smsConsent: payload.smsConsent === true,
     creditLimit: safeNumber(payload.creditLimit),
     eligibleCredit: safeNumber(payload.eligibleCredit),
     previousStoTotal: safeNumber(payload.previousStoTotal),

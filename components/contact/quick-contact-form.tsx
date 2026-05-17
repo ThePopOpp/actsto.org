@@ -8,10 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
 
 export function QuickContactForm() {
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
 
   async function submitContact(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +31,7 @@ export function QuickContactForm() {
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(json?.error ?? "Could not send your message.");
       form.reset();
+      setSmsConsent(false);
       setStatus("Thanks. Your message was sent to hello@actsto.org.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not send your message.");
@@ -65,6 +68,13 @@ export function QuickContactForm() {
             <Label htmlFor="cf-phone">Phone</Label>
             <Input id="cf-phone" name="phone" type="tel" className="mt-1.5" />
           </div>
+          <SmsConsentCheckbox
+            id="cf-sms-consent"
+            checked={smsConsent}
+            onCheckedChange={setSmsConsent}
+            inputName="smsConsent"
+            copyKey="contact"
+          />
           <div>
             <Label htmlFor="cf-msg">Your inquiry *</Label>
             <Textarea

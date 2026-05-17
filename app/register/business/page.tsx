@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
 
 export default function RegisterBusinessPage() {
@@ -28,6 +29,7 @@ export default function RegisterBusinessPage() {
     password: "",
     confirm: "",
     agreed: false,
+    smsConsent: false,
   });
 
   function set(field: keyof typeof form, value: string | boolean) {
@@ -56,6 +58,8 @@ export default function RegisterBusinessPage() {
           phone: form.phone.trim(),
           displayName: form.businessName.trim(),
           role: "donor_business",
+          smsConsent: form.smsConsent,
+          smsConsentSource: "register_donor_business",
         }),
       });
       const json = (await res.json()) as { ok?: boolean; redirect?: string; error?: string };
@@ -165,6 +169,12 @@ export default function RegisterBusinessPage() {
                     onChange={(e) => set("phone", e.target.value)}
                   />
                 </div>
+                <SmsConsentCheckbox
+                  id="sms-consent"
+                  checked={form.smsConsent}
+                  onCheckedChange={(checked) => set("smsConsent", checked)}
+                  copyKey="donorBusiness"
+                />
               </div>
             </div>
 

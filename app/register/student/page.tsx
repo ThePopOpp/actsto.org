@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
 
 export default function RegisterStudentPage() {
@@ -28,6 +29,7 @@ export default function RegisterStudentPage() {
     password: "",
     confirm: "",
     agreed: false,
+    smsConsent: false,
   });
 
   function setField(field: keyof typeof form, value: string | boolean) {
@@ -63,6 +65,8 @@ export default function RegisterStudentPage() {
           phone: form.phone.trim(),
           role: "student",
           studentInviteToken: form.inviteToken.trim(),
+          smsConsent: form.smsConsent,
+          smsConsentSource: "register_student",
         }),
       });
       const json = (await res.json()) as { ok?: boolean; redirect?: string; error?: string };
@@ -149,6 +153,12 @@ export default function RegisterStudentPage() {
                 onChange={(e) => setField("phone", e.target.value)}
               />
             </div>
+            <SmsConsentCheckbox
+              id="sms-consent"
+              checked={form.smsConsent}
+              onCheckedChange={(checked) => setField("smsConsent", checked)}
+              copyKey="universal"
+            />
 
             <div>
               <Label htmlFor="invite">Student invite token *</Label>

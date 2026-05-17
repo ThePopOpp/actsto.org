@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
 import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 
@@ -29,6 +30,7 @@ export default function RegisterDonorPage() {
     password: "",
     confirm: "",
     agreed: false,
+    smsConsent: false,
   });
 
   function set(field: keyof typeof form, value: string | boolean) {
@@ -68,6 +70,8 @@ export default function RegisterDonorPage() {
           lastName: form.lastName.trim(),
           phone: form.phone.trim(),
           role: "donor_individual",
+          smsConsent: form.smsConsent,
+          smsConsentSource: "register_donor_individual",
         }),
       });
       const json = (await res.json()) as { ok?: boolean; redirect?: string; error?: string };
@@ -150,6 +154,12 @@ export default function RegisterDonorPage() {
                 onChange={(e) => set("phone", e.target.value)}
               />
             </div>
+            <SmsConsentCheckbox
+              id="sms-consent"
+              checked={form.smsConsent}
+              onCheckedChange={(checked) => set("smsConsent", checked)}
+              copyKey="donorIndividual"
+            />
             <div>
               <Label htmlFor="pw">Password *</Label>
               <div className="relative mt-1.5">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { sendSmtpEmail } from "@/lib/email/smtp";
+import { recordSmsConsent, smsConsentRequestMetadata } from "@/lib/sms/consent";
 
 const CONTACT_TO = "hello@actsto.org";
 
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   const phone = field(form, "phone");
   const message = field(form, "message");
   const consent = form.get("consent");
+  const smsConsent = field(form, "smsConsent") === "true";
 
   if (!firstName || !email.includes("@") || !message || !consent) {
     return NextResponse.json({ error: "Please complete the required fields." }, { status: 400 });
@@ -66,6 +68,19 @@ export async function POST(request: Request) {
         <p><strong>Message:</strong></p>
         <p>${safeMessage}</p>
       `,
+    });
+    await recordSmsConsent({
+      smsOptIn: smsConsent,
+      source: "contact",
+      formName: "Contact",
+      copyKey: "contact",
+      email,
+      phone: phone || null,
+      ...smsConsentRequestMetadata(request),
+      metadata: {
+        name,
+        form: "quick_contact",
+      },
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
