@@ -984,6 +984,21 @@ model EmailLog {
   @@map("email_logs")
 }
 
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
 model EmailThread {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   channel       String   @default("email")

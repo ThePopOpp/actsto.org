@@ -8,11 +8,13 @@ export async function sendSmtpEmail({
   subject,
   text,
   html,
+  templateKey = "admin_compose",
 }: {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  templateKey?: string;
 }) {
   const config = getSmtpConfig();
   const transporter = nodemailer.createTransport({
@@ -37,7 +39,7 @@ export async function sendSmtpEmail({
     data: {
       toEmail: to,
       subject,
-      templateKey: "admin_compose",
+      templateKey,
       provider: "smtp",
       providerMessageId: info.messageId,
       status: "sent",
