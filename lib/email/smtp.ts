@@ -9,12 +9,14 @@ export async function sendSmtpEmail({
   text,
   html,
   templateKey = "admin_compose",
+  attachments,
 }: {
   to: string;
   subject: string;
   text: string;
   html?: string;
   templateKey?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 }) {
   const config = getSmtpConfig();
   const transporter = nodemailer.createTransport({
@@ -33,6 +35,7 @@ export async function sendSmtpEmail({
     subject,
     text,
     html,
+    attachments,
   });
 
   await prisma.emailLog.create({

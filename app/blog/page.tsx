@@ -11,8 +11,8 @@ export const metadata: Metadata = {
     "Articles on Arizona private school tax credits, tuition campaigns, giving through ACT, and faith-centered education in the Valley.",
 };
 
-export default function BlogArchivePage() {
-  const posts = getPublishedPosts();
+export default async function BlogArchivePage() {
+  const posts = await getPublishedPosts();
 
   return (
     <>

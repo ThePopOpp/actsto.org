@@ -14,13 +14,14 @@ import { cn } from "@/lib/utils";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export function generateStaticParams() {
-  return getAllPostSlugs().map((slug) => ({ slug }));
+export async function generateStaticParams() {
+  const slugs = await getAllPostSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPostBySlug(slug);
   if (!post) return { title: "Post not found" };
   const title = post.meta._yoast_wpseo_title ?? post.title.rendered;
   const description = post.meta._yoast_wpseo_metadesc ?? post.excerptPlain;
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPostBySlug(slug);
   if (!post) notFound();
 
   const published = format(new Date(post.date), "MMMM d, yyyy");

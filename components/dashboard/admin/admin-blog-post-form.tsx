@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,39 +19,103 @@ import { Textarea } from "@/components/ui/textarea";
 
 const FORM_ID = "admin-blog-post";
 
-export function AdminBlogPostForm() {
-  const [saved, setSaved] = useState(false);
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [status, setStatus] = useState("draft");
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [excerpt, setExcerpt] = useState("");
-  const [content, setContent] = useState("");
-  const [featuredUrl, setFeaturedUrl] = useState("");
-  const [featuredAlt, setFeaturedAlt] = useState("");
-  const [categories, setCategories] = useState("Tax credits, Families");
-  const [tags, setTags] = useState("Arizona, STO, Christian education");
-  const [authorName, setAuthorName] = useState("Arizona Christian Tuition");
-  const [yoastTitle, setYoastTitle] = useState("");
-  const [yoastDesc, setYoastDesc] = useState("");
-  const [canonical, setCanonical] = useState("");
-  const [focusKeyword, setFocusKeyword] = useState("");
+export type AdminBlogPostInitial = {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  scheduledAt: string | null;
+  excerpt: string | null;
+  content: string | null;
+  featuredImageUrl: string | null;
+  featuredImageAlt: string | null;
+  categories: string | null;
+  tags: string | null;
+  authorName: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  canonicalUrl: string | null;
+  focusKeyword: string | null;
+};
 
-  function submit(e: React.FormEvent) {
+export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const [title, setTitle] = useState(post?.title ?? "");
+  const [slug, setSlug] = useState(post?.slug ?? "");
+  const [status, setStatus] = useState(post?.status ?? "draft");
+  const [scheduledAt, setScheduledAt] = useState(post?.scheduledAt?.slice(0, 16) ?? "");
+  const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
+  const [content, setContent] = useState(post?.content ?? "");
+  const [featuredUrl, setFeaturedUrl] = useState(post?.featuredImageUrl ?? "");
+  const [featuredAlt, setFeaturedAlt] = useState(post?.featuredImageAlt ?? "");
+  const [categories, setCategories] = useState(post?.categories ?? "Tax credits, Families");
+  const [tags, setTags] = useState(post?.tags ?? "Arizona, STO, Christian education");
+  const [authorName, setAuthorName] = useState(post?.authorName ?? "Arizona Christian Tuition");
+  const [yoastTitle, setYoastTitle] = useState(post?.seoTitle ?? "");
+  const [yoastDesc, setYoastDesc] = useState(post?.seoDescription ?? "");
+  const [canonical, setCanonical] = useState(post?.canonicalUrl ?? "");
+  const [focusKeyword, setFocusKeyword] = useState(post?.focusKeyword ?? "");
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+    setError(null);
+    setSaving(true);
+    try {
+      const body = {
+        title,
+        slug,
+        status,
+        scheduledAt: status === "future" ? scheduledAt : null,
+        excerpt,
+        content,
+        featuredImageUrl: featuredUrl,
+        featuredImageAlt: featuredAlt,
+        categories,
+        tags,
+        authorName,
+        seoTitle: yoastTitle,
+        seoDescription: yoastDesc,
+        canonicalUrl: canonical,
+        focusKeyword,
+      };
+      const res = await fetch(post ? `/api/admin/blog-posts/${post.id}` : "/api/admin/blog-posts", {
+        method: post ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save post.");
+
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+      if (!post) {
+        router.push(`/dashboard/admin/blog-post/${data.post.id}`);
+      } else {
+        router.refresh();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save post.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <form id={FORM_ID} onSubmit={submit} className="space-y-6">
+      {error ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+
       <Card className="border-border/80">
         <CardHeader>
-          <CardTitle className="font-heading text-lg text-primary">Post (WordPress-shaped)</CardTitle>
-          <CardDescription>
-            Mirrors core <code className="rounded bg-muted px-1 text-xs">post</code> fields for title, slug, status,
-            excerpt, and content. Wire saves to REST, WP GraphQL, or your DB.
-          </CardDescription>
+          <CardTitle className="font-heading text-lg text-primary">Post</CardTitle>
+          <CardDescription>Title, slug, status, excerpt, and content.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -63,7 +129,7 @@ export function AdminBlogPostForm() {
               className="mt-1.5 font-mono text-sm"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="my-article-url"
+              placeholder="my-article-url (auto-generated from title if left blank)"
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -112,7 +178,7 @@ export function AdminBlogPostForm() {
               className="mt-1.5 min-h-[240px] font-mono text-sm"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="HTML or blocks JSON when integrated with WordPress."
+              placeholder="Plain text — separate paragraphs with a blank line."
             />
           </div>
         </CardContent>
@@ -121,11 +187,10 @@ export function AdminBlogPostForm() {
       <Card className="border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-lg text-primary">Featured media</CardTitle>
-          <CardDescription>Maps to REST <code className="rounded bg-muted px-1 text-xs">featured_media</code> once IDs are resolved.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="bp-feat-url">Image URL (or upload → ID in production)</Label>
+            <Label htmlFor="bp-feat-url">Image URL</Label>
             <Input
               id="bp-feat-url"
               className="mt-1.5 font-mono text-sm"
@@ -165,7 +230,6 @@ export function AdminBlogPostForm() {
       <Card className="border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-lg text-primary">SEO meta (Yoast-style)</CardTitle>
-          <CardDescription>Optional plugin keys: title override, meta description, canonical, focus keyword.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -199,13 +263,11 @@ export function AdminBlogPostForm() {
       </Card>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
-        <Button type="submit">Save post (demo)</Button>
-        {saved ? (
-          <span className="text-sm text-emerald-600 dark:text-emerald-400">
-            Not persisted — hook to WordPress REST <code className="rounded bg-muted px-1 text-xs">POST /wp/v2/posts</code>{" "}
-            or your API.
-          </span>
-        ) : null}
+        <Button type="submit" disabled={saving}>
+          {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+          {post ? "Save changes" : "Create post"}
+        </Button>
+        {saved ? <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved.</span> : null}
       </div>
     </form>
   );

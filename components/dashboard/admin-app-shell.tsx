@@ -24,6 +24,7 @@ import {
 
 import type { ActSession } from "@/lib/auth/types";
 import { DashboardSidebarLogo } from "@/components/dashboard/dashboard-sidebar-logo";
+import { ShepardFab } from "@/components/dashboard/admin/shepard-fab";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -221,6 +222,7 @@ export function AdminAppShell({
           {children}
         </main>
       </div>
+      {!previewMode ? <ShepardFab /> : null}
     </div>
   );
 }

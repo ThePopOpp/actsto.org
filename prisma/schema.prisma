@@ -99,29 +99,29 @@ model AdminIntegrationSettings {
 
 /// Public-site CTA blocks managed by Super Admin Site Content
 model SiteCtaBlock {
-  key              String   @id
-  placement        String
-  path             String?
-  heading          String
-  subheading       String?
-  body             String?
-  primaryLabel     String   @map("primary_label")
-  primaryUrl       String   @map("primary_url")
-  primaryVariant   String   @default("default") @map("primary_variant")
-  showSecondary    Boolean  @default(true) @map("show_secondary")
-  secondaryLabel   String?  @map("secondary_label")
-  secondaryUrl     String?  @map("secondary_url")
-  imageUrl         String?  @map("image_url")
-  imageAlt         String?  @map("image_alt")
-  bgColor          String?  @map("bg_color")
-  bgColorEnd       String?  @map("bg_color_end")
-  useGradient      Boolean  @default(false) @map("use_gradient")
-  textColor        String?  @map("text_color")
-  padding          String   @default("default")
-  visible          Boolean  @default(true)
-  sortOrder        Int      @default(0) @map("sort_order")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  key            String   @id
+  placement      String
+  path           String?
+  heading        String
+  subheading     String?
+  body           String?
+  primaryLabel   String   @map("primary_label")
+  primaryUrl     String   @map("primary_url")
+  primaryVariant String   @default("default") @map("primary_variant")
+  showSecondary  Boolean  @default(true) @map("show_secondary")
+  secondaryLabel String?  @map("secondary_label")
+  secondaryUrl   String?  @map("secondary_url")
+  imageUrl       String?  @map("image_url")
+  imageAlt       String?  @map("image_alt")
+  bgColor        String?  @map("bg_color")
+  bgColorEnd     String?  @map("bg_color_end")
+  useGradient    Boolean  @default(false) @map("use_gradient")
+  textColor      String?  @map("text_color")
+  padding        String   @default("default")
+  visible        Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("site_cta_blocks")
 }
@@ -218,20 +218,20 @@ model AccountSetupProgress {
 // ============================================================
 
 model ParentGuardianProfile {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId                String   @unique @map("user_id") @db.Uuid
-  relationshipToStudent String?  @map("relationship_to_student")
-  addressLine1          String?  @map("address_line_1")
-  addressLine2          String?  @map("address_line_2")
-  city                  String?
-  state                 String?
-  zip                   String?
-  emergencyContactName  String?  @map("emergency_contact_name")
-  emergencyContactPhone String?  @map("emergency_contact_phone")
-  emergencyContactPhoneNormalized String? @map("emergency_contact_phone_normalized")
-  profileStatus         String   @default("incomplete") @map("profile_status")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                          String   @unique @map("user_id") @db.Uuid
+  relationshipToStudent           String?  @map("relationship_to_student")
+  addressLine1                    String?  @map("address_line_1")
+  addressLine2                    String?  @map("address_line_2")
+  city                            String?
+  state                           String?
+  zip                             String?
+  emergencyContactName            String?  @map("emergency_contact_name")
+  emergencyContactPhone           String?  @map("emergency_contact_phone")
+  emergencyContactPhoneNormalized String?  @map("emergency_contact_phone_normalized")
+  profileStatus                   String   @default("incomplete") @map("profile_status")
+  createdAt                       DateTime @default(now()) @map("created_at")
+  updatedAt                       DateTime @updatedAt @map("updated_at")
 
   profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -255,24 +255,24 @@ model IndividualDonorProfile {
 }
 
 model BusinessDonorProfile {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String   @unique @map("user_id") @db.Uuid
-  businessName  String?  @map("business_name")
-  businessTitle String?  @map("business_title")
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String   @unique @map("user_id") @db.Uuid
+  businessName            String?  @map("business_name")
+  businessTitle           String?  @map("business_title")
   /// EIN — restrict access to owner + Super Admin only; never expose publicly
-  ein           String?
-  businessEmail String?  @map("business_email")
-  businessPhone String?  @map("business_phone")
-  businessPhoneNormalized String? @map("business_phone_normalized")
-  businessType  String?  @map("business_type")
-  addressLine1  String?  @map("address_line_1")
-  addressLine2  String?  @map("address_line_2")
-  city          String?
-  state         String?
-  zip           String?
-  profileStatus String   @default("incomplete") @map("profile_status")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  ein                     String?
+  businessEmail           String?  @map("business_email")
+  businessPhone           String?  @map("business_phone")
+  businessPhoneNormalized String?  @map("business_phone_normalized")
+  businessType            String?  @map("business_type")
+  addressLine1            String?  @map("address_line_1")
+  addressLine2            String?  @map("address_line_2")
+  city                    String?
+  state                   String?
+  zip                     String?
+  profileStatus           String   @default("incomplete") @map("profile_status")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -284,26 +284,26 @@ model BusinessDonorProfile {
 // ============================================================
 
 model School {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  slug         String   @unique
-  schoolType   String?  @map("school_type")
-  description  String?
-  logoUrl      String?  @map("logo_url")
-  website      String?
-  phone        String?
-  phoneNormalized String? @map("phone_normalized")
-  email        String?
-  addressLine1 String?  @map("address_line1")
-  addressLine2 String?  @map("address_line2")
-  city         String?
-  state        String?
-  zip          String?
-  county       String?
-  isPartner    Boolean  @default(false) @map("is_partner")
-  status       String   @default("active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  slug            String   @unique
+  schoolType      String?  @map("school_type")
+  description     String?
+  logoUrl         String?  @map("logo_url")
+  website         String?
+  phone           String?
+  phoneNormalized String?  @map("phone_normalized")
+  email           String?
+  addressLine1    String?  @map("address_line1")
+  addressLine2    String?  @map("address_line2")
+  city            String?
+  state           String?
+  zip             String?
+  county          String?
+  isPartner       Boolean  @default(false) @map("is_partner")
+  status          String   @default("active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   students             Student[]
   campaigns            Campaign[]
@@ -405,41 +405,41 @@ model CampaignType {
 }
 
 model Campaign {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// auth.users UUID of campaign creator
-  createdByUserId  String    @map("created_by_user_id") @db.Uuid
-  schoolId         String?   @map("school_id") @db.Uuid
-  campaignTypeId   String?   @map("campaign_type_id") @db.Uuid
-  title            String
-  slug             String    @unique
-  tagline          String?
-  shortExcerpt     String?   @map("short_excerpt")
-  story            String?
-  campaignType     String?   @map("campaign_type")
+  createdByUserId          String    @map("created_by_user_id") @db.Uuid
+  schoolId                 String?   @map("school_id") @db.Uuid
+  campaignTypeId           String?   @map("campaign_type_id") @db.Uuid
+  title                    String
+  slug                     String    @unique
+  tagline                  String?
+  shortExcerpt             String?   @map("short_excerpt")
+  story                    String?
+  campaignType             String?   @map("campaign_type")
   /// status: draft | pending_review | active | paused | completed | rejected | archived
-  status           String    @default("draft")
-  startsAt         DateTime? @map("starts_at")
-  endsAt           DateTime? @map("ends_at")
-  goalAmount       Decimal   @default(0) @map("goal_amount") @db.Decimal(14, 2)
-  raisedAmount     Decimal   @default(0) @map("raised_amount") @db.Decimal(14, 2)
-  donorCount       Int       @default(0) @map("donor_count")
-  featuredImageUrl String?   @map("featured_image_url")
-  qrCodeUrl        String?   @map("qr_code_url")
-  city             String?
-  state            String?
-  isFeatured       Boolean   @default(false) @map("is_featured")
-  isPublic         Boolean   @default(true) @map("is_public")
-  completionPercent Int      @default(0) @map("completion_percent")
-  missingFields    Json      @default("[]") @map("missing_fields")
+  status                   String    @default("draft")
+  startsAt                 DateTime? @map("starts_at")
+  endsAt                   DateTime? @map("ends_at")
+  goalAmount               Decimal   @default(0) @map("goal_amount") @db.Decimal(14, 2)
+  raisedAmount             Decimal   @default(0) @map("raised_amount") @db.Decimal(14, 2)
+  donorCount               Int       @default(0) @map("donor_count")
+  featuredImageUrl         String?   @map("featured_image_url")
+  qrCodeUrl                String?   @map("qr_code_url")
+  city                     String?
+  state                    String?
+  isFeatured               Boolean   @default(false) @map("is_featured")
+  isPublic                 Boolean   @default(true) @map("is_public")
+  completionPercent        Int       @default(0) @map("completion_percent")
+  missingFields            Json      @default("[]") @map("missing_fields")
   lastCompletionReminderAt DateTime? @map("last_completion_reminder_at")
-  submittedAt      DateTime? @map("submitted_at")
-  approvedBy       String?   @map("approved_by") @db.Uuid
-  approvedAt       DateTime? @map("approved_at")
-  rejectedBy       String?   @map("rejected_by") @db.Uuid
-  rejectedAt       DateTime? @map("rejected_at")
-  rejectionReason  String?   @map("rejection_reason")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  submittedAt              DateTime? @map("submitted_at")
+  approvedBy               String?   @map("approved_by") @db.Uuid
+  approvedAt               DateTime? @map("approved_at")
+  rejectedBy               String?   @map("rejected_by") @db.Uuid
+  rejectedAt               DateTime? @map("rejected_at")
+  rejectionReason          String?   @map("rejection_reason")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
 
   school               School?               @relation(fields: [schoolId], references: [id])
   campaignTypeRelation CampaignType?         @relation(fields: [campaignTypeId], references: [id])
@@ -625,6 +625,7 @@ model Pledge {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   donations Donation[]
+  invoices  Invoice[]
 
   @@map("pledges")
 }
@@ -668,38 +669,39 @@ model Donation {
   campaignBackers     CampaignBacker[]
   taxReceipts         TaxReceipt[]
   donorRecommendation DonorRecommendation?
+  invoices            Invoice[]
 
   @@map("donations")
 }
 
 model DonationDetail {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  donationId          String   @unique @map("donation_id") @db.Uuid
-  donorFirstName      String?  @map("donor_first_name")
-  donorMiddleName     String?  @map("donor_middle_name")
-  donorLastName       String?  @map("donor_last_name")
-  donorEmail          String?  @map("donor_email")
-  donorPhone          String?  @map("donor_phone")
-  donorPhoneNormalized String? @map("donor_phone_normalized")
-  billingAddressLine1 String?  @map("billing_address_line_1")
-  billingAddressLine2 String?  @map("billing_address_line_2")
-  billingCity         String?  @map("billing_city")
-  billingState        String?  @map("billing_state")
-  billingZip          String?  @map("billing_zip")
-  taxYear             Int?     @map("tax_year")
-  filingStatus        String?  @map("filing_status")
-  isArizonaResident   Boolean? @map("is_arizona_resident")
-  wantsTaxReceipt     Boolean  @default(true) @map("wants_tax_receipt")
-  dedicationType      String?  @map("dedication_type")
-  dedicationName      String?  @map("dedication_name")
-  dedicationMessage   String?  @map("dedication_message")
-  publicDisplayName   String?  @map("public_display_name")
-  publicMessage       String?  @map("public_message")
-  showNamePublicly    Boolean  @default(true) @map("show_name_publicly")
-  showAmountPublicly  Boolean  @default(false) @map("show_amount_publicly")
-  metadata            Json     @default("{}") @map("metadata")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId           String   @unique @map("donation_id") @db.Uuid
+  donorFirstName       String?  @map("donor_first_name")
+  donorMiddleName      String?  @map("donor_middle_name")
+  donorLastName        String?  @map("donor_last_name")
+  donorEmail           String?  @map("donor_email")
+  donorPhone           String?  @map("donor_phone")
+  donorPhoneNormalized String?  @map("donor_phone_normalized")
+  billingAddressLine1  String?  @map("billing_address_line_1")
+  billingAddressLine2  String?  @map("billing_address_line_2")
+  billingCity          String?  @map("billing_city")
+  billingState         String?  @map("billing_state")
+  billingZip           String?  @map("billing_zip")
+  taxYear              Int?     @map("tax_year")
+  filingStatus         String?  @map("filing_status")
+  isArizonaResident    Boolean? @map("is_arizona_resident")
+  wantsTaxReceipt      Boolean  @default(true) @map("wants_tax_receipt")
+  dedicationType       String?  @map("dedication_type")
+  dedicationName       String?  @map("dedication_name")
+  dedicationMessage    String?  @map("dedication_message")
+  publicDisplayName    String?  @map("public_display_name")
+  publicMessage        String?  @map("public_message")
+  showNamePublicly     Boolean  @default(true) @map("show_name_publicly")
+  showAmountPublicly   Boolean  @default(false) @map("show_amount_publicly")
+  metadata             Json     @default("{}") @map("metadata")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
 
@@ -726,22 +728,22 @@ model DonationAllocation {
 }
 
 model DonorBillingProfile {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  firstName    String?  @map("first_name")
-  middleName   String?  @map("middle_name")
-  lastName     String?  @map("last_name")
-  email        String?
-  phone        String?
-  phoneNormalized String? @map("phone_normalized")
-  addressLine1 String?  @map("address_line_1")
-  addressLine2 String?  @map("address_line_2")
-  city         String?
-  state        String?
-  zip          String?
-  isDefault    Boolean  @default(false) @map("is_default")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  firstName       String?  @map("first_name")
+  middleName      String?  @map("middle_name")
+  lastName        String?  @map("last_name")
+  email           String?
+  phone           String?
+  phoneNormalized String?  @map("phone_normalized")
+  addressLine1    String?  @map("address_line_1")
+  addressLine2    String?  @map("address_line_2")
+  city            String?
+  state           String?
+  zip             String?
+  isDefault       Boolean  @default(false) @map("is_default")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("donor_billing_profiles")
 }
@@ -924,40 +926,40 @@ model ComplianceCheck {
 // ============================================================
 
 model CommunicationPreference {
-  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId                    String   @unique @map("user_id") @db.Uuid
-  emailOptIn                Boolean  @default(true) @map("email_opt_in")
-  smsOptIn                  Boolean  @default(false) @map("sms_opt_in")
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                    String    @unique @map("user_id") @db.Uuid
+  emailOptIn                Boolean   @default(true) @map("email_opt_in")
+  smsOptIn                  Boolean   @default(false) @map("sms_opt_in")
   smsConsentAt              DateTime? @map("sms_consent_at")
-  smsConsentVersion         String?  @map("sms_consent_version")
-  smsConsentSource          String?  @map("sms_consent_source")
-  transactionalEmailEnabled Boolean  @default(true) @map("transactional_email_enabled")
-  marketingEmailEnabled     Boolean  @default(false) @map("marketing_email_enabled")
-  donationUpdatesEnabled    Boolean  @default(true) @map("donation_updates_enabled")
-  campaignUpdatesEnabled    Boolean  @default(true) @map("campaign_updates_enabled")
-  createdAt                 DateTime @default(now()) @map("created_at")
-  updatedAt                 DateTime @updatedAt @map("updated_at")
+  smsConsentVersion         String?   @map("sms_consent_version")
+  smsConsentSource          String?   @map("sms_consent_source")
+  transactionalEmailEnabled Boolean   @default(true) @map("transactional_email_enabled")
+  marketingEmailEnabled     Boolean   @default(false) @map("marketing_email_enabled")
+  donationUpdatesEnabled    Boolean   @default(true) @map("donation_updates_enabled")
+  campaignUpdatesEnabled    Boolean   @default(true) @map("campaign_updates_enabled")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
 
   @@map("communication_preferences")
 }
 
 model SmsConsentRecord {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  smsConsent        Boolean  @default(false) @map("sms_consent")
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  smsConsent          Boolean  @default(false) @map("sms_consent")
   smsConsentTimestamp DateTime @default(now()) @map("sms_consent_timestamp")
-  userId            String?  @map("user_id") @db.Uuid
-  email             String?
-  phone             String?  @map("sms_consent_phone_number")
-  phoneNormalized   String?  @map("phone_normalized")
-  source            String
-  sourceUrl         String?  @map("sms_consent_source_url")
-  formName          String   @map("sms_consent_form_name")
-  disclosureVersion String   @map("sms_consent_disclosure_version")
-  consentText       String   @map("consent_text")
-  ipAddress         String?  @map("sms_consent_ip_address")
-  userAgent         String?  @map("sms_consent_user_agent")
-  metadata          Json     @default("{}")
-  createdAt         DateTime @default(now()) @map("created_at")
+  userId              String?  @map("user_id") @db.Uuid
+  email               String?
+  phone               String?  @map("sms_consent_phone_number")
+  phoneNormalized     String?  @map("phone_normalized")
+  source              String
+  sourceUrl           String?  @map("sms_consent_source_url")
+  formName            String   @map("sms_consent_form_name")
+  disclosureVersion   String   @map("sms_consent_disclosure_version")
+  consentText         String   @map("consent_text")
+  ipAddress           String?  @map("sms_consent_ip_address")
+  userAgent           String?  @map("sms_consent_user_agent")
+  metadata            Json     @default("{}")
+  createdAt           DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([phoneNormalized])
@@ -1044,29 +1046,29 @@ model EmailMessage {
 }
 
 model SmsLog {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String?  @map("user_id") @db.Uuid
-  profileId         String?  @map("profile_id") @db.Uuid
-  roleType          String?  @map("role_type")
-  campaignId        String?  @map("campaign_id") @db.Uuid
-  contactName       String?  @map("contact_name")
-  contactEmail      String?  @map("contact_email")
-  contactSource     String?  @map("contact_source")
-  matchedPhone      String?  @map("matched_phone")
-  direction         String   @default("outbound")
-  fromPhone         String?  @map("from_phone")
-  toPhone           String   @map("to_phone")
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String?   @map("user_id") @db.Uuid
+  profileId         String?   @map("profile_id") @db.Uuid
+  roleType          String?   @map("role_type")
+  campaignId        String?   @map("campaign_id") @db.Uuid
+  contactName       String?   @map("contact_name")
+  contactEmail      String?   @map("contact_email")
+  contactSource     String?   @map("contact_source")
+  matchedPhone      String?   @map("matched_phone")
+  direction         String    @default("outbound")
+  fromPhone         String?   @map("from_phone")
+  toPhone           String    @map("to_phone")
   message           String
-  provider          String   @default("twilio")
-  providerMessageId String?  @map("provider_message_id")
+  provider          String    @default("twilio")
+  providerMessageId String?   @map("provider_message_id")
   status            String?
-  errorMessage      String?  @map("error_message")
+  errorMessage      String?   @map("error_message")
   segments          Int?
-  price             Decimal? @db.Decimal(10, 4)
-  priceUnit         String?  @map("price_unit")
+  price             Decimal?  @db.Decimal(10, 4)
+  priceUnit         String?   @map("price_unit")
   sentAt            DateTime? @map("sent_at")
   deliveredAt       DateTime? @map("delivered_at")
-  createdAt         DateTime @default(now()) @map("created_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   @@index([createdAt])
   @@index([providerMessageId])
@@ -1077,14 +1079,14 @@ model SmsLog {
 }
 
 model SmsTemplate {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title       String
-  message     String
-  category    String?
-  active      Boolean  @default(true)
-  createdBy   String?  @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
+  message   String
+  category  String?
+  active    Boolean  @default(true)
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([active])
   @@map("sms_templates")
@@ -1188,4 +1190,123 @@ model Photo {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("photos")
+}
+
+// ============================================================
+// Business donor invoicing
+// ============================================================
+
+/// Billing document against a business donor's Pledge — presentation/lifecycle layer on top of Pledge
+model Invoice {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pledgeId       String    @map("pledge_id") @db.Uuid
+  donationId     String?   @map("donation_id") @db.Uuid
+  invoiceNumber  String    @unique @map("invoice_number")
+  issuedDate     DateTime  @map("issued_date") @db.Date
+  dueDate        DateTime  @map("due_date") @db.Date
+  /// draft | sent | paid | overdue | void
+  status         String    @default("draft")
+  lineItems      Json      @default("[]") @map("line_items")
+  subtotal       Decimal   @db.Decimal(14, 2)
+  taxRatePercent Decimal   @default(0) @map("tax_rate_percent") @db.Decimal(5, 2)
+  taxAmount      Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  total          Decimal   @db.Decimal(14, 2)
+  notes          String?
+  paidAt         DateTime? @map("paid_at")
+  createdByEmail String?   @map("created_by_email")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  pledge   Pledge    @relation(fields: [pledgeId], references: [id])
+  donation Donation? @relation(fields: [donationId], references: [id])
+
+  @@map("invoices")
+}
+
+// ============================================================
+// Blog
+// ============================================================
+
+/// Locally-authored blog posts (independent of the WordPress site)
+model BlogPost {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String
+  slug             String    @unique
+  /// draft | publish | future | private | pending
+  status           String    @default("draft")
+  scheduledAt      DateTime? @map("scheduled_at")
+  excerpt          String?
+  content          String?
+  featuredImageUrl String?   @map("featured_image_url")
+  featuredImageAlt String?   @map("featured_image_alt")
+  /// comma-separated
+  categories       String?
+  /// comma-separated
+  tags             String?
+  authorName       String?   @map("author_name")
+  seoTitle         String?   @map("seo_title")
+  seoDescription   String?   @map("seo_description")
+  canonicalUrl     String?   @map("canonical_url")
+  focusKeyword     String?   @map("focus_keyword")
+  publishedAt      DateTime? @map("published_at")
+  createdByEmail   String?   @map("created_by_email")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@map("blog_posts")
+}
+
+// ============================================================
+// Shepard AI agent
+// ============================================================
+
+/// One chat thread per Super Admin conversation with Shepard
+model ShepardConversation {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminEmail String   @map("admin_email")
+  title      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  messages ShepardMessage[]
+  actions  ShepardAction[]
+
+  @@map("shepard_conversations")
+}
+
+model ShepardMessage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  /// user | assistant | tool | system
+  role           String
+  content        String?
+  toolCallsJson  Json?    @map("tool_calls_json")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation ShepardConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  actions      ShepardAction[]
+
+  @@map("shepard_messages")
+}
+
+/// Confirm-before-execute gate for any mutating tool Shepard proposes
+model ShepardAction {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String    @map("conversation_id") @db.Uuid
+  messageId       String    @map("message_id") @db.Uuid
+  /// OpenAI tool_call.id from the assistant message this action came from
+  toolCallId      String    @map("tool_call_id")
+  toolName        String    @map("tool_name")
+  argsJson        Json      @map("args_json")
+  /// pending | confirmed | rejected | executed | failed
+  status          String    @default("pending")
+  resultJson      Json?     @map("result_json")
+  executedByEmail String?   @map("executed_by_email")
+  executedAt      DateTime? @map("executed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  conversation ShepardConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      ShepardMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("shepard_actions")
 }
