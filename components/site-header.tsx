@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -26,9 +25,9 @@ import {
   X,
 } from "lucide-react";
 
+import { ActLogo } from "@/components/act-logo";
 import { HeaderUserMenu } from "@/components/header-user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
-import { ACT_LOGO_FULL } from "@/lib/constants";
 import type { ActSession } from "@/lib/auth/types";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 import { buttonVariants } from "@/components/ui/button";
@@ -469,14 +468,7 @@ export function SiteHeader({
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-sm backdrop-blur-md">
       <div className="relative mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="relative block h-10 w-[200px] shrink-0 sm:h-11 sm:w-[220px]">
-          <Image
-            src={ACT_LOGO_FULL}
-            alt="Arizona Christian Tuition"
-            fill
-            className="object-contain object-left"
-            priority
-            sizes="220px"
-          />
+          <ActLogo priority sizes="220px" />
         </Link>
 
         <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex">

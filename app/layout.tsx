@@ -4,7 +4,7 @@ import { Geist, Geist_Mono, Playfair_Display, Roboto } from "next/font/google";
 import { ConditionalSiteChrome } from "@/components/conditional-site-chrome";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getActSession } from "@/lib/auth/session-server";
-import { ACT_FAVICON } from "@/lib/constants";
+import { ACT_APP_ICON, ACT_FAVICON } from "@/lib/constants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 
 import "./globals.css";
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     "Turn your Arizona taxes into private Christian education and tuition through the state tax credit program.",
   icons: {
     icon: [{ url: ACT_FAVICON, type: "image/svg+xml" }],
-    apple: ACT_FAVICON,
+    apple: ACT_APP_ICON,
     shortcut: ACT_FAVICON,
   },
 };

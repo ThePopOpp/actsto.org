@@ -1,10 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { ACT_LOGO_FULL } from "@/lib/constants";
+import { ActLogo } from "@/components/act-logo";
 import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn } from "@/lib/utils";
 
@@ -88,13 +87,7 @@ export function SiteFooter() {
         <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
           <div className="shrink-0 lg:max-w-[280px]">
             <Link href="/" className="relative block h-12 w-[220px]">
-              <Image
-                src={ACT_LOGO_FULL}
-                alt="Arizona Christian Tuition"
-                fill
-                className="object-contain object-left"
-                sizes="220px"
-              />
+              <ActLogo background="dark" sizes="220px" />
             </Link>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-primary-foreground/80 dark:text-white/85">
               Arizona Christian Tuition is a certified School Tuition Organization (STO) under

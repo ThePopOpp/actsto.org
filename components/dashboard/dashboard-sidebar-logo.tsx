@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 
-import { ACT_LOGO_FULL } from "@/lib/constants";
+import { ActLogo } from "@/components/act-logo";
 import { cn } from "@/lib/utils";
 
 type DashboardSidebarLogoProps = {
@@ -22,14 +21,7 @@ export function DashboardSidebarLogo({ variant = "portal", className }: Dashboar
       className={cn("relative block w-full shrink-0", height, maxW, className)}
       aria-label="Arizona Christian Tuition home"
     >
-      <Image
-        src={ACT_LOGO_FULL}
-        alt="Arizona Christian Tuition"
-        fill
-        className="object-contain object-left"
-        sizes={variant === "admin" ? "220px" : "200px"}
-        priority
-      />
+      <ActLogo sizes={variant === "admin" ? "220px" : "200px"} priority />
     </Link>
   );
 }
