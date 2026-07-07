@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Check, Loader2, Mic, Send, Square, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { SHEPARD_ICON_RED } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string };
@@ -167,7 +169,10 @@ export function ShepardChatModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] w-full max-w-lg flex-col sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Shepard</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Image src={SHEPARD_ICON_RED} alt="" width={22} height={22} className="shrink-0" />
+            Shepard
+          </DialogTitle>
           <DialogDescription>Your AI assistant for the Super Admin dashboard.</DialogDescription>
         </DialogHeader>
 
@@ -188,7 +193,13 @@ export function ShepardChatModal({
           ) : null}
 
           {messages.map((m) => (
-            <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+            <div
+              key={m.id}
+              className={cn("flex items-end gap-2", m.role === "user" ? "justify-end" : "justify-start")}
+            >
+              {m.role === "assistant" ? (
+                <Image src={SHEPARD_ICON_RED} alt="" width={20} height={20} className="mb-1 shrink-0" />
+              ) : null}
               <div
                 className={cn(
                   "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",

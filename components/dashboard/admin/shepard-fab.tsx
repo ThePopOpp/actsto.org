@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Keyboard, ListChecks, Mic, Sparkles, X } from "lucide-react";
+import Image from "next/image";
+import { Keyboard, ListChecks, Mic, X } from "lucide-react";
 
 import { ShepardChatModal, type ShepardEntryMode } from "@/components/dashboard/admin/shepard-chat-modal";
+import { SHEPARD_ICON_DARK, SHEPARD_ICON_LIGHT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const ENTRY_OPTIONS: { mode: ShepardEntryMode; label: string; icon: typeof Keyboard }[] = [
@@ -46,11 +48,24 @@ export function ShepardFab() {
         onClick={() => setMenuOpen((v) => !v)}
         aria-label={menuOpen ? "Close Shepard menu" : "Open Shepard"}
         className={cn(
-          "flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-1 ring-foreground/10 transition-transform hover:scale-105",
-          "dark:bg-[var(--act-brand-navy-dark-elevated)]"
+          "relative flex size-14 items-center justify-center rounded-full shadow-lg ring-1 ring-foreground/10 transition-transform hover:scale-105",
+          menuOpen && "bg-primary text-primary-foreground dark:bg-[var(--act-brand-navy-dark-elevated)]"
         )}
       >
-        {menuOpen ? <X className="size-6" /> : <Sparkles className="size-6" />}
+        {menuOpen ? (
+          <X className="size-6" />
+        ) : (
+          <>
+            <Image src={SHEPARD_ICON_LIGHT} alt="Shepard AI" fill className="rounded-full object-contain dark:hidden" sizes="56px" />
+            <Image
+              src={SHEPARD_ICON_DARK}
+              alt="Shepard AI"
+              fill
+              className="hidden rounded-full object-contain dark:block"
+              sizes="56px"
+            />
+          </>
+        )}
       </button>
 
       <ShepardChatModal open={modalOpen} onOpenChange={setModalOpen} initialMode={mode} />
