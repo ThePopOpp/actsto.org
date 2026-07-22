@@ -24,6 +24,7 @@ import {
 
 import type { ActSession } from "@/lib/auth/types";
 import { DashboardSidebarLogo } from "@/components/dashboard/dashboard-sidebar-logo";
+import { DashboardTopBar } from "@/components/dashboard/dashboard-topbar";
 import { ShepardFab } from "@/components/dashboard/admin/shepard-fab";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,7 @@ function NavLinks({
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               isActive
                 ? "bg-primary text-primary-foreground dark:bg-white/15 dark:text-white"
-                : "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white"
             )}
           >
             <Icon className="size-4 shrink-0 opacity-90" strokeWidth={1.75} />
@@ -130,27 +131,27 @@ export function AdminAppShell({
       <aside
         className={cn(
           "sticky top-0 hidden h-dvh min-h-0 w-64 shrink-0 flex-col border-r border-border py-6 md:flex",
-          /* Light: navy primary. Dark: shadcn inverts --primary to near-white — keep brand navy for this shell. */
-          "bg-primary text-primary-foreground",
+          /* Light: clean white rail (readable dark links + logo). Dark: brand navy. */
+          "bg-card text-foreground",
           "dark:border-white/10 dark:bg-[var(--act-brand-navy-dark)] dark:text-white"
         )}
       >
         <div className="shrink-0 px-4">
           <DashboardSidebarLogo variant="admin" />
         </div>
-        <Separator className="my-4 bg-primary-foreground/15 dark:bg-white/15" />
+        <Separator className="my-4 bg-border dark:bg-white/15" />
         <NavLinks basePath={basePath} className="min-h-0 flex-1 overflow-y-auto px-3" />
-        <Separator className="my-4 bg-primary-foreground/15 dark:bg-white/15" />
-        <div className="mt-auto space-y-3 px-4 text-xs text-primary-foreground/75 dark:text-white/75">
+        <Separator className="my-4 bg-border dark:bg-white/15" />
+        <div className="mt-auto space-y-3 px-4 text-xs text-muted-foreground dark:text-white/75">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-primary-foreground/80 dark:text-white/80">Theme</span>
+            <span className="text-muted-foreground dark:text-white/80">Theme</span>
             <ModeToggle />
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="w-full border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
+            className="w-full dark:border-white/30 dark:text-white dark:hover:bg-white/10"
             onClick={() => void signOut()}
           >
             {previewMode ? "Exit preview" : "Sign out"}
@@ -171,9 +172,9 @@ export function AdminAppShell({
             </SheetTrigger>
             <SheetContent
               side="left"
-              className="w-72 border-primary bg-primary p-0 text-primary-foreground dark:border-white/10 dark:bg-[var(--act-brand-navy-dark)] dark:text-white"
+              className="w-72 border-border bg-card p-0 text-foreground dark:border-white/10 dark:bg-[var(--act-brand-navy-dark)] dark:text-white"
             >
-              <SheetHeader className="border-b border-primary-foreground/10 p-4 text-left dark:border-white/10">
+              <SheetHeader className="border-b border-border p-4 text-left dark:border-white/10">
                 <SheetTitle className="sr-only">Admin menu</SheetTitle>
                 <DashboardSidebarLogo variant="admin" />
               </SheetHeader>
@@ -181,16 +182,16 @@ export function AdminAppShell({
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <NavLinks basePath={basePath} onNavigate={() => setMobileOpen(false)} />
                 </div>
-                <div className="mt-auto space-y-3 border-t border-primary-foreground/15 pt-4 text-xs dark:border-white/15">
+                <div className="mt-auto space-y-3 border-t border-border pt-4 text-xs dark:border-white/15">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-primary-foreground/80 dark:text-white/80">Theme</span>
+                    <span className="text-muted-foreground dark:text-white/80">Theme</span>
                     <ModeToggle />
                   </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="w-full border-primary-foreground/30 bg-transparent text-primary-foreground dark:border-white/30 dark:text-white dark:hover:bg-white/10"
+                    className="w-full dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                     onClick={() => void signOut()}
                   >
                     {previewMode ? "Exit preview" : "Sign out"}
@@ -203,6 +204,15 @@ export function AdminAppShell({
             Super Admin
           </span>
         </header>
+
+        <DashboardTopBar
+          roleLabel="Super Admin"
+          basePath={basePath}
+          navItems={nav}
+          user={{ name: user.name, email: user.email }}
+          notificationsHref={adminHrefForBase("/dashboard/admin/notifications", basePath)}
+          searchPlaceholder="Search campaigns, users, donors…"
+        />
 
         <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
           {previewMode ? (
