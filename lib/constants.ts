@@ -10,8 +10,11 @@ export const ACT_LOGO_ROUND =
 /** Served from `app/icon.svg` / `public/icon.svg` (design-systems/logo_deck/favicon.svg). */
 export const ACT_FAVICON = "/icon.svg";
 
-/** Served from `public/apple-icon.svg` (design-systems/logo_deck/actsto.org_ios_icon.svg). */
-export const ACT_APP_ICON = "/apple-icon.svg";
+/**
+ * Apple touch icon — iOS home-screen icon. Must be a PNG (iOS ignores SVG
+ * apple-touch-icons). Rasterized 180×180 from design-systems/logo_deck/actsto.org_ios_icon.svg.
+ */
+export const ACT_APP_ICON = "/apple-touch-icon.png";
 
 /** Shepard AI agent mark — for light backgrounds (design-systems/logo_deck/shepard_ai_light_mode.svg). */
 export const SHEPARD_ICON_LIGHT = "/shepard-ai-light.svg";

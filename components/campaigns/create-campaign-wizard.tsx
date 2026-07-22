@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
@@ -13,7 +12,6 @@ import {
 } from "@/components/campaigns/campaign-form-panels";
 import { Button } from "@/components/ui/button";
 import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
-import { ACT_LOGO_ROUND } from "@/lib/constants";
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { emptyCampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { cn } from "@/lib/utils";
@@ -76,10 +74,6 @@ export function CreateCampaignWizard({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <div className="mb-10 flex justify-center">
-        <Image src={ACT_LOGO_ROUND} alt="" width={72} height={72} className="rounded-full" />
-      </div>
-
       <div className="mb-10 grid grid-cols-4 gap-x-0">
         {STEPS.map((s, i) => (
           <div key={s.n} className="flex min-w-0 flex-col items-center gap-2">
