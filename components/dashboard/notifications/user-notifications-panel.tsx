@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 
+import { PushOptIn } from "@/components/pwa/push-opt-in";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 
 type Preferences = {
@@ -100,6 +101,20 @@ export function UserNotificationsPanel() {
   return (
     <div className="space-y-6">
       {notice ? <p className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-primary">{notice}</p> : null}
+
+      <Card className="border-border/80">
+        <CardHeader>
+          <CardTitle className="font-heading text-lg text-primary">App Push Notifications</CardTitle>
+          <CardDescription>
+            Get real-time alerts from ACTSTO on this device — even when the site is closed. Install
+            the app for the best experience.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PushOptIn />
+        </CardContent>
+      </Card>
+
       <Card className="border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-lg text-primary">Preferences</CardTitle>

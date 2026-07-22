@@ -28,17 +28,17 @@ import { cn } from "@/lib/utils";
 const impactStats = [
   {
     value: "$8.2M",
-    label: "Tax Credits Donated",
+    label: "Tax Credits Donation Goal",
     sub: "redirected to Christian schools",
   },
   {
     value: "3,840",
-    label: "Students Funded",
+    label: "Students Funded Goal",
     sub: "in 2025–26 school year",
   },
   {
     value: "94",
-    label: "Partner Schools",
+    label: "Partner Schools Goal",
     sub: "across Arizona",
   },
   {
@@ -278,16 +278,17 @@ export function HomeBrowseSchoolTypes() {
         <h2 className="font-heading text-2xl font-semibold text-primary sm:text-3xl">
           Browse by School Type
         </h2>
-        <div className="mt-6 flex flex-wrap gap-2">
+        {/* Mobile: horizontal snap slider (edge-to-edge). sm+: wrapping pill row. */}
+        <div className="mt-6 -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:snap-none sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
           {BROWSE_SCHOOL_TYPE_LABELS.map((label) => (
             <Link
               key={label}
               href={`/campaigns?schoolType=${encodeURIComponent(label)}`}
-              className="inline-flex"
+              className="inline-flex shrink-0 snap-start"
             >
               <Badge
                 variant="outline"
-                className="cursor-pointer rounded-full border-border px-3 py-1.5 text-sm font-normal transition-colors hover:bg-muted"
+                className="cursor-pointer rounded-full border-border px-3 py-1.5 text-sm font-normal whitespace-nowrap transition-colors hover:bg-muted"
               >
                 {label}
               </Badge>

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Building2, GraduationCap, Heart, User } from "lucide-react";
 
+import { DownloadAppButton } from "@/components/pwa/download-app-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
@@ -74,6 +75,9 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+        <div className="mt-5 flex justify-center">
+          <DownloadAppButton variant="outline" size="default" hideWhenInstalled />
+        </div>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
           {types.map((t) => (

@@ -1,0 +1,59 @@
+{
+  "name": "ACTSTO — Arizona Christian Tuition",
+  "short_name": "ACTSTO",
+  "description": "Turn your Arizona taxes into private Christian education and tuition through the state tax credit program.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f8fc",
+  "theme_color": "#1e2a4a",
+  "categories": ["education", "finance", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/act-favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/act-favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Donate",
+      "short_name": "Donate",
+      "url": "/donate/detailed?source=pwa",
+      "description": "Make a tax-credit donation"
+    },
+    {
+      "name": "Campaigns",
+      "short_name": "Campaigns",
+      "url": "/campaigns?source=pwa",
+      "description": "Browse active campaigns"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard?source=pwa",
+      "description": "Open your dashboard"
+    }
+  ]
+}

@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display, Roboto } from "next/font/google";
 
 import { ConditionalSiteChrome } from "@/components/conditional-site-chrome";
+import { NotificationBanner } from "@/components/pwa/notification-banner";
+import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getActSession } from "@/lib/auth/session-server";
 import { ACT_APP_ICON, ACT_FAVICON } from "@/lib/constants";
@@ -40,11 +42,24 @@ export const metadata: Metadata = {
   },
   description:
     "Turn your Arizona taxes into private Christian education and tuition through the state tax credit program.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ACTSTO",
+  },
   icons: {
     icon: [{ url: ACT_FAVICON, type: "image/svg+xml" }],
     apple: ACT_APP_ICON,
     shortcut: ACT_FAVICON,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f8fc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+  ],
 };
 
 export default async function RootLayout({
@@ -65,16 +80,19 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${roboto.variable} flex min-h-full flex-col bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
-          <ConditionalSiteChrome
-            user={user}
-            headerCtas={{
-              primary: headerPrimaryCta,
-              secondary: headerSecondaryCta,
-              mobileExtra: headerMobileExtraCta,
-            }}
-          >
-            {children}
-          </ConditionalSiteChrome>
+          <PwaProvider>
+            <ConditionalSiteChrome
+              user={user}
+              headerCtas={{
+                primary: headerPrimaryCta,
+                secondary: headerSecondaryCta,
+                mobileExtra: headerMobileExtraCta,
+              }}
+            >
+              {children}
+            </ConditionalSiteChrome>
+            <NotificationBanner />
+          </PwaProvider>
         </ThemeProvider>
       </body>
     </html>

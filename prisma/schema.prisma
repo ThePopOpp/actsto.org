@@ -1106,6 +1106,40 @@ model DashboardNotification {
   @@map("dashboard_notifications")
 }
 
+/// Web Push (PWA) subscriptions — one row per browser/device endpoint.
+model PushSubscription {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Profile id when the subscriber is signed in; null for anonymous visitors.
+  userId    String?  @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+/// Audit log of Super Admin site-wide push broadcasts.
+model PushBroadcast {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String
+  body           String
+  url            String?
+  /// all | signed_in — targeting audience for the broadcast.
+  audience       String   @default("all")
+  sentByEmail    String?  @map("sent_by_email")
+  recipientCount Int      @default(0) @map("recipient_count")
+  successCount   Int      @default(0) @map("success_count")
+  failureCount   Int      @default(0) @map("failure_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("push_broadcasts")
+}
+
 // ============================================================
 // Admin approvals and activity logs
 // ============================================================

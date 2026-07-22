@@ -28,6 +28,7 @@ import {
 import { ActLogo } from "@/components/act-logo";
 import { HeaderUserMenu } from "@/components/header-user-menu";
 import { ModeToggle } from "@/components/mode-toggle";
+import { DownloadAppButton } from "@/components/pwa/download-app-button";
 import type { ActSession } from "@/lib/auth/types";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 import { buttonVariants } from "@/components/ui/button";
@@ -287,7 +288,6 @@ function MobileMenu({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const primaryCta = ctas?.primary;
-  const secondaryCta = ctas?.secondary;
   const mobileExtraCta = ctas?.mobileExtra;
 
   function submitSearch(e: React.FormEvent) {
@@ -402,13 +402,21 @@ function MobileMenu({
         {/* CTA buttons */}
         <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
           {user ? (
-            <Link
-              href="/dashboard"
-              onClick={onClose}
-              className={cn(buttonVariants({ size: "sm" }), "justify-center")}
-            >
-              Dashboard
-            </Link>
+            <>
+              <Link
+                href="/dashboard"
+                onClick={onClose}
+                className={cn(buttonVariants({ size: "sm" }), "justify-center")}
+              >
+                Dashboard
+              </Link>
+              <DownloadAppButton
+                variant="outline"
+                size="sm"
+                hideWhenInstalled={false}
+                className="w-full justify-center"
+              />
+            </>
           ) : (
             <>
               <Link
@@ -425,13 +433,12 @@ function MobileMenu({
               >
                 {primaryCta?.primaryLabel ?? "Get Started"}
               </Link>
-              <Link
-                href={secondaryCta?.primaryUrl ?? "/campaigns/new"}
-                onClick={onClose}
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "justify-center")}
-              >
-                {secondaryCta?.primaryLabel ?? "Start Campaign"}
-              </Link>
+              <DownloadAppButton
+                variant="outline"
+                size="sm"
+                hideWhenInstalled={false}
+                className="w-full justify-center"
+              />
               {mobileExtraCta?.visible ? (
                 <Link
                   href={mobileExtraCta.primaryUrl}
@@ -462,7 +469,6 @@ export function SiteHeader({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const primaryCta = ctas?.primary;
-  const secondaryCta = ctas?.secondary;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-sm backdrop-blur-md">
@@ -511,15 +517,7 @@ export function SiteHeader({
               Sign In
             </Link>
           )}
-          <Link
-            href={secondaryCta?.primaryUrl ?? "/campaigns/new"}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "hidden sm:inline-flex"
-            )}
-          >
-            {secondaryCta?.primaryLabel ?? "Start Campaign"}
-          </Link>
+          <DownloadAppButton className="hidden sm:inline-flex" />
           <Link
             href={primaryCta?.primaryUrl ?? "/register"}
             className={cn(buttonVariants({ size: "sm" }), "hidden sm:inline-flex")}
