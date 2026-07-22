@@ -12,5 +12,5 @@ export default async function StudentPreviewCampaignEditPage({
   const { slug } = await params;
   const c = await getSiteCampaignBySlug(decodeURIComponent(slug));
   if (!c) notFound();
-  return <CampaignEditorForm basePath="/dashboard/student-preview" initial={campaignToFormValues(c)} />;
+  return <CampaignEditorForm basePath="/dashboard/student-preview" initial={campaignToFormValues(c)} initialStatus={c.status} />;
 }

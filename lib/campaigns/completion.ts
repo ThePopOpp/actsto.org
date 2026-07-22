@@ -6,6 +6,10 @@ export type CampaignCompletion = {
   readyForReview: boolean;
 };
 
+// Minimum fields required to submit a campaign for review. A featured image is
+// recommended but intentionally NOT required here — image upload depends on
+// storage being connected, so gating submission on it would leave users unable
+// to submit at all. Images can be added while editing or at approval time.
 const REQUIRED_FIELDS: Array<{ key: keyof CampaignFormValues; label: string }> = [
   { key: "title", label: "Campaign title" },
   { key: "description", label: "Campaign story" },
@@ -16,7 +20,6 @@ const REQUIRED_FIELDS: Array<{ key: keyof CampaignFormValues; label: string }> =
   { key: "studentFirstName", label: "Student first name" },
   { key: "studentGrade", label: "Student grade" },
   { key: "schoolName", label: "School name" },
-  { key: "image", label: "Featured campaign image" },
 ];
 
 function hasValue(value: unknown) {

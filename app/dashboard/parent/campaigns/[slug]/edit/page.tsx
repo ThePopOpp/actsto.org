@@ -19,5 +19,5 @@ export default async function ParentCampaignEditPage({
     (await getEditableCampaignBySlugForSession(decodedSlug, session)) ??
     (await getSiteCampaignBySlug(decodedSlug));
   if (!c) notFound();
-  return <CampaignEditorForm basePath="/dashboard/parent" initial={campaignToFormValues(c)} />;
+  return <CampaignEditorForm basePath="/dashboard/parent" initial={campaignToFormValues(c)} initialStatus={c.status} />;
 }

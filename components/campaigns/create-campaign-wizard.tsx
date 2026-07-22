@@ -148,7 +148,21 @@ export function CreateCampaignWizard({
           </p>
         ) : null}
 
-        <div className="flex flex-wrap justify-between gap-3 pt-4">
+        {!completion.readyForReview ? (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+            <p className="font-medium">Add these details to submit your campaign for review:</p>
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+              {completion.missingFields.map((field) => (
+                <li key={field}>{field}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-amber-800/80 dark:text-amber-200/70">
+              Use the steps above to fill each section. You can also save a draft and finish later.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
           <Button
             type="button"
             variant="outline"
@@ -157,35 +171,35 @@ export function CreateCampaignWizard({
           >
             Back
           </Button>
-          {step < 4 ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void saveCampaign("draft")}
-              >
-                {savingAction === "draft" ? "Saving..." : "Save Draft"}
-              </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSaving}
+              onClick={() => void saveCampaign("draft")}
+            >
+              {savingAction === "draft" ? "Saving..." : "Save Draft"}
+            </Button>
+            {step < 4 ? (
               <Button type="button" variant="secondary" onClick={() => setStep((s) => Math.min(4, s + 1))}>
                 Next
               </Button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" disabled={isSaving} onClick={() => void saveCampaign("draft")}>
-                {savingAction === "draft" ? "Saving..." : "Save Draft"}
-              </Button>
-              <Button
-                type="button"
-                disabled={isSaving || !completion.readyForReview}
-                onClick={() => void saveCampaign("review")}
-                title={!completion.readyForReview ? `Missing: ${completion.missingFields.join(", ")}` : undefined}
-              >
-                {savingAction === "review" ? "Submitting..." : "Submit for Review"}
-              </Button>
-            </div>
-          )}
+            ) : null}
+            {/* Always visible and clickable — if anything is missing the server
+                returns a clear list rather than the button silently doing nothing. */}
+            <Button
+              type="button"
+              disabled={isSaving}
+              onClick={() => void saveCampaign("review")}
+              title={
+                !completion.readyForReview
+                  ? `Still needed: ${completion.missingFields.join(", ")}`
+                  : undefined
+              }
+            >
+              {savingAction === "review" ? "Submitting..." : "Submit for Review"}
+            </Button>
+          </div>
         </div>
       </div>
 

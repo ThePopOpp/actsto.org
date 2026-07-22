@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
 import { notifyIncompleteCampaignDraft } from "@/lib/campaigns/notifications";
 import { getActSession } from "@/lib/auth/session-server";
+import type { ActSession } from "@/lib/auth/types";
 import type { CampaignFormStudent, CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { getCampaignFormStudents, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
+import { createServerClient } from "@/lib/supabase/server";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -47,11 +49,51 @@ async function uniqueCampaignSlug(base: string) {
   return slug;
 }
 
-async function profileForSession(email: string) {
-  return prisma.profile.findFirst({
-    where: { email: email.toLowerCase() },
-    select: { id: true, email: true, displayName: true, fullName: true, phone: true },
-  });
+const PROFILE_SELECT = {
+  id: true,
+  email: true,
+  displayName: true,
+  fullName: true,
+  phone: true,
+} as const;
+
+/**
+ * Resolve the Profile for the current session, auto-provisioning one when the
+ * authenticated user has no row yet (e.g. Super Admins created via the email
+ * allowlist, or accounts whose profile trigger never ran). Any signed-in user
+ * should be able to start a campaign — never hard-fail on a missing profile.
+ */
+async function resolveProfile(session: ActSession) {
+  // 1. Existing profile by email (case-insensitive — sessions are lowercased).
+  const byEmail = await prisma.profile
+    .findFirst({
+      where: { email: { equals: session.email, mode: "insensitive" } },
+      select: PROFILE_SELECT,
+    })
+    .catch(() => null);
+  if (byEmail) return byEmail;
+
+  // 2. No profile yet — provision one from the authenticated Supabase identity.
+  try {
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user?.id) {
+      const email = (user.email ?? session.email).toLowerCase();
+      const meta = user.user_metadata as Record<string, string> | undefined;
+      const fullName = meta?.full_name ?? meta?.name ?? session.name ?? null;
+      return await prisma.profile.upsert({
+        where: { id: user.id },
+        create: { id: user.id, email, fullName, displayName: fullName },
+        update: {},
+        select: PROFILE_SELECT,
+      });
+    }
+  } catch {
+    // Fall through — legacy cookie sessions without a Supabase user.
+  }
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -59,8 +101,13 @@ export async function POST(request: Request) {
     const session = await getActSession();
     if (!session) return NextResponse.json({ error: "Please sign in before creating a campaign." }, { status: 401 });
 
-    const profile = await profileForSession(session.email);
-    if (!profile) return NextResponse.json({ error: "Profile record could not be loaded." }, { status: 400 });
+    const profile = await resolveProfile(session);
+    if (!profile) {
+      return NextResponse.json(
+        { error: "We couldn't load your account. Please sign out and back in, then try again." },
+        { status: 400 },
+      );
+    }
 
     const body = (await request.json().catch(() => null)) as {
       action?: "draft" | "review";

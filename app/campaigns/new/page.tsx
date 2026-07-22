@@ -15,7 +15,7 @@ export default async function NewCampaignPage() {
 
   const profile = await prisma.profile
     .findFirst({
-      where: { email: session.email.toLowerCase() },
+      where: { email: { equals: session.email, mode: "insensitive" } },
       select: {
         email: true,
         fullName: true,
