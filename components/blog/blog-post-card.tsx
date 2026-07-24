@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Calendar } from "lucide-react";
 import { format } from "date-fns";
@@ -22,12 +21,13 @@ export function BlogPostCard({ post }: { post: WordPressPost }) {
     <Card className="group flex h-full flex-col overflow-hidden border-border/80 transition-shadow hover:shadow-md">
       <Link href={`/blog/${post.slug}`} className="relative block aspect-[16/10] overflow-hidden bg-muted">
         {img ? (
-          <Image
+          // Featured images are admin-entered arbitrary URLs; plain <img> avoids
+          // next/image's remotePatterns host allowlist.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={img.source_url}
             alt={img.alt_text}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            sizes="(max-width: 768px) 100vw, 33vw"
+            className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           />
         ) : (
           <div className="flex size-full items-center justify-center text-sm text-muted-foreground">No featured image</div>

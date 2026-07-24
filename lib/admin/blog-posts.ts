@@ -1,6 +1,7 @@
 import "server-only";
 
 import { blocksToHtml, coerceBlocks, type BlogBlock } from "@/lib/blog/blocks";
+import { sanitizeBlogHtml } from "@/lib/blog/sanitize";
 import { prisma } from "@/lib/prisma";
 
 export type BlogPostInput = {
@@ -59,7 +60,9 @@ export async function setBlogPostStatus(id: string, status: string, scheduledAt?
 /** When a block document is present, it is the source of truth for `content`. */
 function resolveContent(input: BlogPostInput): { blocks: BlogBlock[]; content: string } {
   const blocks = coerceBlocks(input.blocks);
-  const content = blocks.length ? blocksToHtml(blocks) : input.content ?? "";
+  const raw = blocks.length ? blocksToHtml(blocks) : input.content ?? "";
+  // Sanitize the serialized rich-text HTML before it is persisted / rendered.
+  const content = raw ? sanitizeBlogHtml(raw) : "";
   return { blocks, content };
 }
 

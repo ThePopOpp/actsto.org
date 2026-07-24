@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
@@ -130,19 +129,15 @@ export default async function BlogPostPage({ params }: Props) {
       {img ? (
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="relative aspect-[21/9] overflow-hidden rounded-xl border border-border/80 bg-muted shadow-sm ring-1 ring-foreground/5">
-            <Image
+            {/* Featured images are admin-entered arbitrary URLs; a plain <img> avoids
+                next/image's remotePatterns host allowlist (which otherwise throws/500s). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={img.source_url}
               alt={img.alt_text}
-              fill
-              className="object-cover"
-              sizes="(max-width: 896px) 100vw, 896px"
-              priority
+              className="absolute inset-0 size-full object-cover"
             />
           </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Featured media ID {post.featured_media} · {img.mime_type}
-            {img.media_details ? ` · ${img.media_details.width}×${img.media_details.height}` : null}
-          </p>
         </div>
       ) : null}
 

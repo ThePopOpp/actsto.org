@@ -14,6 +14,8 @@ import {
   LayoutGrid,
   List as ListIcon,
   Mail,
+  Maximize2,
+  Minimize2,
   Pencil,
   Plus,
   Send,
@@ -84,6 +86,7 @@ export function BlogPostsManager({ onNewPost }: { onNewPost: () => void }) {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [preview, setPreview] = useState<Post | null>(null);
+  const [previewFull, setPreviewFull] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Post | null>(null);
   const [scheduleAt, setScheduleAt] = useState("");
   const [month, setMonth] = useState<{ y: number; m: number } | null>(null);
@@ -214,6 +217,7 @@ export function BlogPostsManager({ onNewPost }: { onNewPost: () => void }) {
         <div className="space-y-2">
           {posts.map((p) => (
             <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border/80 bg-card p-3">
+              <Thumb src={p.featuredImageUrl} className="size-12" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-foreground">{p.title}</p>
                 <p className="truncate text-xs text-muted-foreground">/{p.slug} · {fmtDate(postDate(p).toISOString())}</p>
@@ -228,6 +232,7 @@ export function BlogPostsManager({ onNewPost }: { onNewPost: () => void }) {
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
               <tr>
+                <th className="w-16 px-3 py-2 font-semibold">Image</th>
                 <th className="px-3 py-2 font-semibold">Title</th>
                 <th className="px-3 py-2 font-semibold">Status</th>
                 <th className="px-3 py-2 font-semibold">Date</th>
@@ -237,6 +242,9 @@ export function BlogPostsManager({ onNewPost }: { onNewPost: () => void }) {
             <tbody className="divide-y divide-border/60">
               {posts.map((p) => (
                 <tr key={p.id} className="hover:bg-muted/20">
+                  <td className="px-3 py-2">
+                    <Thumb src={p.featuredImageUrl} className="size-10" />
+                  </td>
                   <td className="px-3 py-2">
                     <p className="font-medium text-foreground">{p.title}</p>
                     <p className="font-mono text-xs text-muted-foreground">/{p.slug}</p>
@@ -276,23 +284,65 @@ export function BlogPostsManager({ onNewPost }: { onNewPost: () => void }) {
       )}
 
       {/* Preview modal */}
-      <Dialog open={Boolean(preview)} onOpenChange={(o) => !o && setPreview(null)}>
-        <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-primary">{preview?.title}</DialogTitle>
-            <DialogDescription>
-              /{preview?.slug} · {preview ? (STATUS_LABEL[preview.status] ?? preview.status) : ""}
-            </DialogDescription>
-          </DialogHeader>
-          {preview?.content ? (
-            <iframe
-              title="Post preview"
-              srcDoc={`<div style="max-width:680px;margin:0 auto;padding:16px;font-family:Arial,sans-serif;">${preview.content}</div>`}
-              className="h-[60vh] w-full rounded-lg border border-border bg-white"
-            />
-          ) : (
-            <p className="p-6 text-sm text-muted-foreground">This post has no content yet.</p>
+      <Dialog
+        open={Boolean(preview)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPreview(null);
+            setPreviewFull(false);
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            "flex flex-col overflow-hidden",
+            previewFull
+              ? "h-[96vh] max-h-[96vh] w-[98vw] max-w-[98vw]"
+              : "max-h-[90vh] w-[95vw] max-w-5xl",
           )}
+        >
+          <DialogHeader className="pr-20">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <DialogTitle className="truncate font-heading text-primary">{preview?.title}</DialogTitle>
+                <DialogDescription>
+                  /{preview?.slug} · {preview ? (STATUS_LABEL[preview.status] ?? preview.status) : ""}
+                </DialogDescription>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2 right-11"
+                aria-label={previewFull ? "Exit full screen" : "Full screen"}
+                title={previewFull ? "Exit full screen" : "Full screen"}
+                onClick={() => setPreviewFull((v) => !v)}
+              >
+                {previewFull ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border bg-white">
+            {preview?.featuredImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview.featuredImageUrl}
+                alt=""
+                className="max-h-72 w-full border-b border-border object-cover"
+              />
+            ) : null}
+            {preview?.content ? (
+              <iframe
+                title="Post preview"
+                srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}ul{list-style:disc;padding-left:1.5rem}ol{list-style:decimal;padding-left:1.5rem}li{margin:.2em 0}a{color:#a93226}img{max-width:100%;height:auto}</style></head><body><div style="max-width:680px;margin:0 auto;padding:16px 24px 32px;font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">${preview.content}</div></body></html>`}
+                className="min-h-[60vh] w-full bg-white"
+              />
+            ) : (
+              <p className="p-6 text-sm text-muted-foreground">This post has no content yet.</p>
+            )}
+          </div>
+
           <div className="flex flex-wrap gap-2 pt-1">
             <Button type="button" variant="outline" onClick={() => window.open(`/blog/${preview?.slug}`, "_blank")}>
               <ExternalLink className="mr-2 size-4" /> Open public page
@@ -360,6 +410,29 @@ function StatCard({
         </span>
       </CardContent>
     </Card>
+  );
+}
+
+function Thumb({ src, className }: { src?: string | null; className?: string }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        className={cn("shrink-0 rounded-md border border-border/60 object-cover", className)}
+      />
+    );
+  }
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted text-muted-foreground",
+        className,
+      )}
+    >
+      <FileText className="size-4" />
+    </div>
   );
 }
 
@@ -470,7 +543,7 @@ function CalendarView({
                       type="button"
                       onClick={() => onSelect(p)}
                       className={cn(
-                        "block w-full truncate rounded px-1 py-0.5 text-left text-[11px] font-medium",
+                        "flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] font-medium",
                         p.status === "publish"
                           ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
                           : p.status === "future"
@@ -479,7 +552,8 @@ function CalendarView({
                       )}
                       title={p.title}
                     >
-                      {p.title}
+                      <Thumb src={p.featuredImageUrl} className="size-4 rounded-sm" />
+                      <span className="min-w-0 flex-1 truncate">{p.title}</span>
                     </button>
                   ))}
                 </div>

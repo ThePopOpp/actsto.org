@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextField } from "@/components/dashboard/admin/blog/rich-text-field";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -264,7 +265,7 @@ export function BlockEditor({
                     rewriting={busy === block.id}
                   />
                   <div
-                    className="rounded-md border border-border/50 bg-background p-3"
+                    className="rounded-md border border-border/50 bg-background p-3 [&_a]:text-act-red [&_a]:underline [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
                     dangerouslySetInnerHTML={{ __html: blockToHtml(block) }}
                   />
                 </div>
@@ -401,12 +402,10 @@ export function BlockFields({
     case "paragraph":
       return (
         <div className="space-y-2">
-          <AlignField props={p} onPatch={onPatch} />
-          <Textarea
+          <RichTextField
             value={p.content ?? ""}
-            onChange={(e) => onPatch({ content: e.target.value })}
-            className="min-h-[96px]"
-            placeholder="Paragraph text. Use blank lines for breaks; **bold** via <b>…</b>."
+            onChange={(html) => onPatch({ content: html })}
+            placeholder="Write your paragraph… use the toolbar for bold, color, size, font, lists and alignment."
           />
           <RewriteBar onRewrite={onRewrite} busy={rewriting} />
         </div>
@@ -414,7 +413,11 @@ export function BlockFields({
     case "quote":
       return (
         <div className="space-y-2">
-          <Textarea value={p.content ?? ""} onChange={(e) => onPatch({ content: e.target.value })} className="min-h-[72px]" placeholder="Quote text" />
+          <RichTextField
+            value={p.content ?? ""}
+            onChange={(html) => onPatch({ content: html })}
+            placeholder="Quote text"
+          />
           <Input value={p.author ?? ""} onChange={(e) => onPatch({ author: e.target.value })} placeholder="Attribution (optional)" />
           <RewriteBar onRewrite={onRewrite} busy={rewriting} />
         </div>
@@ -480,13 +483,14 @@ export function BlockFields({
         <div className="space-y-2">
           <div className="grid gap-2 sm:grid-cols-2">
             {keys.map((k, idx) => (
-              <Textarea
-                key={k}
-                value={(p[k] as string) ?? ""}
-                onChange={(e) => onPatch({ [k]: e.target.value } as Partial<BlogBlockProps>)}
-                className="min-h-[72px]"
-                placeholder={`Column ${idx + 1}`}
-              />
+              <div key={k} className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Column {idx + 1}</Label>
+                <RichTextField
+                  value={(p[k] as string) ?? ""}
+                  onChange={(html) => onPatch({ [k]: html } as Partial<BlogBlockProps>)}
+                  placeholder={`Column ${idx + 1}`}
+                />
+              </div>
             ))}
           </div>
           <div className="flex items-center gap-2">

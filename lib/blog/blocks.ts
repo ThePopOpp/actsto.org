@@ -109,6 +109,25 @@ function inline(value: string | undefined): string {
   return out.replace(/\n/g, "<br>");
 }
 
+/**
+ * Rich-text (Tiptap paragraph editor) output contains block-level tags. Detect
+ * that so we can pass it through rather than escaping it as legacy inline text.
+ * The final HTML is sanitized with DOMPurify on save + at public render.
+ */
+function isRichHtml(value: string | undefined): boolean {
+  return /<(p|ul|ol|li|h[1-6]|blockquote|div|figure|table)\b/i.test(value ?? "");
+}
+
+/** Give links a brand color when the editor didn't set one (email-friendly). */
+function colorizeLinks(html: string): string {
+  return html.replace(/<a (?![^>]*\bstyle=)/gi, '<a style="color:#a93226;" ');
+}
+
+/** Rich-text passthrough for editor HTML, else the legacy escaped-inline path. */
+function richOrInline(value: string | undefined): string {
+  return isRichHtml(value) ? colorizeLinks(value ?? "") : inline(value);
+}
+
 function align(a: string | undefined): string {
   return a === "center" ? "center" : a === "right" ? "right" : "left";
 }
@@ -137,10 +156,13 @@ export function blockToHtml(block: BlogBlock): string {
         `<${tag} style="margin:0;font-family:Georgia,serif;font-weight:600;font-size:${size}px;line-height:1.2;color:${esc(p.color) || "#1e2a4a"};text-align:${align(p.align)};">${inline(p.content)}</${tag}>`,
       );
     }
-    case "paragraph":
-      return wrap(
-        `<p style="margin:0;font-size:16px;line-height:1.7;color:${esc(p.color) || "#374151"};text-align:${align(p.align)};">${inline(p.content)}</p>`,
-      );
+    case "paragraph": {
+      const styled = `font-size:16px;line-height:1.7;color:${esc(p.color) || "#374151"};text-align:${align(p.align)};`;
+      if (isRichHtml(p.content)) {
+        return wrap(`<div style="${styled}">${colorizeLinks(p.content ?? "")}</div>`);
+      }
+      return wrap(`<p style="margin:0;${styled}">${inline(p.content)}</p>`);
+    }
     case "image": {
       if (!p.src) return wrap(`<div style="padding:32px;text-align:center;color:#9ca3af;border:1px dashed #d1d5db;border-radius:10px;">No image set</div>`);
       const img = `<img src="${esc(p.src)}" alt="${esc(p.alt)}" style="max-width:${esc(p.imgWidth) || "100%"};width:${esc(p.imgWidth) || "100%"};height:auto;border-radius:10px;display:inline-block;" />`;
@@ -158,7 +180,7 @@ export function blockToHtml(block: BlogBlock): string {
     }
     case "quote":
       return wrap(
-        `<blockquote style="margin:0;padding:8px 20px;border-left:4px solid #a93226;font-family:Georgia,serif;font-style:italic;font-size:19px;line-height:1.5;color:#1e2a4a;text-align:${align(p.align)};">${inline(p.content)}${p.author ? `<footer style="margin-top:8px;font-size:14px;font-style:normal;color:#6b7280;">— ${inline(p.author)}</footer>` : ""}</blockquote>`,
+        `<blockquote style="margin:0;padding:8px 20px;border-left:4px solid #a93226;font-family:Georgia,serif;font-style:italic;font-size:19px;line-height:1.5;color:#1e2a4a;text-align:${align(p.align)};">${richOrInline(p.content)}${p.author ? `<footer style="margin-top:8px;font-size:14px;font-style:normal;color:#6b7280;">— ${inline(p.author)}</footer>` : ""}</blockquote>`,
       );
     case "code":
       return wrap(
@@ -183,7 +205,7 @@ export function blockToHtml(block: BlogBlock): string {
       const cells = cols
         .map(
           (c) =>
-            `<td style="vertical-align:top;padding:0 ${gap / 2}px;width:${width};"><div style="font-size:15px;line-height:1.6;color:#374151;">${inline(c)}</div></td>`,
+            `<td style="vertical-align:top;padding:0 ${gap / 2}px;width:${width};"><div style="font-size:15px;line-height:1.6;color:#374151;">${richOrInline(c)}</div></td>`,
         )
         .join("");
       return wrap(
