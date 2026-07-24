@@ -23,6 +23,7 @@ import {
   Settings,
   Users,
   UserRoundCheck,
+  Wallet,
 } from "lucide-react";
 
 import type { ActSession } from "@/lib/auth/types";
@@ -62,8 +63,17 @@ const nav: NavEntry[] = [
     children: [
       { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/dashboard/admin/backers", label: "Donors", icon: UserRoundCheck },
+    ],
+  },
+  {
+    label: "Accounting",
+    icon: Wallet,
+    children: [
+      { href: "/dashboard/admin/accounting", label: "Overview", icon: Wallet },
       { href: "/dashboard/admin/billing", label: "Payments", icon: CreditCard },
       { href: "/dashboard/admin/invoices", label: "Invoices", icon: Receipt },
+      { href: "/dashboard/admin/receipts", label: "Receipts", icon: Receipt },
+      { href: "/dashboard/admin/tax-documents", label: "Tax Documents", icon: FileText },
     ],
   },
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
