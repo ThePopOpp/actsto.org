@@ -3,6 +3,7 @@ import {
   Banknote,
   Bell,
   Building2,
+  Contact,
   CreditCard,
   FileText,
   Heart,
@@ -35,6 +36,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
 
   const profile = { href: `${b}/profile`, label: "Profile", icon: UserCircle };
   const accountTypes = { href: `${b}/account-types`, label: "Account types", icon: UserCog };
+  const businessCards = { href: `${b}/business-cards`, label: "Business Cards", icon: Contact };
   const messages = { href: `${b}/messages`, label: "Messages", icon: Mail };
   const notifications = { href: `${b}/notifications`, label: "Notifications", icon: Bell };
   const receipts = { href: `${b}/receipts`, label: "Receipts & tax", icon: Receipt };
@@ -51,6 +53,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
         { href: `${b}/marketing`, label: "Marketing", icon: Images },
         { href: `${b}/donations`, label: "Donations received", icon: Heart },
         backers,
+        businessCards,
         messages,
         notifications,
         receipts,
@@ -61,6 +64,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
         profile,
         accountTypes,
         { href: `${b}/campaigns`, label: "My campaign", icon: Megaphone },
+        businessCards,
         messages,
         notifications,
         receipts,
@@ -72,6 +76,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
         accountTypes,
         { href: `${b}/donations`, label: "Donations", icon: CreditCard },
         { href: `${b}/saved`, label: "Saved campaigns", icon: Heart },
+        businessCards,
         messages,
         notifications,
         receipts,
@@ -86,6 +91,7 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
         { href: `${b}/taxes`, label: "Taxes", icon: ShieldCheck },
         { href: `${b}/giving`, label: "Giving & pledges", icon: Banknote },
         { href: `${b}/invoices`, label: "Invoices & receipts", icon: Receipt },
+        businessCards,
         messages,
         notifications,
         { href: `${b}/compliance`, label: "Compliance docs", icon: FileText },
