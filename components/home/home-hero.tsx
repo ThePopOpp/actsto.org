@@ -266,7 +266,7 @@ export function HomeHero({ cta }: { cta?: HomeHeroCta | null }) {
               <span className="funded-badge">100% Funded</span>
               <div className="ccard__photo">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="ccard__img" src="/hero/emma-and-mom.svg" alt="Emma and her mom" />
+                <img className="ccard__img" src="/hero/emma-student.png" alt="Emma with her teacher" />
               </div>
               <h3>Emma&apos;s 3rd Grade Tuition</h3>
               <p className="school">Valley Christian Schools · Chandler, AZ</p>
