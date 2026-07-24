@@ -6,6 +6,7 @@
 import { ExternalLink, Mail, MessageSquare, Phone, QrCode } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { cardInitials } from "@/lib/business-cards/defaults";
 import type {
   BusinessCard,
   BusinessCardLink,
@@ -47,6 +48,9 @@ export function CardPreview({
     media.profile_shape === "square" ? "rounded-md" : media.profile_shape === "rounded" ? "rounded-2xl" : "rounded-full";
   const alignClass = media.content_align === "left" ? "items-start text-left" : "items-center text-center";
   const useBgImage = Boolean(media.use_background_image && card.backgroundImageUrl);
+  const photoSize = Math.min(200, Math.max(48, Number(media.profile_size) || 96));
+  const logoSize = Math.min(96, Math.max(16, Number(media.logo_size) || 28));
+  const photoLink = (media.profile_link || "").trim();
 
   const name = card.displayName || [card.firstName, card.lastName].filter(Boolean).join(" ") || "Your Name";
   const subtitle = [card.jobTitle, card.companyName].filter(Boolean).join(" · ");
@@ -97,28 +101,37 @@ export function CardPreview({
           <div className={cn("flex flex-col", alignClass)}>
             {card.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={card.logoUrl} alt="" className="mb-3 h-6 object-contain" />
+              <img src={card.logoUrl} alt="" className="mb-3 object-contain" style={{ height: logoSize }} />
             ) : (
               <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: hexAlpha(text, 0.5) }}>
                 {card.companyName || "Digital Card"}
               </div>
             )}
-            {card.profilePhotoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={card.profilePhotoUrl}
-                alt={name}
-                className={cn("h-24 w-24 object-cover", shapeClass)}
-                style={{ border: media.profile_outline ? `2px solid ${accent}` : `2px solid ${border}` }}
-              />
-            ) : (
-              <div
-                className={cn("grid h-24 w-24 place-items-center text-2xl font-semibold", shapeClass)}
-                style={{ background: surface, color: accent, border: `2px solid ${border}` }}
-              >
-                {name.slice(0, 1)}
-              </div>
-            )}
+            {(() => {
+              const photo = card.profilePhotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={card.profilePhotoUrl}
+                  alt={name}
+                  className={cn("object-cover", shapeClass)}
+                  style={{ width: photoSize, height: photoSize, border: media.profile_outline ? `2px solid ${accent}` : `2px solid ${border}` }}
+                />
+              ) : (
+                <div
+                  className={cn("grid place-items-center font-semibold", shapeClass)}
+                  style={{ width: photoSize, height: photoSize, fontSize: photoSize * 0.34, background: surface, color: accent, border: `2px solid ${border}` }}
+                >
+                  {cardInitials(card)}
+                </div>
+              );
+              return photoLink ? (
+                <a href={photoLink} target="_blank" rel="noopener noreferrer" className="inline-block">
+                  {photo}
+                </a>
+              ) : (
+                photo
+              );
+            })()}
             <div className="mt-3 text-lg font-semibold" style={{ color: text }}>
               {name}
             </div>

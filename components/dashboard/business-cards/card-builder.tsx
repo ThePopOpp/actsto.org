@@ -252,6 +252,10 @@ function ContentPanel({
   setBusy: (v: string | null) => void;
   busy: string | null;
 }) {
+  const media = card.mediaSettings || {};
+  const setMedia = (p: Partial<typeof media>) => patch({ mediaSettings: { ...media, ...p } });
+  const clampNum = (v: string, min: number, max: number) => Math.min(max, Math.max(min, Number(v) || min));
+
   return (
     <div className="space-y-4">
       <p className="font-heading text-base font-semibold text-primary">Profile</p>
@@ -259,6 +263,52 @@ function ContentPanel({
         <ImageField label="Profile photo" value={card.profilePhotoUrl} onChange={(v) => patch({ profilePhotoUrl: v })} />
         <ImageField label="Logo (optional)" value={card.logoUrl} onChange={(v) => patch({ logoUrl: v })} />
       </div>
+
+      {/* Photo & logo sizing / shape / link */}
+      <div className="space-y-3 rounded-lg border border-border/60 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Photo &amp; logo options</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Photo shape">
+            <select
+              value={media.profile_shape ?? "circle"}
+              onChange={(e) => setMedia({ profile_shape: e.target.value as "circle" | "rounded" | "square" })}
+              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+            >
+              <option value="circle">Round</option>
+              <option value="rounded">Rounded</option>
+              <option value="square">Square</option>
+            </select>
+          </Field>
+          <Field label="Photo size — px (48–200, default 96)">
+            <Input
+              type="number"
+              min={48}
+              max={200}
+              value={media.profile_size ?? 96}
+              onChange={(e) => setMedia({ profile_size: clampNum(e.target.value, 48, 200) })}
+              className="w-28"
+            />
+          </Field>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={Boolean(media.profile_outline)} onChange={(e) => setMedia({ profile_outline: e.target.checked })} className="size-4" />
+          Accent outline around photo
+        </label>
+        <Field label="Photo link (optional) — make the photo clickable">
+          <Input value={media.profile_link ?? ""} onChange={(e) => setMedia({ profile_link: e.target.value })} placeholder="https://…" className="font-mono text-sm" />
+        </Field>
+        <Field label="Logo height — px (16–96, default 28)">
+          <Input
+            type="number"
+            min={16}
+            max={96}
+            value={media.logo_size ?? 28}
+            onChange={(e) => setMedia({ logo_size: clampNum(e.target.value, 16, 96) })}
+            className="w-28"
+          />
+        </Field>
+      </div>
+
       <Field label="Display name">
         <Input value={card.displayName ?? ""} onChange={(e) => patch({ displayName: e.target.value })} />
       </Field>
@@ -413,39 +463,18 @@ function AppearancePanel({ card, patch }: { card: BusinessCard; patch: (p: Parti
         <ColorField label="Text" value={card.textColor} onChange={(v) => patch({ textColor: v })} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Theme mode">
-          <select
-            value={card.themeMode}
-            onChange={(e) => patch({ themeMode: e.target.value as BusinessCard["themeMode"] })}
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-          >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="both">Both (viewer toggle)</option>
-          </select>
-        </Field>
-        <Field label="Profile shape">
-          <select
-            value={media.profile_shape ?? "circle"}
-            onChange={(e) => patch({ mediaSettings: { ...media, profile_shape: e.target.value as "circle" | "rounded" | "square" } })}
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-          >
-            <option value="circle">Circle</option>
-            <option value="rounded">Rounded</option>
-            <option value="square">Square</option>
-          </select>
-        </Field>
-      </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={Boolean(media.profile_outline)}
-          onChange={(e) => patch({ mediaSettings: { ...media, profile_outline: e.target.checked } })}
-          className="size-4"
-        />
-        Accent outline around profile photo
-      </label>
+      <Field label="Theme mode">
+        <select
+          value={card.themeMode}
+          onChange={(e) => patch({ themeMode: e.target.value as BusinessCard["themeMode"] })}
+          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm sm:max-w-xs"
+        >
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="both">Both (viewer toggle)</option>
+        </select>
+      </Field>
+      <p className="text-xs text-muted-foreground">Profile photo shape, size, and outline live under the Content panel.</p>
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"

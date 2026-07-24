@@ -102,6 +102,17 @@ export function makeNewCard(owner?: { displayName?: string; email?: string }): B
   };
 }
 
+/** Initials from a card's name fields (first + last, else display name, else "?"). */
+export function cardInitials(c: { displayName?: string | null; firstName?: string | null; lastName?: string | null }): string {
+  const first = (c.firstName || "").trim();
+  const last = (c.lastName || "").trim();
+  if (first || last) return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase() || "?";
+  const parts = (c.displayName || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  if (parts[0]) return parts[0].slice(0, 2).toUpperCase();
+  return "?";
+}
+
 export const COLOR_PRESETS: { name: string; bg: string; accent: string; text: string }[] = [
   { name: "ACT Navy", bg: "#001138", accent: "#C9A96E", text: "#F4F1EA" },
   { name: "ACT Ink", bg: "#0b1220", accent: "#7FB3FF", text: "#F4F1EA" },

@@ -22,7 +22,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { makeNewCard } from "@/lib/business-cards/defaults";
+import { cardInitials, makeNewCard } from "@/lib/business-cards/defaults";
 import type { BusinessCard, CardStats } from "@/lib/business-cards/types";
 import { cn } from "@/lib/utils";
 
@@ -225,12 +225,25 @@ export function BusinessCardsClient({
                         <span className="inline-flex items-center gap-1"><MousePointerClick className="size-3.5" />{card.clickCount}</span>
                       </p>
                     </div>
-                    <div
-                      className="grid size-16 shrink-0 place-items-center rounded-lg text-[10px] font-semibold"
-                      style={{ background: card.backgroundColor, color: card.accentColor }}
-                    >
-                      {(card.displayName || card.cardName || "C").slice(0, 1)}
-                    </div>
+                    {card.profilePhotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={card.profilePhotoUrl} alt="" className="size-16 shrink-0 rounded-lg object-cover" />
+                    ) : card.logoUrl ? (
+                      <div
+                        className="grid size-16 shrink-0 place-items-center rounded-lg p-2"
+                        style={{ background: card.backgroundColor }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={card.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+                      </div>
+                    ) : (
+                      <div
+                        className="grid size-16 shrink-0 place-items-center rounded-lg text-lg font-semibold"
+                        style={{ background: card.backgroundColor, color: card.accentColor }}
+                      >
+                        {cardInitials(card)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-1.5">

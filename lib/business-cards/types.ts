@@ -28,6 +28,12 @@ export type MediaSettings = {
   profile_outline?: boolean;
   content_align?: "center" | "left";
   use_background_image?: boolean;
+  /** Profile photo size in px (square). Default 96, min 48, max 200. */
+  profile_size?: number;
+  /** Optional link the profile photo points to. */
+  profile_link?: string;
+  /** Logo height in px. Default 28, min 16, max 96. */
+  logo_size?: number;
 };
 
 export type AutomationAction = "notify_owner_email" | "notify_owner_sms" | "autoreply_email";
