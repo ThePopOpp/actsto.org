@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Roboto } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 
 import { ConditionalSiteChrome } from "@/components/conditional-site-chrome";
 import { NotificationBanner } from "@/components/pwa/notification-banner";
@@ -21,17 +21,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+/** Serif display accent for headings (matches the MJG type system). */
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
-});
-
-/** Dashboard nav / links (Roboto per design system). */
-const roboto = Roboto({
   weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  variable: "--font-roboto",
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -77,7 +72,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${roboto.variable} flex min-h-full flex-col bg-background text-foreground antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} flex min-h-full flex-col bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
           <PwaProvider>

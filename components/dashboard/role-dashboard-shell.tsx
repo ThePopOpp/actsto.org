@@ -21,7 +21,51 @@ import { buttonVariants } from "@/lib/button-variants";
 import { getRoleNavItems } from "@/lib/dashboard/role-nav";
 import { cn } from "@/lib/utils";
 
-const dashboardFont = "font-[var(--font-roboto)]";
+const dashboardFont = "font-sans";
+
+function RoleNavLinks({
+  items,
+  pathname,
+  rootHref,
+  onNavigate,
+}: {
+  items: ReturnType<typeof getRoleNavItems>;
+  pathname: string;
+  rootHref: string;
+  onNavigate?: () => void;
+}) {
+  const isActive = (href: string) => {
+    const h = href.replace(/\/$/, "");
+    const p = pathname.replace(/\/$/, "");
+    if (h === rootHref) return p === h;
+    return p === h || p.startsWith(`${h}/`);
+  };
+
+  return (
+    <nav className={cn("flex flex-col gap-0.5", dashboardFont)}>
+      {items.map((item) => {
+        const active = isActive(item.href);
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              active
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Icon className="size-4 shrink-0 opacity-90" strokeWidth={1.75} />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export function RoleDashboardShell({
   session,
@@ -41,13 +85,6 @@ export function RoleDashboardShell({
   const nav = getRoleNavItems(session.role, basePath);
   const rootHref = basePath.replace(/\/$/, "");
 
-  function isActive(href: string) {
-    const h = href.replace(/\/$/, "");
-    const p = pathname.replace(/\/$/, "");
-    if (h === rootHref) return p === h;
-    return p === h || p.startsWith(`${h}/`);
-  }
-
   async function signOut() {
     if (previewMode) {
       window.location.href = "/";
@@ -55,33 +92,6 @@ export function RoleDashboardShell({
     }
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/";
-  }
-
-  function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
-    return (
-      <nav className={cn("flex flex-col gap-0.5", dashboardFont)}>
-        {nav.map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="size-4 shrink-0 opacity-90" strokeWidth={1.75} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-    );
   }
 
   const sidebarFooter = (
@@ -110,7 +120,7 @@ export function RoleDashboardShell({
           {!previewMode ? <PortalAccountSwitcher session={session} layout="sidebar" /> : null}
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-            <NavLinks />
+            <RoleNavLinks items={nav} pathname={pathname} rootHref={rootHref} />
           </div>
 
           {sidebarFooter}
@@ -137,7 +147,12 @@ export function RoleDashboardShell({
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div className="min-h-0 flex-1 overflow-y-auto p-3">
                   {!previewMode ? <PortalAccountSwitcher session={session} layout="sidebar" /> : null}
-                  <NavLinks onNavigate={() => setMobileOpen(false)} />
+                  <RoleNavLinks
+                    items={nav}
+                    pathname={pathname}
+                    rootHref={rootHref}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
                 </div>
                 <div className={cn("border-t border-border p-3", dashboardFont)}>
                   <div className="mb-3 flex items-center justify-between gap-2">
