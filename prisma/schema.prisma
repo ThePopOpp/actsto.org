@@ -1373,3 +1373,151 @@ model ShepardAction {
 
   @@map("shepard_actions")
 }
+
+/// Digital Business Cards — owned by any dashboard user (keyed by email). Public at /c/{slug}.
+model BusinessCard {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerEmail         String    @map("owner_email")
+  ownerName          String?   @map("owner_name")
+  slug               String    @unique
+  cardName           String    @default("My Business Card") @map("card_name")
+  /// draft | published | unpublished | archived
+  status             String    @default("draft")
+  isPublic           Boolean   @default(false) @map("is_public")
+
+  displayName        String?   @map("display_name")
+  firstName          String?   @map("first_name")
+  lastName           String?   @map("last_name")
+  jobTitle           String?   @map("job_title")
+  companyName        String?   @map("company_name")
+  department         String?
+  bio                String?
+
+  profilePhotoUrl    String?   @map("profile_photo_url")
+  logoUrl            String?   @map("logo_url")
+  backgroundImageUrl String?   @map("background_image_url")
+
+  backgroundColor    String    @default("#001138") @map("background_color")
+  accentColor        String    @default("#C9A96E") @map("accent_color")
+  textColor          String    @default("#F4F1EA") @map("text_color")
+  /// standard | opener_slider | qr_only | nfc_landing
+  cardMode           String    @default("standard") @map("card_mode")
+  /// light | dark | both
+  themeMode          String    @default("dark") @map("theme_mode")
+  layoutTemplate     String    @default("classic") @map("layout_template")
+
+  primaryPhone       String?   @map("primary_phone")
+  smsPhone           String?   @map("sms_phone")
+  primaryEmail       String?   @map("primary_email")
+  websiteUrl         String?   @map("website_url")
+  mapsUrl            String?   @map("maps_url")
+  introVideoUrl      String?   @map("intro_video_url")
+
+  qrSettings         Json      @default("{}") @map("qr_settings")
+  leadFormSettings   Json      @default("{}") @map("lead_form_settings")
+  mediaSettings      Json      @default("{}") @map("media_settings")
+  sliderPages        Json      @default("[]") @map("slider_pages")
+  automations        Json      @default("[]")
+
+  nfcStatus          String    @default("not_ordered") @map("nfc_status")
+  viewCount          Int       @default(0) @map("view_count")
+  clickCount         Int       @default(0) @map("click_count")
+
+  publishedAt        DateTime? @map("published_at")
+  archivedAt         DateTime? @map("archived_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  links    BusinessCardLink[]
+  sections BusinessCardSection[]
+  events   BusinessCardEvent[]
+  leads    BusinessCardLead[]
+
+  @@index([ownerEmail])
+  @@index([status])
+  @@map("business_cards")
+}
+
+model BusinessCardLink {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cardId        String   @map("card_id") @db.Uuid
+  label         String
+  url           String   @default("")
+  linkType      String   @default("custom") @map("link_type")
+  icon          String?
+  displayOrder  Int      @default(100) @map("display_order")
+  isVisible     Boolean  @default(true) @map("is_visible")
+  openInNewTab  Boolean  @default(true) @map("open_in_new_tab")
+  clickCount    Int      @default(0) @map("click_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  card BusinessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, displayOrder])
+  @@map("business_card_links")
+}
+
+model BusinessCardSection {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cardId        String   @map("card_id") @db.Uuid
+  sectionType   String   @map("section_type")
+  label         String
+  content       Json     @default("{}")
+  displayOrder  Int      @default(100) @map("display_order")
+  isVisible     Boolean  @default(true) @map("is_visible")
+  marginTop     Int      @default(0) @map("margin_top")
+  marginBottom  Int      @default(16) @map("margin_bottom")
+  paddingTop    Int      @default(0) @map("padding_top")
+  paddingBottom Int      @default(0) @map("padding_bottom")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  card BusinessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, displayOrder])
+  @@map("business_card_sections")
+}
+
+model BusinessCardEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cardId     String   @map("card_id") @db.Uuid
+  linkId     String?  @map("link_id") @db.Uuid
+  /// view | share | like | qr_scan | nfc_tap | link_click | copy_link | save_contact | lead_submit
+  eventType  String   @map("event_type")
+  source     String?  @default("public_card")
+  deviceType String?  @map("device_type")
+  referrer   String?
+  userAgent  String?  @map("user_agent")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  card BusinessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, eventType, createdAt])
+  @@map("business_card_events")
+}
+
+model BusinessCardLead {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cardId           String   @map("card_id") @db.Uuid
+  ownerEmail       String?  @map("owner_email")
+  name             String?
+  email            String?
+  phone            String?
+  company          String?
+  message          String?
+  preferredContact String?  @map("preferred_contact")
+  source           String?  @default("public_card")
+  /// new | contacted | qualified | archived
+  status           String   @default("new")
+  payload          Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  card BusinessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, createdAt])
+  @@index([ownerEmail, status])
+  @@map("business_card_leads")
+}
