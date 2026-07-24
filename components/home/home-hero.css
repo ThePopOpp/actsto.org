@@ -517,15 +517,6 @@
   .acthero .stage { height: 400px; }
 }
 
-/* Phones: pull the supporter orbit inward so the initials circles, spokes, and
-   gift chips don't clip at the screen edges. The card itself stays full-size. */
-@media (max-width: 640px) {
-  .acthero .orbit {
-    transform: scale(0.6);
-    transform-origin: 50% 54%;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .acthero * {
     animation-duration: 0.01ms !important;
