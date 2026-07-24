@@ -21,7 +21,6 @@ import {
   Shield,
   User,
   UserPlus,
-  Users,
   X,
 } from "lucide-react";
 
@@ -102,14 +101,8 @@ const megaLearn: MegaItem[] = [
     iconWrapClass: "bg-slate-100 dark:bg-slate-800",
     iconClass: "text-primary",
   },
-  {
-    href: "/team",
-    title: "Our Team",
-    desc: "Meet the ACT team.",
-    Icon: Users,
-    iconWrapClass: "bg-slate-100 dark:bg-slate-800",
-    iconClass: "text-primary",
-  },
+  // "Our Team" (/team) intentionally hidden from nav for now — page still lives
+  // at /team and will be re-added to navigation later.
   {
     href: "/faq",
     title: "FAQ",

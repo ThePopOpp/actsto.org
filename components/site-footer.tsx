@@ -22,7 +22,7 @@ const explore = [
 const discover = [
   { href: "/how-it-works", label: "How It Works" },
   { href: "/about-us", label: "About Us" },
-  { href: "/team", label: "Our Team" },
+  // "Our Team" (/team) intentionally hidden for now — will be re-added later.
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact Us" },
 ];
