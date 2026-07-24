@@ -307,14 +307,19 @@
 .acthero .linkchip {
   position: absolute;
   z-index: 5;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 26px;
-  translate: -50%;
+  margin-inline: auto;
+  width: fit-content;
+  max-width: calc(100% - 16px);
   display: flex;
   gap: 8px;
   align-items: center;
   padding: 9px 16px;
   border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
   font-size: 12.5px;
   color: var(--cream);
   background: var(--navy);
@@ -381,11 +386,12 @@
 .acthero .impact {
   position: absolute;
   z-index: 5;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 24px;
-  translate: -50%;
+  margin-inline: auto;
   width: 330px;
-  max-width: calc(100% - 12px);
+  max-width: calc(100% - 16px);
   display: flex;
   gap: 12px;
   align-items: center;
@@ -509,6 +515,15 @@
   .acthero__ctas { justify-content: center; }
   .acthero__title { margin-left: auto; margin-right: auto; }
   .acthero .stage { height: 400px; }
+}
+
+/* Phones: pull the supporter orbit inward so the initials circles, spokes, and
+   gift chips don't clip at the screen edges. The card itself stays full-size. */
+@media (max-width: 640px) {
+  .acthero .orbit {
+    transform: scale(0.6);
+    transform-origin: 50% 54%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
