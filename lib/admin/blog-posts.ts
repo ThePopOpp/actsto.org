@@ -37,6 +37,25 @@ export async function getBlogPostById(id: string) {
   return prisma.blogPost.findUnique({ where: { id } });
 }
 
+export async function deleteBlogPost(id: string) {
+  return prisma.blogPost.delete({ where: { id } });
+}
+
+/** Lightweight status change (archive / publish / schedule) without touching content. */
+export async function setBlogPostStatus(id: string, status: string, scheduledAt?: string | null) {
+  const current = await prisma.blogPost.findUnique({ where: { id } });
+  if (!current) throw new Error("Blog post not found.");
+  const becomingPublished = status === "publish" && current.status !== "publish";
+  return prisma.blogPost.update({
+    where: { id },
+    data: {
+      status,
+      scheduledAt: status === "future" ? (scheduledAt ? new Date(scheduledAt) : current.scheduledAt) : null,
+      publishedAt: becomingPublished ? new Date() : current.publishedAt,
+    },
+  });
+}
+
 /** When a block document is present, it is the source of truth for `content`. */
 function resolveContent(input: BlogPostInput): { blocks: BlogBlock[]; content: string } {
   const blocks = coerceBlocks(input.blocks);

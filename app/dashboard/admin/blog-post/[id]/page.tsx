@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { AdminBlogPostForm } from "@/components/dashboard/admin/admin-blog-post-form";
+import { BlogBuilder } from "@/components/dashboard/admin/blog/blog-builder";
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { getBlogPostById } from "@/lib/admin/blog-posts";
 import { coerceBlocks } from "@/lib/blog/blocks";
@@ -13,7 +13,7 @@ export default async function AdminEditBlogPostPage({ params }: { params: Promis
   return (
     <>
       <AdminPageHeader title={`Edit — ${post.title}`} description={`Slug: /${post.slug} · Status: ${post.status}`} />
-      <AdminBlogPostForm
+      <BlogBuilder
         post={{
           id: post.id,
           title: post.title,
@@ -21,7 +21,6 @@ export default async function AdminEditBlogPostPage({ params }: { params: Promis
           status: post.status,
           scheduledAt: post.scheduledAt?.toISOString() ?? null,
           excerpt: post.excerpt,
-          content: post.content,
           blocks: coerceBlocks(post.blocks),
           featuredImageUrl: post.featuredImageUrl,
           featuredImageAlt: post.featuredImageAlt,

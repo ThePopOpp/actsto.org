@@ -360,7 +360,7 @@ function RewriteBar({ onRewrite, busy }: { onRewrite: (instruction: string) => v
   );
 }
 
-function BlockFields({
+export function BlockFields({
   block,
   onPatch,
   onRewrite,
@@ -512,6 +512,76 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         className="size-8 cursor-pointer rounded border border-border bg-background"
         aria-label={label}
       />
+    </div>
+  );
+}
+
+function NumField({
+  label,
+  value,
+  fallback,
+  onChange,
+}: {
+  label: string;
+  value: number | undefined;
+  fallback: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        type="number"
+        className="mt-1 h-8"
+        value={value ?? fallback}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+      />
+    </div>
+  );
+}
+
+/** Section spacing + background inspector — applies to any block. */
+export function SectionSettings({
+  props,
+  onPatch,
+}: {
+  props: BlogBlockProps;
+  onPatch: (p: Partial<BlogBlockProps>) => void;
+}) {
+  const bgOn = Boolean(props.bgColor);
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Section</p>
+      <div className="grid grid-cols-2 gap-2">
+        <NumField label="Margin top" value={props.marginTop} fallback={0} onChange={(v) => onPatch({ marginTop: v })} />
+        <NumField label="Margin bottom" value={props.marginBottom} fallback={20} onChange={(v) => onPatch({ marginBottom: v })} />
+        <NumField label="Pad top" value={props.paddingTop} fallback={bgOn ? 16 : 0} onChange={(v) => onPatch({ paddingTop: v })} />
+        <NumField label="Pad bottom" value={props.paddingBottom} fallback={bgOn ? 16 : 0} onChange={(v) => onPatch({ paddingBottom: v })} />
+      </div>
+      <NumField label="Pad left / right" value={props.paddingSide} fallback={bgOn ? 16 : 0} onChange={(v) => onPatch({ paddingSide: v })} />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="sec-bg"
+            checked={bgOn}
+            onChange={(e) => onPatch({ bgColor: e.target.checked ? "#f5fbff" : undefined })}
+            className="size-4"
+          />
+          <Label htmlFor="sec-bg" className="text-xs">
+            Background color
+          </Label>
+        </div>
+        {bgOn ? (
+          <input
+            type="color"
+            value={props.bgColor ?? "#f5fbff"}
+            onChange={(e) => onPatch({ bgColor: e.target.value })}
+            className="size-8 cursor-pointer rounded border border-border bg-background"
+            aria-label="Background color"
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

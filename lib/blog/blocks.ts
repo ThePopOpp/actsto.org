@@ -43,6 +43,12 @@ export type BlogBlockProps = {
   col4?: string;
   colGap?: number;
   bgColor?: string;
+  // Section spacing (inspector).
+  marginTop?: number;
+  marginBottom?: number;
+  paddingTop?: number;
+  paddingBottom?: number;
+  paddingSide?: number;
 };
 
 export type BlogBlock = {
@@ -110,8 +116,18 @@ function align(a: string | undefined): string {
 /** Serialize a single block to inline-styled HTML (email-client friendly). */
 export function blockToHtml(block: BlogBlock): string {
   const p = block.props;
-  const wrap = (inner: string) =>
-    `<div style="margin:0 0 20px;${p.bgColor ? `background:${esc(p.bgColor)};padding:16px;border-radius:10px;` : ""}">${inner}</div>`;
+  const num = (v: number | undefined, fallback: number) => (typeof v === "number" ? v : fallback);
+  const wrap = (inner: string) => {
+    const mt = num(p.marginTop, 0);
+    const mb = num(p.marginBottom, 20);
+    const padded = p.bgColor ? 16 : 0;
+    const pt = num(p.paddingTop, padded);
+    const pb = num(p.paddingBottom, padded);
+    const px = num(p.paddingSide, padded);
+    const bg = p.bgColor ? `background:${esc(p.bgColor)};` : "";
+    const radius = p.bgColor ? "border-radius:10px;" : "";
+    return `<div style="margin:${mt}px 0 ${mb}px;padding:${pt}px ${px}px ${pb}px;${bg}${radius}">${inner}</div>`;
+  };
 
   switch (block.type) {
     case "heading": {
