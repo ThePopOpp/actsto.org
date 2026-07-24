@@ -1270,7 +1270,10 @@ model BlogPost {
   status           String    @default("draft")
   scheduledAt      DateTime? @map("scheduled_at")
   excerpt          String?
+  /// Rendered, sanitized HTML (serialized from `blocks`) for public display.
   content          String?
+  /// Block-editor document: array of typed blocks. Source of truth for editing.
+  blocks           Json?
   featuredImageUrl String?   @map("featured_image_url")
   featuredImageAlt String?   @map("featured_image_alt")
   /// comma-separated
@@ -1288,6 +1291,28 @@ model BlogPost {
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@map("blog_posts")
+}
+
+/// Reusable email templates — often converted from a BlogPost.
+model EmailTemplate {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String
+  subject          String?
+  preheader        String?
+  /// Rendered, sanitized email HTML.
+  content          String?
+  /// Block-editor document (mirrors BlogPost blocks) for re-editing.
+  blocks           Json?
+  /// draft | ready | archived
+  status           String   @default("draft")
+  /// Origin blog post when created via "Convert to email".
+  sourceBlogPostId String?  @map("source_blog_post_id") @db.Uuid
+  createdByEmail   String?  @map("created_by_email")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@map("email_templates")
 }
 
 // ============================================================

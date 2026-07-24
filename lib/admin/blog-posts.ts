@@ -1,5 +1,6 @@
 import "server-only";
 
+import { blocksToHtml, coerceBlocks, type BlogBlock } from "@/lib/blog/blocks";
 import { prisma } from "@/lib/prisma";
 
 export type BlogPostInput = {
@@ -9,6 +10,7 @@ export type BlogPostInput = {
   scheduledAt?: string | null;
   excerpt?: string;
   content?: string;
+  blocks?: BlogBlock[] | null;
   featuredImageUrl?: string;
   featuredImageAlt?: string;
   categories?: string;
@@ -35,10 +37,19 @@ export async function getBlogPostById(id: string) {
   return prisma.blogPost.findUnique({ where: { id } });
 }
 
+/** When a block document is present, it is the source of truth for `content`. */
+function resolveContent(input: BlogPostInput): { blocks: BlogBlock[]; content: string } {
+  const blocks = coerceBlocks(input.blocks);
+  const content = blocks.length ? blocksToHtml(blocks) : input.content ?? "";
+  return { blocks, content };
+}
+
 export async function createBlogPost(input: BlogPostInput, createdByEmail: string) {
   const slug = slugifyBlogSlug(input.slug, input.title);
   const existing = await prisma.blogPost.findUnique({ where: { slug } });
   if (existing) throw new Error(`Slug "${slug}" is already in use.`);
+
+  const { blocks, content } = resolveContent(input);
 
   return prisma.blogPost.create({
     data: {
@@ -47,7 +58,8 @@ export async function createBlogPost(input: BlogPostInput, createdByEmail: strin
       status: input.status,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       excerpt: input.excerpt,
-      content: input.content,
+      content,
+      blocks,
       featuredImageUrl: input.featuredImageUrl,
       featuredImageAlt: input.featuredImageAlt,
       categories: input.categories,
@@ -74,6 +86,7 @@ export async function updateBlogPost(id: string, input: BlogPostInput) {
   }
 
   const becomingPublished = input.status === "publish" && current.status !== "publish";
+  const { blocks, content } = resolveContent(input);
 
   return prisma.blogPost.update({
     where: { id },
@@ -83,7 +96,8 @@ export async function updateBlogPost(id: string, input: BlogPostInput) {
       status: input.status,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       excerpt: input.excerpt,
-      content: input.content,
+      content,
+      blocks,
       featuredImageUrl: input.featuredImageUrl,
       featuredImageAlt: input.featuredImageAlt,
       categories: input.categories,

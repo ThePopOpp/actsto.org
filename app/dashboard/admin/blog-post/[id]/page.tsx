@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminBlogPostForm } from "@/components/dashboard/admin/admin-blog-post-form";
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { getBlogPostById } from "@/lib/admin/blog-posts";
+import { coerceBlocks } from "@/lib/blog/blocks";
 
 export default async function AdminEditBlogPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +22,7 @@ export default async function AdminEditBlogPostPage({ params }: { params: Promis
           scheduledAt: post.scheduledAt?.toISOString() ?? null,
           excerpt: post.excerpt,
           content: post.content,
+          blocks: coerceBlocks(post.blocks),
           featuredImageUrl: post.featuredImageUrl,
           featuredImageAlt: post.featuredImageAlt,
           categories: post.categories,

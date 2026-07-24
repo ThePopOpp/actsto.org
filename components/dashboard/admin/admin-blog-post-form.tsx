@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, Wand2 } from "lucide-react";
 
+import { BlockEditor } from "@/components/dashboard/admin/blog/block-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { blocksToHtml, coerceBlocks, type BlogBlock } from "@/lib/blog/blocks";
 
 const FORM_ID = "admin-blog-post";
 
@@ -27,6 +29,7 @@ export type AdminBlogPostInitial = {
   scheduledAt: string | null;
   excerpt: string | null;
   content: string | null;
+  blocks: BlogBlock[] | null;
   featuredImageUrl: string | null;
   featuredImageAlt: string | null;
   categories: string | null;
@@ -49,7 +52,7 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
   const [status, setStatus] = useState(post?.status ?? "draft");
   const [scheduledAt, setScheduledAt] = useState(post?.scheduledAt?.slice(0, 16) ?? "");
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
-  const [content, setContent] = useState(post?.content ?? "");
+  const [blocks, setBlocks] = useState<BlogBlock[]>(coerceBlocks(post?.blocks));
   const [featuredUrl, setFeaturedUrl] = useState(post?.featuredImageUrl ?? "");
   const [featuredAlt, setFeaturedAlt] = useState(post?.featuredImageAlt ?? "");
   const [categories, setCategories] = useState(post?.categories ?? "Tax credits, Families");
@@ -59,6 +62,52 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
   const [yoastDesc, setYoastDesc] = useState(post?.seoDescription ?? "");
   const [canonical, setCanonical] = useState(post?.canonicalUrl ?? "");
   const [focusKeyword, setFocusKeyword] = useState(post?.focusKeyword ?? "");
+  const [aiBusy, setAiBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function aiMeta() {
+    setAiBusy("meta");
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/blog-posts/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "meta", title, content: blocksToHtml(blocks) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "AI request failed.");
+      if (data.title && !title.trim()) setTitle(data.title);
+      if (data.excerpt) setExcerpt(data.excerpt);
+      if (data.seoTitle) setYoastTitle(data.seoTitle);
+      if (data.seoDescription) setYoastDesc(data.seoDescription);
+      setNotice("AI filled in excerpt and SEO meta.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI request failed.");
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  async function convertToEmail() {
+    if (!post) return;
+    setAiBusy("email");
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceBlogPostId: post.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not create email template.");
+      setNotice("Email template created — find it under Communications → Email Templates.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create email template.");
+    } finally {
+      setAiBusy(null);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +120,7 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
         status,
         scheduledAt: status === "future" ? scheduledAt : null,
         excerpt,
-        content,
+        blocks,
         featuredImageUrl: featuredUrl,
         featuredImageAlt: featuredAlt,
         categories,
@@ -172,14 +221,11 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
             />
           </div>
           <div>
-            <Label htmlFor="bp-content">Content</Label>
-            <Textarea
-              id="bp-content"
-              className="mt-1.5 min-h-[240px] font-mono text-sm"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Plain text — separate paragraphs with a blank line."
-            />
+            <Label>Content blocks</Label>
+            <p className="mt-1 mb-2 text-xs text-muted-foreground">
+              Drag to reorder. Build the article from blocks, or generate a draft with AI.
+            </p>
+            <BlockEditor value={blocks} onChange={setBlocks} />
           </div>
         </CardContent>
       </Card>
@@ -228,8 +274,12 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
       </Card>
 
       <Card className="border-border/80">
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-3">
           <CardTitle className="font-heading text-lg text-primary">SEO meta (Yoast-style)</CardTitle>
+          <Button type="button" size="sm" variant="outline" onClick={() => void aiMeta()} disabled={aiBusy === "meta"}>
+            <Wand2 className="mr-1.5 size-3.5" />
+            {aiBusy === "meta" ? "Thinking…" : "AI: excerpt & SEO"}
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -262,11 +312,21 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
         </CardContent>
       </Card>
 
+      {notice ? (
+        <p className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">{notice}</p>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
           {post ? "Save changes" : "Create post"}
         </Button>
+        {post ? (
+          <Button type="button" variant="outline" onClick={() => void convertToEmail()} disabled={aiBusy === "email"}>
+            <Mail className="mr-2 size-4" />
+            {aiBusy === "email" ? "Converting…" : "Convert to email template"}
+          </Button>
+        ) : null}
         {saved ? <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved.</span> : null}
       </div>
     </form>

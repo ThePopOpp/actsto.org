@@ -5,6 +5,7 @@ import { BellRing, FileText, MessageSquare, Send, Upload } from "lucide-react";
 
 import { AdminPageTabs, type AdminPageTab } from "@/components/dashboard/admin/admin-page-tabs";
 import { AdminTwilioSettingsForm } from "@/components/dashboard/admin/admin-twilio-settings-form";
+import { EmailTemplatesPanel } from "@/components/dashboard/admin/email-templates-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-type CommunicationsTab = "messages" | "send" | "bulk" | "notifications" | "templates" | "credentials";
+type CommunicationsTab =
+  | "messages"
+  | "send"
+  | "bulk"
+  | "notifications"
+  | "email"
+  | "templates"
+  | "credentials";
 type SmsLogRow = {
   id: string;
   direction: string;
@@ -64,6 +72,7 @@ const tabs: AdminPageTab<CommunicationsTab>[] = [
   { id: "send", label: "Send SMS" },
   { id: "bulk", label: "Bulk SMS" },
   { id: "notifications", label: "Notifications" },
+  { id: "email", label: "Email Templates" },
   { id: "templates", label: "Templates" },
   { id: "credentials", label: "Credentials" },
 ];
@@ -479,6 +488,8 @@ export function AdminCommunicationsTabs() {
                 </Card>
               </div>
             ) : null}
+
+            {activeTab === "email" ? <EmailTemplatesPanel /> : null}
 
             {activeTab === "templates" ? (
               <Card className="border-border/80">

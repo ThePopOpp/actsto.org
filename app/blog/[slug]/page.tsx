@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { Calendar, FolderOpen, Tag, User } from "lucide-react";
 
+import { RenderedBlogContent } from "@/components/blog/rendered-blog-content";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -147,20 +148,24 @@ export default async function BlogPostPage({ params }: Props) {
 
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div className="max-w-none">
-          <div className="space-y-8 text-base leading-relaxed">
-            {post.contentSections.map((section, i) => (
-              <section key={i} className="space-y-4">
-                {section.heading ? (
-                  <h2 className="font-heading text-xl font-semibold text-primary sm:text-2xl">{section.heading}</h2>
-                ) : null}
-                {section.paragraphs.map((p, j) => (
-                  <p key={j} className="text-muted-foreground">
-                    {p}
-                  </p>
-                ))}
-              </section>
-            ))}
-          </div>
+          {post.content.rendered.trim() ? (
+            <RenderedBlogContent html={post.content.rendered} />
+          ) : (
+            <div className="space-y-8 text-base leading-relaxed">
+              {post.contentSections.map((section, i) => (
+                <section key={i} className="space-y-4">
+                  {section.heading ? (
+                    <h2 className="font-heading text-xl font-semibold text-primary sm:text-2xl">{section.heading}</h2>
+                  ) : null}
+                  {section.paragraphs.map((p, j) => (
+                    <p key={j} className="text-muted-foreground">
+                      {p}
+                    </p>
+                  ))}
+                </section>
+              ))}
+            </div>
+          )}
         </div>
 
         <Separator className="my-12" />
