@@ -27,24 +27,20 @@ import { cn } from "@/lib/utils";
 
 const impactStats = [
   {
-    value: "$8.2M",
-    label: "Tax Credits Donation Goal",
-    sub: "redirected to Christian schools",
+    value: "$2 Million",
+    desc: "In private donations raised",
   },
   {
-    value: "3,840",
-    label: "Students Funded Goal",
-    sub: "in 2025–26 school year",
+    value: "500+",
+    desc: "Local students supported",
   },
   {
-    value: "94",
-    label: "Partner Schools Goal",
-    sub: "across Arizona",
+    value: "$4,000+",
+    desc: "Average scholarship awarded per student",
   },
   {
     value: "100%",
-    label: "Tax Credit Return",
-    sub: "donors receive full credit back",
+    desc: "Of tax credit donations used to fund student scholarships",
   },
 ];
 
@@ -192,16 +188,26 @@ function SectionHeader({
 export function HomeImpactStats() {
   return (
     <section className="border-y border-border bg-background py-12 sm:py-14">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:gap-8 lg:px-8">
-        {impactStats.map((s) => (
-          <div key={s.label} className="text-center lg:text-left">
-            <p className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
-              {s.value}
-            </p>
-            <p className="mt-2 text-sm font-semibold text-act-red">{s.label}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{s.sub}</p>
-          </div>
-        ))}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-heading text-2xl font-semibold text-primary sm:text-3xl">
+            Our 2026 Goals
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Creating greater educational opportunities for Arizona students through the 2026 tax
+            season.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          {impactStats.map((s) => (
+            <div key={s.value} className="text-center">
+              <p className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
+                {s.value}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
