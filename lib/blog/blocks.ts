@@ -9,7 +9,9 @@ export type BlogBlockType =
   | "heading"
   | "paragraph"
   | "image"
+  | "gallery"
   | "video"
+  | "audio"
   | "quote"
   | "code"
   | "button"
@@ -19,17 +21,38 @@ export type BlogBlockType =
   | "columns3"
   | "columns4";
 
+export type GalleryImage = {
+  src: string;
+  alt?: string;
+  caption?: string;
+};
+
 export type BlogBlockProps = {
   level?: "h1" | "h2" | "h3";
   content?: string;
   align?: "left" | "center" | "right";
   color?: string;
+  // Typography (heading).
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string;
   src?: string;
   alt?: string;
   caption?: string;
   linkUrl?: string;
   imgWidth?: string;
+  // Gallery.
+  images?: GalleryImage[];
+  galleryCols?: number;
+  // Video.
   videoUrl?: string;
+  poster?: string;
+  // Audio.
+  audioUrl?: string;
+  audioTitle?: string;
+  audioDesc?: string;
+  audioStart?: number;
+  audioEnd?: number;
   author?: string;
   language?: string;
   buttonText?: string;
@@ -69,7 +92,9 @@ export const BLOG_BLOCK_DEFS: BlogBlockDef[] = [
   { type: "heading", label: "Heading", icon: "Heading", defaults: { level: "h2", content: "Section heading", align: "left" } },
   { type: "paragraph", label: "Paragraph", icon: "Pilcrow", defaults: { content: "Write your paragraph here…", align: "left" } },
   { type: "image", label: "Image", icon: "Image", defaults: { src: "", alt: "", caption: "", imgWidth: "100%", align: "center" } },
+  { type: "gallery", label: "Gallery", icon: "Images", defaults: { images: [], galleryCols: 3, colGap: 12 } },
   { type: "video", label: "Video", icon: "Video", defaults: { videoUrl: "", caption: "" } },
+  { type: "audio", label: "Audio", icon: "Music", defaults: { audioUrl: "", audioTitle: "", audioDesc: "" } },
   { type: "quote", label: "Quote", icon: "Quote", defaults: { content: "A memorable quote.", author: "", align: "left" } },
   { type: "button", label: "Button", icon: "MousePointerClick", defaults: { buttonText: "Learn more", buttonUrl: "/", buttonBgColor: "#1e2a4a", buttonColor: "#ffffff", align: "left" } },
   { type: "columns", label: "2 Columns", icon: "Columns2", defaults: { col1: "Left column text.", col2: "Right column text.", colGap: 24 } },
@@ -132,6 +157,29 @@ function align(a: string | undefined): string {
   return a === "center" ? "center" : a === "right" ? "right" : "left";
 }
 
+/** Parse a video URL into an embeddable player. Supports YouTube, Vimeo, and direct files. */
+function videoEmbed(url: string, poster?: string): string {
+  const u = url.trim();
+  const yt = u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/i);
+  const vm = u.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  const frame = (src: string) =>
+    `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:10px;background:#000;"><iframe src="${esc(src)}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+  if (yt) return frame(`https://www.youtube.com/embed/${yt[1]}`);
+  if (vm) return frame(`https://player.vimeo.com/video/${vm[1]}`);
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(u)) {
+    return `<video controls playsinline ${poster ? `poster="${esc(poster)}"` : ""} style="width:100%;border-radius:10px;background:#000;"><source src="${esc(u)}" /></video>`;
+  }
+  return `<a href="${esc(u)}" style="color:#a93226;">▶ Watch video</a>`;
+}
+
+/** Build an HTML5 media time-fragment suffix (#t=start,end) for audio clips. */
+function timeFragment(start?: number, end?: number): string {
+  const s = typeof start === "number" && start > 0 ? start : undefined;
+  const e = typeof end === "number" && end > 0 ? end : undefined;
+  if (s === undefined && e === undefined) return "";
+  return `#t=${s ?? ""}${e !== undefined ? `,${e}` : ""}`;
+}
+
 /** Serialize a single block to inline-styled HTML (email-client friendly). */
 export function blockToHtml(block: BlogBlock): string {
   const p = block.props;
@@ -150,10 +198,13 @@ export function blockToHtml(block: BlogBlock): string {
 
   switch (block.type) {
     case "heading": {
-      const size = p.level === "h1" ? 34 : p.level === "h3" ? 20 : 26;
+      const defaultSize = p.level === "h1" ? 34 : p.level === "h3" ? 20 : 26;
+      const size = typeof p.fontSize === "number" && p.fontSize > 0 ? p.fontSize : defaultSize;
+      const family = esc(p.fontFamily) || "Georgia,serif";
+      const weight = esc(p.fontWeight) || "600";
       const tag = p.level ?? "h2";
       return wrap(
-        `<${tag} style="margin:0;font-family:Georgia,serif;font-weight:600;font-size:${size}px;line-height:1.2;color:${esc(p.color) || "#1e2a4a"};text-align:${align(p.align)};">${inline(p.content)}</${tag}>`,
+        `<${tag} style="margin:0;font-family:${family};font-weight:${weight};font-size:${size}px;line-height:1.2;color:${esc(p.color) || "#1e2a4a"};text-align:${align(p.align)};">${inline(p.content)}</${tag}>`,
       );
     }
     case "paragraph": {
@@ -174,8 +225,32 @@ export function blockToHtml(block: BlogBlock): string {
       const url = p.videoUrl ?? "";
       if (!url) return wrap(`<div style="padding:32px;text-align:center;color:#9ca3af;border:1px dashed #d1d5db;border-radius:10px;">No video URL</div>`);
       const cap = p.caption ? `<div style="margin-top:8px;font-size:13px;color:#6b7280;text-align:center;">${inline(p.caption)}</div>` : "";
+      return wrap(`<div>${videoEmbed(url, p.poster)}${cap}</div>`);
+    }
+    case "gallery": {
+      const images = Array.isArray(p.images) ? p.images.filter((im) => im && im.src) : [];
+      if (images.length === 0) {
+        return wrap(`<div style="padding:32px;text-align:center;color:#9ca3af;border:1px dashed #d1d5db;border-radius:10px;">No gallery images</div>`);
+      }
+      const cols = Math.min(4, Math.max(1, Number(p.galleryCols) || 3));
+      const gap = Number(p.colGap) || 12;
+      const basis = `calc(${(100 / cols).toFixed(4)}% - ${gap}px)`;
+      const cells = images
+        .map((im) => {
+          const cap = im.caption ? `<figcaption style="margin-top:6px;font-size:12px;color:#6b7280;">${inline(im.caption)}</figcaption>` : "";
+          return `<figure style="flex:1 1 ${basis};max-width:${basis};min-width:120px;margin:0;"><img src="${esc(im.src)}" alt="${esc(im.alt)}" style="width:100%;height:auto;border-radius:8px;display:block;" />${cap}</figure>`;
+        })
+        .join("");
+      return wrap(`<div style="display:flex;flex-wrap:wrap;gap:${gap}px;">${cells}</div>`);
+    }
+    case "audio": {
+      const url = p.audioUrl ?? "";
+      if (!url) return wrap(`<div style="padding:24px;text-align:center;color:#9ca3af;border:1px dashed #d1d5db;border-radius:10px;">No audio URL</div>`);
+      const src = `${esc(url)}${timeFragment(p.audioStart, p.audioEnd)}`;
+      const title = p.audioTitle ? `<div style="font-weight:600;font-size:15px;color:#1e2a4a;">${inline(p.audioTitle)}</div>` : "";
+      const desc = p.audioDesc ? `<div style="margin-top:2px;font-size:13px;color:#6b7280;">${inline(p.audioDesc)}</div>` : "";
       return wrap(
-        `<div style="text-align:center;"><a href="${esc(url)}" style="color:#a93226;">▶ Watch video</a>${cap}</div>`,
+        `<div style="padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;">${title}${desc}<audio controls preload="metadata" src="${src}" style="width:100%;margin-top:10px;"></audio></div>`,
       );
     }
     case "quote":

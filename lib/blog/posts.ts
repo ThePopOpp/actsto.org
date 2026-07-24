@@ -66,6 +66,7 @@ export type WordPressPost = {
     post_tag: WPTaxonomyTerm[];
   };
   meta: WordPressPostMeta;
+  layout: { width: string; surface: string };
 };
 
 function slugify(value: string): string {
@@ -136,6 +137,10 @@ function toWordPressPost(row: PrismaBlogPost): WordPressPost {
       _yoast_wpseo_metadesc: row.seoDescription ?? undefined,
       _yoast_wpseo_canonical: row.canonicalUrl ?? undefined,
       _yoast_wpseo_focuskw: row.focusKeyword ?? undefined,
+    },
+    layout: {
+      width: row.contentWidth ?? "wide",
+      surface: row.contentSurface ?? "card",
     },
   };
 }

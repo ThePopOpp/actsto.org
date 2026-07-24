@@ -1285,6 +1285,10 @@ model BlogPost {
   seoDescription   String?   @map("seo_description")
   canonicalUrl     String?   @map("canonical_url")
   focusKeyword     String?   @map("focus_keyword")
+  /// Public reading width: narrow | medium | wide | full
+  contentWidth     String?   @map("content_width")
+  /// Public content surface: card | outline | none
+  contentSurface   String?   @map("content_surface")
   publishedAt      DateTime? @map("published_at")
   createdByEmail   String?   @map("created_by_email")
   createdAt        DateTime  @default(now()) @map("created_at")

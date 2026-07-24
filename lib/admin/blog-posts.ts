@@ -21,6 +21,8 @@ export type BlogPostInput = {
   seoDescription?: string;
   canonicalUrl?: string;
   focusKeyword?: string;
+  contentWidth?: string;
+  contentSurface?: string;
 };
 
 export function slugifyBlogSlug(raw: string, fallbackTitle: string): string {
@@ -91,6 +93,8 @@ export async function createBlogPost(input: BlogPostInput, createdByEmail: strin
       seoDescription: input.seoDescription,
       canonicalUrl: input.canonicalUrl,
       focusKeyword: input.focusKeyword,
+      contentWidth: input.contentWidth,
+      contentSurface: input.contentSurface,
       publishedAt: input.status === "publish" ? new Date() : null,
       createdByEmail,
     },
@@ -129,6 +133,8 @@ export async function updateBlogPost(id: string, input: BlogPostInput) {
       seoDescription: input.seoDescription,
       canonicalUrl: input.canonicalUrl,
       focusKeyword: input.focusKeyword,
+      contentWidth: input.contentWidth,
+      contentSurface: input.contentSurface,
       publishedAt: becomingPublished ? new Date() : current.publishedAt,
     },
   });

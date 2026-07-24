@@ -335,7 +335,7 @@ export function BlogPostsManager({ onNewPost }: { onNewPost: () => void }) {
             {preview?.content ? (
               <iframe
                 title="Post preview"
-                srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}ul{list-style:disc;padding-left:1.5rem}ol{list-style:decimal;padding-left:1.5rem}li{margin:.2em 0}a{color:#a93226}img{max-width:100%;height:auto}</style></head><body><div style="max-width:680px;margin:0 auto;padding:16px 24px 32px;font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">${preview.content}</div></body></html>`}
+                srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}ul{list-style:disc;padding-left:1.5rem}ol{list-style:decimal;padding-left:1.5rem}li{margin:.2em 0}a{color:#a93226}img,iframe{max-width:100%}audio,video{width:100%}figure{margin:0}</style></head><body><div style="max-width:680px;margin:0 auto;padding:16px 24px 32px;font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">${preview.content}</div></body></html>`}
                 className="min-h-[60vh] w-full bg-white"
               />
             ) : (

@@ -31,6 +31,8 @@ export default async function AdminEditBlogPostPage({ params }: { params: Promis
           seoDescription: post.seoDescription,
           canonicalUrl: post.canonicalUrl,
           focusKeyword: post.focusKeyword,
+          contentWidth: post.contentWidth,
+          contentSurface: post.contentSurface,
         }}
       />
     </>

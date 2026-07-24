@@ -6,11 +6,16 @@ import { Calendar, FolderOpen, Tag, User } from "lucide-react";
 
 import { RenderedBlogContent } from "@/components/blog/rendered-blog-content";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { buttonVariants } from "@/lib/button-variants";
 import { getAllPostSlugs, getPostBySlug } from "@/lib/blog/posts";
 import { cn } from "@/lib/utils";
+
+const WIDTH_CLASS: Record<string, string> = {
+  narrow: "max-w-3xl",
+  medium: "max-w-4xl",
+  wide: "max-w-5xl",
+  full: "max-w-6xl",
+};
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -46,11 +51,12 @@ export default async function BlogPostPage({ params }: Props) {
   const published = format(new Date(post.date), "MMMM d, yyyy");
   const modified = format(new Date(post.modified), "MMMM d, yyyy");
   const img = post.featured_media_embed;
+  const widthClass = WIDTH_CLASS[post.layout.width] ?? WIDTH_CLASS.narrow;
 
   return (
     <>
       <article className="border-b border-border/60 bg-gradient-to-b from-act-banner/30 to-background dark:from-act-banner/10">
-        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+        <div className={cn("mx-auto px-4 py-10 sm:px-6 lg:px-8 lg:py-14", widthClass)}>
           <nav className="text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary">
               Home
@@ -127,7 +133,7 @@ export default async function BlogPostPage({ params }: Props) {
       </article>
 
       {img ? (
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className={cn("mx-auto px-4 sm:px-6 lg:px-8", widthClass)}>
           <div className="relative aspect-[21/9] overflow-hidden rounded-xl border border-border/80 bg-muted shadow-sm ring-1 ring-foreground/5">
             {/* Featured images are admin-entered arbitrary URLs; a plain <img> avoids
                 next/image's remotePatterns host allowlist (which otherwise throws/500s). */}
@@ -141,10 +147,10 @@ export default async function BlogPostPage({ params }: Props) {
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <div className={cn("mx-auto px-4 py-12 sm:px-6 lg:px-8 lg:py-16", widthClass)}>
         <div className="max-w-none">
           {post.content.rendered.trim() ? (
-            <RenderedBlogContent html={post.content.rendered} />
+            <RenderedBlogContent html={post.content.rendered} surface={post.layout.surface} />
           ) : (
             <div className="space-y-8 text-base leading-relaxed">
               {post.contentSections.map((section, i) => (
@@ -162,56 +168,6 @@ export default async function BlogPostPage({ params }: Props) {
             </div>
           )}
         </div>
-
-        <Separator className="my-12" />
-
-        <Card className="border-border/80 bg-muted/20">
-          <CardHeader>
-            <CardTitle className="font-heading text-base text-primary">WordPress-style metadata</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 font-mono text-xs text-muted-foreground sm:grid-cols-2">
-            <div>
-              <span className="text-foreground">id</span> · {post.id}
-            </div>
-            <div>
-              <span className="text-foreground">slug</span> · {post.slug}
-            </div>
-            <div>
-              <span className="text-foreground">date</span> · {post.date}
-            </div>
-            <div>
-              <span className="text-foreground">date_gmt</span> · {post.date_gmt}
-            </div>
-            <div>
-              <span className="text-foreground">modified</span> · {post.modified}
-            </div>
-            <div>
-              <span className="text-foreground">modified_gmt</span> · {post.modified_gmt}
-            </div>
-            <div>
-              <span className="text-foreground">author</span> · {post.author}
-            </div>
-            <div>
-              <span className="text-foreground">featured_media</span> · {post.featured_media}
-            </div>
-            <div className="sm:col-span-2">
-              <span className="text-foreground">categories</span> · [{post.categories.join(", ")}]
-            </div>
-            <div className="sm:col-span-2">
-              <span className="text-foreground">tags</span> · [{post.tags.join(", ")}]
-            </div>
-            {post.meta._yoast_wpseo_canonical ? (
-              <div className="sm:col-span-2 break-all">
-                <span className="text-foreground">_yoast_wpseo_canonical</span> · {post.meta._yoast_wpseo_canonical}
-              </div>
-            ) : null}
-            {post.meta._yoast_wpseo_focuskw ? (
-              <div className="sm:col-span-2">
-                <span className="text-foreground">_yoast_wpseo_focuskw</span> · {post.meta._yoast_wpseo_focuskw}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
 
         <div className="mt-10 flex flex-wrap gap-3">
           <Link href="/blog" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}>

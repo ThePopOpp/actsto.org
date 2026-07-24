@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -12,15 +12,21 @@ import {
   GripVertical,
   Heading,
   Image as ImageIcon,
+  Images,
+  Loader2,
   Minus,
   MousePointerClick,
   MoveVertical,
+  Music,
   Pilcrow,
+  Plus,
   Quote,
   Sparkles,
   Trash2,
+  Upload,
   Video,
   Wand2,
+  X,
 } from "lucide-react";
 
 import {
@@ -30,6 +36,7 @@ import {
   type BlogBlock,
   type BlogBlockProps,
   type BlogBlockType,
+  type GalleryImage,
 } from "@/lib/blog/blocks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +49,9 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Heading,
   Pilcrow,
   Image: ImageIcon,
+  Images,
   Video,
+  Music,
   Quote,
   MousePointerClick,
   Columns2,
@@ -52,6 +61,67 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Minus,
   MoveVertical,
 };
+
+/** Reusable media uploader → Supabase, returns the public URL. */
+export function MediaUpload({
+  accept,
+  label,
+  onUploaded,
+}: {
+  accept: string;
+  label: string;
+  onUploaded: (url: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handle(file: File) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/blog-media/upload", { method: "POST", body: fd });
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!res.ok || !data?.url) throw new Error(data?.error ?? "Upload failed.");
+      onUploaded(data.url);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handle(f);
+          e.target.value = "";
+        }}
+      />
+      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={busy}>
+        {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Upload className="mr-1.5 size-3.5" />}
+        {busy ? "Uploading…" : label}
+      </Button>
+      {err ? <p className="mt-1 text-xs text-destructive">{err}</p> : null}
+    </div>
+  );
+}
+
+const FONT_FAMILY_OPTIONS: { label: string; value: string }[] = [
+  { label: "Heading (serif)", value: "" },
+  { label: "Sans", value: "Arial, Helvetica, sans-serif" },
+  { label: "Serif", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Mono", value: "'Courier New', monospace" },
+  { label: "Rounded", value: "'Trebuchet MS', sans-serif" },
+];
 
 function uid() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -396,6 +466,43 @@ export function BlockFields({
             <AlignField props={p} onPatch={onPatch} />
           </div>
           <Input value={p.content ?? ""} onChange={(e) => onPatch({ content: e.target.value })} placeholder="Heading text" />
+          <div className="flex flex-wrap items-end gap-3">
+            <ColorField label="Color" value={p.color ?? "#1e2a4a"} onChange={(v) => onPatch({ color: v })} />
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Font</Label>
+              <select
+                value={p.fontFamily ?? ""}
+                onChange={(e) => onPatch({ fontFamily: e.target.value || undefined })}
+                className="h-8 rounded border border-border bg-background px-1 text-xs text-foreground"
+              >
+                {FONT_FAMILY_OPTIONS.map((f) => (
+                  <option key={f.label} value={f.value}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Size (px)</Label>
+              <Input
+                type="number"
+                value={p.fontSize ?? ""}
+                onChange={(e) => onPatch({ fontSize: e.target.value ? Number(e.target.value) : undefined })}
+                placeholder="auto"
+                className="h-8 w-20"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Weight</Label>
+              <select
+                value={p.fontWeight ?? "600"}
+                onChange={(e) => onPatch({ fontWeight: e.target.value })}
+                className="h-8 rounded border border-border bg-background px-1 text-xs text-foreground"
+              >
+                {["300", "400", "500", "600", "700", "800"].map((w) => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <RewriteBar onRewrite={onRewrite} busy={rewriting} />
         </div>
       );
@@ -425,7 +532,14 @@ export function BlockFields({
     case "image":
       return (
         <div className="space-y-2">
-          <Input value={p.src ?? ""} onChange={(e) => onPatch({ src: e.target.value })} placeholder="Image URL" className="font-mono text-sm" />
+          <div className="flex items-center gap-2">
+            <MediaUpload accept="image/*" label="Upload image" onUploaded={(url) => onPatch({ src: url })} />
+            {p.src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.src} alt="" className="h-10 w-14 rounded border border-border/60 object-cover" />
+            ) : null}
+          </div>
+          <Input value={p.src ?? ""} onChange={(e) => onPatch({ src: e.target.value })} placeholder="…or paste an image URL" className="font-mono text-sm" />
           <div className="grid gap-2 sm:grid-cols-2">
             <Input value={p.alt ?? ""} onChange={(e) => onPatch({ alt: e.target.value })} placeholder="Alt text" />
             <Input value={p.linkUrl ?? ""} onChange={(e) => onPatch({ linkUrl: e.target.value })} placeholder="Link URL (optional)" />
@@ -440,11 +554,34 @@ export function BlockFields({
           </div>
         </div>
       );
+    case "gallery":
+      return <GalleryFields props={p} onPatch={onPatch} />;
     case "video":
       return (
         <div className="space-y-2">
+          <MediaUpload accept="video/*" label="Upload video (MP4)" onUploaded={(url) => onPatch({ videoUrl: url })} />
           <Input value={p.videoUrl ?? ""} onChange={(e) => onPatch({ videoUrl: e.target.value })} placeholder="Video URL (YouTube, Vimeo, MP4…)" className="font-mono text-sm" />
+          <Input value={p.poster ?? ""} onChange={(e) => onPatch({ poster: e.target.value })} placeholder="Poster image URL (optional, for MP4)" className="font-mono text-sm" />
           <Input value={p.caption ?? ""} onChange={(e) => onPatch({ caption: e.target.value })} placeholder="Caption (optional)" />
+        </div>
+      );
+    case "audio":
+      return (
+        <div className="space-y-2">
+          <MediaUpload accept="audio/*" label="Upload audio" onUploaded={(url) => onPatch({ audioUrl: url })} />
+          <Input value={p.audioUrl ?? ""} onChange={(e) => onPatch({ audioUrl: e.target.value })} placeholder="…or paste an audio URL" className="font-mono text-sm" />
+          <Input value={p.audioTitle ?? ""} onChange={(e) => onPatch({ audioTitle: e.target.value })} placeholder="Track title (optional)" />
+          <Textarea value={p.audioDesc ?? ""} onChange={(e) => onPatch({ audioDesc: e.target.value })} className="min-h-[56px]" placeholder="Description (optional)" />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Start (s)</Label>
+              <Input type="number" value={p.audioStart ?? ""} onChange={(e) => onPatch({ audioStart: e.target.value ? Number(e.target.value) : undefined })} className="h-8 w-20" placeholder="0" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Stop (s)</Label>
+              <Input type="number" value={p.audioEnd ?? ""} onChange={(e) => onPatch({ audioEnd: e.target.value ? Number(e.target.value) : undefined })} className="h-8 w-20" placeholder="end" />
+            </div>
+          </div>
         </div>
       );
     case "button":
@@ -503,6 +640,81 @@ export function BlockFields({
     default:
       return null;
   }
+}
+
+function GalleryFields({
+  props,
+  onPatch,
+}: {
+  props: BlogBlockProps;
+  onPatch: (p: Partial<BlogBlockProps>) => void;
+}) {
+  const images: GalleryImage[] = Array.isArray(props.images) ? props.images : [];
+  const setImages = (next: GalleryImage[]) => onPatch({ images: next });
+  const addImage = (src = "") => setImages([...images, { src, alt: "", caption: "" }]);
+  const updateImage = (i: number, patch: Partial<GalleryImage>) =>
+    setImages(images.map((im, idx) => (idx === i ? { ...im, ...patch } : im)));
+  const removeImage = (i: number) => setImages(images.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Label className="text-xs">Columns</Label>
+          <select
+            value={props.galleryCols ?? 3}
+            onChange={(e) => onPatch({ galleryCols: Number(e.target.value) })}
+            className="h-8 rounded border border-border bg-background px-1 text-xs text-foreground"
+          >
+            {[2, 3, 4].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs">Gap (px)</Label>
+          <Input type="number" value={props.colGap ?? 12} onChange={(e) => onPatch({ colGap: Number(e.target.value) || 0 })} className="h-8 w-20" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {images.map((im, i) => (
+          <div key={i} className="flex items-start gap-2 rounded-md border border-border/60 p-2">
+            {im.src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={im.src} alt="" className="h-12 w-12 shrink-0 rounded border border-border/60 object-cover" />
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-border/60 bg-muted text-muted-foreground">
+                <ImageIcon className="size-4" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Input value={im.src} onChange={(e) => updateImage(i, { src: e.target.value })} placeholder="Image URL" className="h-8 font-mono text-xs" />
+              <div className="grid grid-cols-2 gap-1.5">
+                <Input value={im.alt ?? ""} onChange={(e) => updateImage(i, { alt: e.target.value })} placeholder="Alt" className="h-8" />
+                <Input value={im.caption ?? ""} onChange={(e) => updateImage(i, { caption: e.target.value })} placeholder="Caption" className="h-8" />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeImage(i)}
+              aria-label="Remove image"
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <MediaUpload accept="image/*" label="Upload image" onUploaded={(url) => addImage(url)} />
+        <Button type="button" variant="outline" size="sm" onClick={() => addImage()}>
+          <Plus className="mr-1.5 size-3.5" /> Add by URL
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
