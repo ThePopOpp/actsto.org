@@ -61,8 +61,7 @@ export const leadershipTeam: LeadershipMember[] = [
     excerpt:
       "Chris leads ACT’s vision to connect Arizona families with Christian education through scholarships and clear, compassionate support.",
     bio: "Chris Leavitt serves as CEO of Arizona Christian Tuition, guiding strategy and partnerships so more families can access private Christian schooling. He is passionate about transparency, stewardship, and walking alongside parents from application to award.",
-    imageSrc:
-      "https://arizonachristiantuition.com/wp-content/uploads/2026/03/chris-leavitt-white-bg.png",
+    imageSrc: "/team/chris-leavitt.png",
     email: "chris@actsto.org",
     facebookUrl: "https://www.facebook.com/arizonachristiantuition",
     linkedinUrl: "https://www.linkedin.com/",
@@ -93,8 +92,7 @@ export const leadershipTeam: LeadershipMember[] = [
     excerpt:
       "Scott oversees day-to-day operations, donor experience, and school relationships—keeping programs compliant and families informed.",
     bio: "Scott Spaulding, COO, focuses on operational excellence across Arizona Christian Tuition—from donation processing to scholarship timelines. His background helps ensure schools, parents, and donors receive dependable answers and smooth workflows.",
-    imageSrc:
-      "https://arizonachristiantuition.com/wp-content/uploads/2025/07/Scott-Spalding.png",
+    imageSrc: "/team/scott-spaulding.png",
     email: "scott@actsto.org",
     facebookUrl: "https://www.facebook.com/arizonachristiantuition",
     linkedinUrl: "https://www.linkedin.com/",
@@ -125,8 +123,7 @@ export const leadershipTeam: LeadershipMember[] = [
     excerpt:
       "Jeremy builds and maintains the technology behind ACT’s portals, campaigns, and donor tools—secure, simple, and built for growth.",
     bio: "Jeremy Waters leads technology as CTO, shaping the platforms families and donors use every day. He prioritizes security, accessibility, and a calm user experience so ACT can scale its mission across Arizona.",
-    imageSrc:
-      "https://arizonachristiantuition.com/wp-content/uploads/2026/03/Jeremy-Waters.png",
+    imageSrc: "/team/jeremy-waters.jpeg",
     email: "jeremy@actsto.org",
     facebookUrl: "https://www.facebook.com/arizonachristiantuition",
     linkedinUrl: "https://www.linkedin.com/",

@@ -4,8 +4,8 @@ export const ACT_LOGO_LIGHT = "/actsto-logo-light.svg";
 /** Served from `public/actsto-logo-dark.svg` — for dark backgrounds (design-systems/logo_deck/actsto_logo_dark.svg). */
 export const ACT_LOGO_DARK = "/actsto-logo-dark.svg";
 
-export const ACT_LOGO_ROUND =
-  "https://arizonachristiantuition.com/wp-content/uploads/2025/12/ACT-Logo-Color.svg";
+/** Round color emblem — served locally from `public/act-favicon.png`. */
+export const ACT_LOGO_ROUND = "/act-favicon.png";
 
 /** Served from `app/icon.svg` / `public/icon.svg` (design-systems/logo_deck/favicon.svg). */
 export const ACT_FAVICON = "/icon.svg";
