@@ -35,10 +35,6 @@ export default async function BlogArchivePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <p className="mb-8 text-sm text-muted-foreground">
-          Showing {posts.length} articles · Content mirrors WordPress <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">post</code> fields
-          (<span className="whitespace-nowrap">type, status, date, author, featured_media, terms, meta</span>).
-        </p>
         <div className="grid gap-8 sm:grid-cols-2">
           {posts.map((post) => (
             <BlogPostCard key={post.id} post={post} />

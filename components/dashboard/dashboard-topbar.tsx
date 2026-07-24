@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronRight, Search } from "lucide-react";
+import { Bell, ChevronRight, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,8 @@ export function DashboardTopBar({
   searchPlaceholder = "Search campaigns, users, donors…",
   searchBasePath,
   className,
+  onToggleSidebar,
+  sidebarCollapsed = false,
 }: {
   roleLabel: string;
   basePath: string;
@@ -41,6 +43,9 @@ export function DashboardTopBar({
   /** Where the search box routes to (defaults to the campaigns list under basePath). */
   searchBasePath?: string;
   className?: string;
+  /** When provided, renders a sidebar collapse toggle to the left of the breadcrumb. */
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -89,6 +94,18 @@ export function DashboardTopBar({
         className,
       )}
     >
+      {onToggleSidebar ? (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+        </button>
+      ) : null}
+
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
         <Link href={adminHrefForBase(navItems[0]?.href ?? basePath, basePath)} className="shrink-0 text-muted-foreground hover:text-foreground">
           {roleLabel}

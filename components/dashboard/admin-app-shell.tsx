@@ -18,8 +18,6 @@ import {
   Menu,
   MessageSquare,
   Newspaper,
-  PanelLeftClose,
-  PanelLeftOpen,
   Receipt,
   Scale,
   Settings,
@@ -28,6 +26,7 @@ import {
 } from "lucide-react";
 
 import type { ActSession } from "@/lib/auth/types";
+import { ActLogo } from "@/components/act-logo";
 import { DashboardSidebarLogo } from "@/components/dashboard/dashboard-sidebar-logo";
 import { DashboardTopBar } from "@/components/dashboard/dashboard-topbar";
 import { ShepardFab } from "@/components/dashboard/admin/shepard-fab";
@@ -84,9 +83,9 @@ const nav: NavEntry[] = [
     children: [
       { href: "/dashboard/admin/cms", label: "Pages", icon: FileText },
       { href: "/dashboard/admin/blog-post", label: "Blog Post", icon: Newspaper },
-      { href: "/dashboard/admin/marketing", label: "Marketing", icon: Images },
     ],
   },
+  { href: "/dashboard/admin/marketing", label: "Marketing", icon: Images },
   { href: "/dashboard/admin/legal", label: "Legal", icon: Scale },
   { href: "/dashboard/admin/credentials", label: "API & credentials", icon: KeyRound },
   { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },
@@ -224,7 +223,7 @@ function NavLinks({
               />
             </button>
             {expanded ? (
-              <div className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l border-border pl-2 dark:border-white/12">
+              <div className="mt-0.5 flex flex-col gap-0.5">
                 {entry.children.map((child) => {
                   const ChildIcon = child.icon;
                   return (
@@ -301,17 +300,14 @@ export function AdminAppShell({
           "dark:border-white/10 dark:bg-[var(--act-brand-navy-dark)] dark:text-white",
         )}
       >
-        <div className={cn("flex shrink-0 items-center", collapsed ? "justify-center px-2" : "justify-between px-4")}>
-          {collapsed ? null : <DashboardSidebarLogo variant="admin" />}
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
-          >
-            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          </button>
+        <div className={cn("flex shrink-0 items-center", collapsed ? "justify-center px-2" : "px-4")}>
+          {collapsed ? (
+            <Link href="/" aria-label="Arizona Christian Tuition home" className="relative block size-9 shrink-0 overflow-hidden">
+              <ActLogo sizes="120px" />
+            </Link>
+          ) : (
+            <DashboardSidebarLogo variant="admin" />
+          )}
         </div>
         <Separator className="my-4 bg-border dark:bg-white/15" />
         <NavLinks
@@ -418,6 +414,8 @@ export function AdminAppShell({
           user={{ name: user.name, email: user.email }}
           notificationsHref={adminHrefForBase("/dashboard/admin/notifications", basePath)}
           searchPlaceholder="Search campaigns, users, donors…"
+          onToggleSidebar={toggleCollapsed}
+          sidebarCollapsed={collapsed}
         />
 
         <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
