@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   ChevronDown,
+  ClipboardList,
   Contact,
   CreditCard,
   FileText,
@@ -78,6 +79,7 @@ const nav: NavEntry[] = [
   },
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
   { href: "/dashboard/admin/business-cards", label: "Business Cards", icon: Contact },
+  { href: "/dashboard/admin/plans", label: "Plans", icon: ClipboardList },
   {
     label: "Communications",
     icon: MessageSquare,

@@ -1521,3 +1521,143 @@ model BusinessCardLead {
   @@index([ownerEmail, status])
   @@map("business_card_leads")
 }
+
+/// Plan Builder — projects/boards owned by a dashboard user (keyed by email).
+model Plan {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerEmail  String    @map("owner_email")
+  ownerName   String?   @map("owner_name")
+  name        String
+  description String?
+  color       String    @default("gold")
+  icon        String    @default("clipboard-list")
+  /// board | grid | list | calendar
+  defaultView String    @default("board") @map("default_view")
+  /// active | archived
+  status      String    @default("active")
+  /// private | team
+  visibility  String    @default("private")
+  startDate   DateTime? @map("start_date") @db.Date
+  targetDate  DateTime? @map("target_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  groups  PlanGroup[]
+  labels  PlanLabel[]
+  tasks   PlanTask[]
+  members PlanMember[]
+
+  @@index([ownerEmail])
+  @@map("plans")
+}
+
+model PlanGroup {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId    String   @map("plan_id") @db.Uuid
+  name      String
+  color     String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  plan  Plan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tasks PlanTask[]
+
+  @@index([planId, position])
+  @@map("plan_groups")
+}
+
+model PlanLabel {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId   String @map("plan_id") @db.Uuid
+  name     String
+  color    String @default("slate")
+  position Int    @default(0)
+
+  plan       Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  taskLabels PlanTaskLabel[]
+
+  @@index([planId])
+  @@map("plan_labels")
+}
+
+model PlanMember {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId    String   @map("plan_id") @db.Uuid
+  email     String
+  name      String?
+  /// owner | editor | member | viewer
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, email])
+  @@map("plan_members")
+}
+
+model PlanTask {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  groupId     String?   @map("group_id") @db.Uuid
+  title       String
+  description String?
+  notes       String?
+  /// not_started | in_progress | waiting | blocked | complete
+  status      String    @default("not_started")
+  /// low | medium | high | urgent
+  priority    String    @default("medium")
+  progress    Int       @default(0)
+  startDate   DateTime? @map("start_date") @db.Date
+  dueDate     DateTime? @map("due_date") @db.Date
+  isMilestone Boolean   @default(false) @map("is_milestone")
+  position    Int       @default(0)
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  plan       Plan                @relation(fields: [planId], references: [id], onDelete: Cascade)
+  group      PlanGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  assignees  PlanTaskAssignee[]
+  taskLabels PlanTaskLabel[]
+  checklist  PlanChecklistItem[]
+
+  @@index([planId, groupId, position])
+  @@map("plan_tasks")
+}
+
+model PlanTaskAssignee {
+  id     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId String  @map("task_id") @db.Uuid
+  email  String
+  name   String?
+
+  task PlanTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, email])
+  @@map("plan_task_assignees")
+}
+
+model PlanTaskLabel {
+  taskId  String @map("task_id") @db.Uuid
+  labelId String @map("label_id") @db.Uuid
+
+  task  PlanTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label PlanLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+  @@map("plan_task_labels")
+}
+
+model PlanChecklistItem {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId     String  @map("task_id") @db.Uuid
+  title      String
+  isComplete Boolean @default(false) @map("is_complete")
+  position   Int     @default(0)
+
+  task PlanTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, position])
+  @@map("plan_task_checklist_items")
+}
