@@ -1,37 +1,21 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { redirect } from "next/navigation";
 
-import { DashboardSectionPlaceholder } from "@/components/dashboard/dashboard-section-placeholder";
+import { Messenger } from "@/components/messaging/messenger";
+import { getMessagingUser } from "@/lib/messaging/server";
 
-const THREADS = [
-  { id: "s1", from: "ACT Support", preview: "Thanks for updating your campaign story.", time: "3d ago" },
-];
+export const dynamic = "force-dynamic";
 
-export default function StudentMessagesPage() {
+export default async function StudentMessagesPage() {
+  const me = await getMessagingUser();
+  if (!me) redirect("/login?next=/dashboard/student/messages");
+
   return (
-    <div className="space-y-6">
-      <DashboardSectionPlaceholder
-        title="Messages"
-        description="Notes from your school and the ACT team about your campaign and tuition account."
-      />
-      <div className="space-y-3">
-        {THREADS.map((t) => (
-          <Card key={t.id} className="border-border/80">
-            <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
-              <div>
-                <p className="font-medium text-primary">{t.from}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{t.preview}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{t.time}</span>
-                <Button size="sm" variant="outline">
-                  Open
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-4">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold text-primary">Messages</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Direct messages with your parents/guardians and (if you&apos;ve opted in) donors.</p>
       </div>
+      <Messenger currentUserId={me.userId} />
     </div>
   );
 }

@@ -1,14 +1,19 @@
-import { AdminInboxWorkspace } from "@/components/dashboard/admin/admin-inbox-workspace";
-import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
+import { redirect } from "next/navigation";
 
-export default function AdminMessagesPage() {
+import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
+import { Messenger } from "@/components/messaging/messenger";
+import { getMessagingUser } from "@/lib/messaging/server";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminMessagesPage() {
+  const me = await getMessagingUser();
+  if (!me) redirect("/login?next=/dashboard/admin/messages");
+
   return (
     <>
-      <AdminPageHeader
-        title="Inbox"
-        description="Review supporter and family email messages in context. Compose one-to-one or segmented emails from hello@actsto.org."
-      />
-      <AdminInboxWorkspace />
+      <AdminPageHeader title="Messages" description="Direct messages with parents, students, and donors. Super Admins can message any account." />
+      <Messenger currentUserId={me.userId} />
     </>
   );
 }
