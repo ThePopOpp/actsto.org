@@ -60,6 +60,8 @@ export function SocialComposer() {
   const [campaigns, setCampaigns] = useState<CampaignAsset[]>([]);
   const [campaignId, setCampaignId] = useState<string>("");
   const [exporting, setExporting] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const selectedCampaign = useMemo(() => campaigns.find((c) => c.id === campaignId) ?? null, [campaigns, campaignId]);
 
@@ -196,7 +198,7 @@ export function SocialComposer() {
     }
   }
 
-  async function save() {
+  async function save(): Promise<string | null> {
     setBusy(true);
     setNotice(null);
     const res = await fetch("/api/admin/social", {
@@ -206,10 +208,26 @@ export function SocialComposer() {
     });
     const data = (await res.json().catch(() => null)) as { post?: { id: string }; error?: string } | null;
     setBusy(false);
-    if (!res.ok || !data?.post) { setNotice(data?.error ?? "Could not save."); return; }
+    if (!res.ok || !data?.post) { setNotice(data?.error ?? "Could not save."); return null; }
     setEditId(data.post.id);
     setNotice("Saved.");
     await loadPosts();
+    return data.post.id;
+  }
+
+  async function serverRender() {
+    if (blocks.length === 0) return;
+    setRendering(true);
+    setNotice(null);
+    const id = await save();
+    if (!id) { setRendering(false); return; }
+    const res = await fetch(`/api/admin/social/${id}/render`, { method: "POST" });
+    const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    setRendering(false);
+    if (!res.ok || !data?.url) { setNotice(data?.error ?? "Render failed."); return; }
+    setRenderedUrl(data.url);
+    setNotice("Rendered image saved to storage.");
+    window.open(data.url, "_blank", "noopener");
   }
 
   if (mode === "library") {
@@ -259,10 +277,12 @@ export function SocialComposer() {
             <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground" />
           ) : null}
           <Button type="button" size="sm" variant="outline" onClick={() => void exportPng()} disabled={exporting || blocks.length === 0}>{exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />} Export PNG</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => void serverRender()} disabled={rendering || blocks.length === 0}>{rendering ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <ImageIcon className="mr-1.5 size-4" />} Render</Button>
           <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>{busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />} Save</Button>
         </div>
       </div>
       {notice ? <p className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">{notice}</p> : null}
+      {renderedUrl ? <a href={renderedUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-sm font-medium text-primary underline">View last rendered image ↗</a> : null}
 
       {/* Platform + medium */}
       <Card className="border-border/80"><CardContent className="flex flex-wrap items-end gap-4 p-4">
