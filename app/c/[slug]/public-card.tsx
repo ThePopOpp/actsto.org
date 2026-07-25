@@ -194,33 +194,37 @@ function Splash({ content, card, onView }: { content: Record<string, unknown>; c
   const subtitle = (content.subtitle as string) || "Tap to view my digital business card.";
   const primary = (content.primary_label as string) || "View card";
   const secondary = (content.secondary_label as string) || (card.primaryPhone ? "Call me" : "");
-  const logo = (content.logo_url as string) || card.logoUrl || "";
+  // Splash uses the ACTSTO app icon by default; an admin-set opener image overrides it.
+  const logo = (content.logo_url as string) || "/actsto-ios-icon.svg";
 
   return (
     <div
-      className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6 text-center transition-opacity duration-[400ms] ease-out"
+      className="fixed inset-0 z-40 flex items-center justify-center transition-opacity duration-[400ms] ease-out"
       style={{ background: card.backgroundColor, color: card.textColor, opacity: shown && !leaving ? 1 : 0 }}
     >
-      {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt="" className="mb-5 h-20 w-20 rounded-full object-cover" style={{ border: `2px solid ${accent}` }} />
-      ) : null}
-      <div className="text-[11px] font-semibold uppercase tracking-[0.25em]" style={{ opacity: 0.6 }}>
-        {eyebrow}
-      </div>
-      <h1 className="mt-3 text-5xl font-bold">{title}</h1>
-      <p className="mt-2 text-sm" style={{ opacity: 0.7 }}>
-        {subtitle}
-      </p>
-      <div className="mt-6 flex gap-3">
-        <button onClick={close} className="rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>
-          {primary}
-        </button>
-        {secondary && card.primaryPhone ? (
-          <a href={`tel:${card.primaryPhone}`} className="rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>
-            {secondary}
-          </a>
+      {/* Match the business card column width + padding */}
+      <div className="mx-auto w-full max-w-sm px-4 text-center">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt="" className="mx-auto mb-6 h-24 w-24 rounded-3xl object-contain shadow-lg" />
         ) : null}
+        <div className="text-[11px] font-semibold uppercase tracking-[0.25em]" style={{ opacity: 0.6 }}>
+          {eyebrow}
+        </div>
+        <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">{title}</h1>
+        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed" style={{ opacity: 0.7 }}>
+          {subtitle}
+        </p>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <button onClick={close} className="rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>
+            {primary}
+          </button>
+          {secondary && card.primaryPhone ? (
+            <a href={`tel:${card.primaryPhone}`} className="rounded-full px-6 py-2.5 text-sm font-semibold" style={{ background: "rgba(127,127,127,0.18)", color: accent }}>
+              {secondary}
+            </a>
+          ) : null}
+        </div>
       </div>
     </div>
   );
