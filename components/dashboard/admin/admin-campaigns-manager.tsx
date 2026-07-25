@@ -26,8 +26,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import type { AdminCampaign } from "@/app/api/admin/campaigns/route";
@@ -541,8 +541,8 @@ function ManageDialog({
           <div className="rounded-lg border border-border/60 p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule</p>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-muted-foreground">Starts</Label><Input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="mt-1" /></div>
-              <div><Label className="text-xs text-muted-foreground">Ends</Label><Input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} className="mt-1" /></div>
+              <div><Label className="text-xs text-muted-foreground">Starts</Label><DatePicker value={startsAt} onChange={setStartsAt} placeholder="Pick a date" /></div>
+              <div><Label className="text-xs text-muted-foreground">Ends</Label><DatePicker value={endsAt} onChange={setEndsAt} placeholder="Pick a date" /></div>
             </div>
             <Button type="button" size="sm" variant="outline" className="mt-2" disabled={busy} onClick={() => void run({ startsAt: startsAt || null, endsAt: endsAt || null })}>
               Save schedule

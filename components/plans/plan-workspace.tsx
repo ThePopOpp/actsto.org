@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { PLAN_VIEWS, TASK_PRIORITIES, TASK_STATUSES, planColor, planIcon, taskPriority, taskStatus } from "@/lib/plans/constants";
@@ -578,27 +579,32 @@ function TaskDrawer({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Status">
-            <select disabled={!canEdit} value={t.status} onChange={(e) => set({ status: e.target.value as PlanTaskDetail["status"] })} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-              {TASK_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+            <Select value={t.status} onValueChange={(v) => set({ status: v as PlanTaskDetail["status"] })} disabled={!canEdit}>
+              <SelectTrigger className="mt-0 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>{TASK_STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+            </Select>
           </Field>
           <Field label="Priority">
-            <select disabled={!canEdit} value={t.priority} onChange={(e) => set({ priority: e.target.value as PlanTaskDetail["priority"] })} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-              {TASK_PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
+            <Select value={t.priority} onValueChange={(v) => set({ priority: v as PlanTaskDetail["priority"] })} disabled={!canEdit}>
+              <SelectTrigger className="mt-0 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>{TASK_PRIORITIES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+            </Select>
           </Field>
         </div>
 
         <Field label="Group">
-          <select disabled={!canEdit} value={t.groupId ?? ""} onChange={(e) => set({ groupId: e.target.value || null })} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-            <option value="">Ungrouped</option>
-            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
+          <Select value={t.groupId ?? "none"} onValueChange={(v) => set({ groupId: v === "none" ? null : v })} disabled={!canEdit}>
+            <SelectTrigger className="mt-0 w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Ungrouped</SelectItem>
+              {groups.map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Start date"><Input type="date" disabled={!canEdit} value={dateInput(t.startDate)} onChange={(e) => set({ startDate: e.target.value || null })} /></Field>
-          <Field label="Due date"><Input type="date" disabled={!canEdit} value={dateInput(t.dueDate)} onChange={(e) => set({ dueDate: e.target.value || null })} /></Field>
+          <Field label="Start date"><DatePicker value={dateInput(t.startDate)} onChange={(v) => set({ startDate: v || null })} placeholder="Pick a date" /></Field>
+          <Field label="Due date"><DatePicker value={dateInput(t.dueDate)} onChange={(v) => set({ dueDate: v || null })} placeholder="Pick a date" /></Field>
         </div>
 
         <Field label={`Progress — ${t.progress}%`}>
