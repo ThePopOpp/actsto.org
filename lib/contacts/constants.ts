@@ -47,6 +47,7 @@ export type ContactDTO = {
   source: string | null;
   notes: string | null;
   avatarUrl: string | null;
+  logoUrl: string | null;
   city: string | null;
   state: string | null;
   roles?: string[];

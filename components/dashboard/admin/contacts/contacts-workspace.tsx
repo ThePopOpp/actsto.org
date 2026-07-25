@@ -7,6 +7,7 @@ import {
   Pencil, Phone, Plus, Search, Table as TableIcon, Trash2, Upload, X,
 } from "lucide-react";
 
+import { MediaUpload } from "@/components/dashboard/admin/blog/block-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,16 @@ type Stats = { total: number; users: number; nonUsers: number; archived: number;
 type ViewMode = "list" | "table" | "cards" | "kanban";
 const NONE = "__none__";
 
+const ASSIGNABLE_ROLES: { id: string; label: string }[] = [
+  { id: "parent", label: "Parent / Guardian" },
+  { id: "student", label: "Student" },
+  { id: "donor_individual", label: "Individual Donor" },
+  { id: "donor_business", label: "Business Donor" },
+];
+function roleLabel(role: string): string {
+  return ASSIGNABLE_ROLES.find((r) => r.id === role)?.label ?? (role === "super_admin" ? "Super Admin" : role);
+}
+
 function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
 }
@@ -36,6 +47,7 @@ function fmtPhone(v: string | null) {
 const EMPTY_FORM = {
   firstName: "", lastName: "", displayName: "", email: "", phone: "", company: "", jobTitle: "",
   contactType: "", stage: "new", city: "", state: "", source: "", notes: "", tags: "",
+  avatarUrl: "", logoUrl: "",
 };
 type FormState = typeof EMPTY_FORM;
 
@@ -83,6 +95,7 @@ export function ContactsWorkspace() {
       email: c.email ?? "", phone: c.phone ?? "", company: c.company ?? "", jobTitle: c.jobTitle ?? "",
       contactType: c.contactType ?? "", stage: c.stage, city: c.city ?? "", state: c.state ?? "",
       source: c.source ?? "", notes: c.notes ?? "", tags: (c.tags ?? []).join(", "),
+      avatarUrl: c.avatarUrl ?? "", logoUrl: c.logoUrl ?? "",
     });
     setModal({ mode: "edit", contact: c });
   }
@@ -115,6 +128,15 @@ export function ContactsWorkspace() {
     const res = await fetch("/api/admin/contacts/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) });
     const data = (await res.json().catch(() => null)) as { created?: number; updated?: number; skipped?: number; error?: string } | null;
     setImportResult(res.ok ? `Imported ${data?.created ?? 0} new, updated ${data?.updated ?? 0}, skipped ${data?.skipped ?? 0}.` : (data?.error ?? "Import failed."));
+    await load();
+  }
+
+  async function assignRole(role: string, action: "add" | "remove") {
+    if (!modal?.contact) return;
+    const res = await fetch(`/api/admin/contacts/${modal.contact.id}/roles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, action }) });
+    const data = (await res.json().catch(() => null)) as { contact?: ContactDTO; error?: string } | null;
+    if (!res.ok) { window.alert(data?.error ?? "Could not update role."); return; }
+    if (data?.contact) setModal({ mode: "view", contact: data.contact });
     await load();
   }
 
@@ -192,7 +214,7 @@ export function ContactsWorkspace() {
           modal={modal} form={form} setForm={setForm} saving={saving}
           onClose={() => setModal(null)} onSave={save} onEdit={openEdit}
           onArchive={(c) => void patch(c.id, { status: c.status === "archived" ? "active" : "archived" }).then(() => setModal(null))}
-          onDelete={(c) => void del(c.id)} onCall={call} onSms={sms} onEmail={email}
+          onDelete={(c) => void del(c.id)} onCall={call} onSms={sms} onEmail={email} onRole={assignRole}
         />
       ) : null}
     </div>
@@ -200,9 +222,10 @@ export function ContactsWorkspace() {
 }
 
 function Avatar({ c }: { c: ContactDTO }) {
-  return c.avatarUrl ? (
+  const src = c.avatarUrl || c.logoUrl;
+  return src ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={c.avatarUrl} alt="" className="size-9 shrink-0 rounded-full object-cover" />
+    <img src={src} alt="" className="size-9 shrink-0 rounded-full object-cover" />
   ) : (
     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{initials(contactName(c))}</span>
   );
@@ -311,17 +334,24 @@ function KanbanView({ contacts, onOpen, dragId, setDragId, onStage }: { contacts
 }
 
 function ContactModal({
-  modal, form, setForm, saving, onClose, onSave, onEdit, onArchive, onDelete, onCall, onSms, onEmail,
+  modal, form, setForm, saving, onClose, onSave, onEdit, onArchive, onDelete, onCall, onSms, onEmail, onRole,
 }: {
   modal: { mode: "view" | "edit" | "new"; contact: ContactDTO | null };
   form: FormState; setForm: (f: FormState) => void; saving: boolean;
   onClose: () => void; onSave: () => void; onEdit: (c: ContactDTO) => void;
   onArchive: (c: ContactDTO) => void; onDelete: (c: ContactDTO) => void;
   onCall: (c: ContactDTO) => void; onSms: (c: ContactDTO) => void; onEmail: (c: ContactDTO) => void;
+  onRole: (role: string, action: "add" | "remove") => Promise<void>;
 }) {
   const c = modal.contact;
   const editing = modal.mode !== "view";
   const set = (k: keyof FormState) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  const [addRole, setAddRole] = useState("");
+  const [roleBusy, setRoleBusy] = useState(false);
+  async function doRole(role: string, action: "add" | "remove") {
+    setRoleBusy(true);
+    try { await onRole(role, action); setAddRole(""); } finally { setRoleBusy(false); }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:pt-16" onClick={onClose}>
@@ -333,6 +363,34 @@ function ContactModal({
 
         {editing ? (
           <div className="max-h-[70vh] space-y-3 overflow-y-auto p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Photo / image</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  {form.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.avatarUrl} alt="" className="size-10 rounded-full border border-border object-cover" />
+                  ) : (
+                    <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{initials([form.firstName, form.lastName].join(" ") || "?")}</span>
+                  )}
+                  <MediaUpload accept="image/*" label={form.avatarUrl ? "Replace" : "Upload"} onUploaded={(url) => setForm({ ...form, avatarUrl: url })} />
+                  {form.avatarUrl ? <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setForm({ ...form, avatarUrl: "" })}>Remove</button> : null}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Logo (org / business)</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  {form.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.logoUrl} alt="" className="size-10 rounded border border-border object-contain" />
+                  ) : (
+                    <span className="flex size-10 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">Logo</span>
+                  )}
+                  <MediaUpload accept="image/*" label={form.logoUrl ? "Replace" : "Upload"} onUploaded={(url) => setForm({ ...form, logoUrl: url })} />
+                  {form.logoUrl ? <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setForm({ ...form, logoUrl: "" })}>Remove</button> : null}
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-muted-foreground">First name</Label><Input value={form.firstName} onChange={set("firstName")} className="mt-1" /></div>
               <div><Label className="text-xs text-muted-foreground">Last name</Label><Input value={form.lastName} onChange={set("lastName")} className="mt-1" /></div>
@@ -378,11 +436,29 @@ function ContactModal({
               <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => onSms(c)} disabled={!c.phone}><MessageSquare className="mr-1.5 size-4" /> SMS</Button>
               <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => onEmail(c)} disabled={!c.email}><Mail className="mr-1.5 size-4" /> Email</Button>
             </div>
+            {/* Roles manager — assigning a role makes the contact a user */}
+            <div className="rounded-lg border border-border/60 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Roles {c.userId ? "" : "· assigning a role creates a login"}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {(c.roles ?? []).length ? (c.roles ?? []).map((r) => (
+                  <span key={r} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                    {roleLabel(r)}
+                    {r !== "super_admin" ? <button type="button" aria-label="Remove role" onClick={() => void doRole(r, "remove")} className="hover:text-destructive"><X className="size-3" /></button> : null}
+                  </span>
+                )) : <span className="text-xs text-muted-foreground">Not a user yet.</span>}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Select value={addRole || NONE} onValueChange={(v) => setAddRole(v === NONE ? "" : (v ?? ""))}>
+                  <SelectTrigger className="h-8 flex-1"><SelectValue placeholder="Add a role…" /></SelectTrigger>
+                  <SelectContent><SelectItem value={NONE}>Add a role…</SelectItem>{ASSIGNABLE_ROLES.filter((r) => !(c.roles ?? []).includes(r.id)).map((r) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <Button type="button" size="sm" disabled={!addRole || roleBusy} onClick={() => void doRole(addRole, "add")}>{roleBusy ? <Loader2 className="size-4 animate-spin" /> : "Add"}</Button>
+              </div>
+            </div>
             <dl className="space-y-2 text-sm">
               <Row label="Email" value={c.email} />
               <Row label="Phone" value={fmtPhone(c.phone)} />
               <Row label="Location" value={[c.city, c.state].filter(Boolean).join(", ")} />
-              <Row label="Roles" value={c.roles?.length ? c.roles.join(", ") : null} />
               <Row label="Tags" value={c.tags?.length ? c.tags.join(", ") : null} />
               <Row label="Source" value={c.source} />
               {c.notes ? <div><dt className="text-xs text-muted-foreground">Notes</dt><dd className="mt-0.5 whitespace-pre-wrap text-foreground">{c.notes}</dd></div> : null}

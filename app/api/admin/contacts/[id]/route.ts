@@ -39,6 +39,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if ("status" in b && typeof b.status === "string") data.status = b.status;
   if ("source" in b) data.source = str(b.source);
   if ("notes" in b) data.notes = str(b.notes);
+  if ("avatarUrl" in b) data.avatarUrl = str(b.avatarUrl);
+  if ("logoUrl" in b) data.logoUrl = str(b.logoUrl);
   if ("city" in b) data.city = str(b.city);
   if ("state" in b) data.state = str(b.state);
   if (Array.isArray(b.tags)) data.tags = (b.tags as unknown[]).filter((t): t is string => typeof t === "string");

@@ -86,6 +86,8 @@ export async function POST(request: Request) {
     tags: Array.isArray(b?.tags) ? (b!.tags as unknown[]).filter((t): t is string => typeof t === "string") : [],
     source: str(b?.source),
     notes: str(b?.notes),
+    avatarUrl: str(b?.avatarUrl),
+    logoUrl: str(b?.logoUrl),
     city: str(b?.city),
     state: str(b?.state),
     createdBy: auth.email,

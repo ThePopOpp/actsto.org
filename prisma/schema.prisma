@@ -1215,7 +1215,7 @@ model SocialPost {
 /// they're also a platform user; their roles come from user_roles.
 model Contact {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId          String?   @map("user_id") @db.Uuid
+  userId          String?   @unique @map("user_id") @db.Uuid
   firstName       String?   @map("first_name")
   lastName        String?   @map("last_name")
   displayName     String?   @map("display_name")
@@ -1232,6 +1232,7 @@ model Contact {
   source          String?
   notes           String?
   avatarUrl       String?   @map("avatar_url")
+  logoUrl         String?   @map("logo_url")
   city            String?
   state           String?
   lastContactedAt DateTime? @map("last_contacted_at")
@@ -1243,7 +1244,6 @@ model Contact {
   @@index([stage])
   @@index([emailNormalized])
   @@index([phoneNormalized])
-  @@index([userId])
   @@map("contacts")
 }
 

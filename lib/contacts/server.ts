@@ -22,6 +22,7 @@ export function toContactDTO(c: Contact, roles?: string[]): ContactDTO {
     source: c.source,
     notes: c.notes,
     avatarUrl: c.avatarUrl,
+    logoUrl: c.logoUrl,
     city: c.city,
     state: c.state,
     roles: roles ?? undefined,
