@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import { HomeTaxCreditInfoModals } from "@/components/home/tax-credit-info-modals";
-import { CampaignCard } from "@/components/campaign-card";
+import { HomeCampaignSlider } from "@/components/home/home-campaign-slider";
 import { SiteCtaBlock } from "@/components/site-cta-block";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -238,11 +238,7 @@ export function HomeNewCampaigns({
             </Link>
           }
         />
-        <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {campaigns.map((c) => (
-            <CampaignCard key={c.slug} campaign={c} variant="home" />
-          ))}
-        </div>
+        <HomeCampaignSlider campaigns={campaigns} keyPrefix="new-" />
       </div>
     </section>
   );
@@ -267,11 +263,7 @@ export function HomeFeaturedCampaigns({ campaigns = MOCK_CAMPAIGNS }: { campaign
             </Link>
           }
         />
-        <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {campaigns.map((c) => (
-            <CampaignCard key={`feat-${c.slug}`} campaign={c} variant="home" />
-          ))}
-        </div>
+        <HomeCampaignSlider campaigns={campaigns} keyPrefix="feat-" />
       </div>
     </section>
   );
@@ -322,11 +314,7 @@ export function HomeGainingMomentum({ campaigns = MOCK_CAMPAIGNS }: { campaigns?
             </Link>
           }
         />
-        <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {[...campaigns].reverse().map((c) => (
-            <CampaignCard key={`mom-${c.slug}`} campaign={c} variant="home" />
-          ))}
-        </div>
+        <HomeCampaignSlider campaigns={campaigns} keyPrefix="mom-" reverse />
       </div>
     </section>
   );
