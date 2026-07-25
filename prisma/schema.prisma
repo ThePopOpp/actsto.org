@@ -1661,3 +1661,70 @@ model PlanChecklistItem {
   @@index([taskId, position])
   @@map("plan_task_checklist_items")
 }
+
+/// Append-only consent audit log — one row per consent action, any channel.
+model ConsentEvent {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// email | sms
+  channel           String
+  /// all | marketing | transactional | donation_updates | campaign_updates
+  category          String   @default("all")
+  /// opt_in | opt_out | confirmed
+  status            String
+  previousStatus    String?  @map("previous_status")
+  contactName       String?  @map("contact_name")
+  email             String?
+  phone             String?
+  phoneNormalized   String?  @map("phone_normalized")
+  userId            String?  @map("user_id") @db.Uuid
+  disclosureVersion String   @map("disclosure_version")
+  consentText       String   @map("consent_text")
+  /// sms_opt_in_page | email_opt_in_page | preferences_center | admin | keyword_stop | webhook | import | email_confirm
+  source            String
+  sourceUrl         String?  @map("source_url")
+  referrer          String?
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  staffActorEmail   String?  @map("staff_actor_email")
+  /// Twilio SID / Resend message id, when available
+  providerRef       String?  @map("provider_ref")
+  evidence          Json     @default("{}")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([channel, createdAt])
+  @@index([email])
+  @@index([phoneNormalized])
+  @@index([userId])
+  @@map("consent_events")
+}
+
+/// Current effective consent state — one row per (channel, contact).
+model ContactConsent {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// email | sms
+  channel           String
+  /// lowercased email or normalized phone
+  contactKey        String    @map("contact_key")
+  email             String?
+  phone             String?
+  phoneNormalized   String?   @map("phone_normalized")
+  userId            String?   @map("user_id") @db.Uuid
+  contactName       String?   @map("contact_name")
+  /// subscribed | unsubscribed | pending
+  status            String    @default("subscribed")
+  marketing         Boolean   @default(false)
+  campaignUpdates   Boolean   @default(true) @map("campaign_updates")
+  donationUpdates   Boolean   @default(true) @map("donation_updates")
+  /// email double opt-in
+  confirmed         Boolean   @default(false)
+  confirmToken      String?   @map("confirm_token")
+  confirmSentAt     DateTime? @map("confirm_sent_at")
+  disclosureVersion String?   @map("disclosure_version")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([channel, contactKey])
+  @@index([email])
+  @@index([userId])
+  @@map("contact_consents")
+}
