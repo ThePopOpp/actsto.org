@@ -1184,6 +1184,32 @@ model SmsTemplate {
   @@map("sms_templates")
 }
 
+/// Social media posts composed with the shared block system, sized per platform/medium.
+model SocialPost {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String
+  platform         String
+  medium           String
+  widthPx          Int       @map("width_px")
+  heightPx         Int       @map("height_px")
+  caption          String?
+  blocks           Json      @default("[]")
+  bgColor          String?   @map("bg_color")
+  status           String    @default("draft")
+  scheduledAt      DateTime? @map("scheduled_at")
+  campaignId       String?   @map("campaign_id") @db.Uuid
+  renderedImageUrl String?   @map("rendered_image_url")
+  isTemplate       Boolean   @default(false) @map("is_template")
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([campaignId])
+  @@index([isTemplate])
+  @@map("social_posts")
+}
+
 /// In-app dashboard notifications (maps to existing `notifications` table for new entries)
 model DashboardNotification {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

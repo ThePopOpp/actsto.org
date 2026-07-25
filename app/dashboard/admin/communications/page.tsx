@@ -7,6 +7,7 @@ import { AdminPageTabLinks, type AdminPageTabLink } from "@/components/dashboard
 import { DialerPanel } from "@/components/dashboard/admin/sms/dialer-panel";
 import { SmsComposePanel } from "@/components/dashboard/admin/sms/sms-compose-panel";
 import { SmsInboxAccordion } from "@/components/dashboard/admin/sms/sms-inbox-accordion";
+import { SocialComposer } from "@/components/dashboard/admin/social/social-composer";
 import { Messenger } from "@/components/messaging/messenger";
 import { Card, CardContent } from "@/components/ui/card";
 import { getMessagingUser } from "@/lib/messaging/server";
@@ -64,16 +65,7 @@ export default async function AdminCommunicationsHubPage({ searchParams }: { sea
 
         {active === "messages" && <Messenger currentUserId={me.userId} />}
 
-        {active === "social" && (
-          <Card className="border-dashed border-border">
-            <CardContent className="p-10 text-center">
-              <p className="font-heading text-lg text-primary">Social composer — coming next</p>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                Compose posts with the same block builder as email, sized per platform (Facebook, Instagram, LinkedIn) and medium, with turn-key campaign templates and dynamic campaign images.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {active === "social" && <SocialComposer />}
 
         {active === "email" && (
           <div className="grid gap-3 sm:grid-cols-2">
