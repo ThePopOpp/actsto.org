@@ -6,10 +6,10 @@ export const EMAIL_CONSENT_COPY =
   "in any email or the Communication Preferences center. Consent is not required to donate, apply for a scholarship, " +
   "create an account, or use ACTSTO services.";
 
-export type ConsentCategory = "marketing" | "campaign_updates" | "donation_updates";
+export type ConsentCategory = "marketing" | "campaignUpdates" | "donationUpdates";
 
 export const CONSENT_CATEGORIES: { key: ConsentCategory; label: string; help: string }[] = [
-  { key: "campaign_updates", label: "Campaign updates", help: "Progress, milestones, and deadlines for campaigns you follow or run." },
-  { key: "donation_updates", label: "Donation & receipt updates", help: "Confirmations, tax receipts, and giving reminders." },
+  { key: "campaignUpdates", label: "Campaign updates", help: "Progress, milestones, and deadlines for campaigns you follow or run." },
+  { key: "donationUpdates", label: "Donation & receipt updates", help: "Confirmations, tax receipts, and giving reminders." },
   { key: "marketing", label: "News & newsletters", help: "Occasional ACTSTO news, stories, and event invitations." },
 ];

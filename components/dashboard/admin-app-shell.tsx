@@ -22,6 +22,7 @@ import {
   Receipt,
   Scale,
   Settings,
+  ShieldCheck,
   Users,
   UserRoundCheck,
   Wallet,
@@ -86,6 +87,7 @@ const nav: NavEntry[] = [
     children: [
       { href: "/dashboard/admin/email", label: "Email", icon: Mail },
       { href: "/dashboard/admin/sms", label: "SMS", icon: MessageSquare },
+      { href: "/dashboard/admin/consent", label: "Consent", icon: ShieldCheck },
       { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
     ],
   },
