@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, MessageSquare, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,10 @@ function segments(len: number) {
 }
 
 export function SmsComposePanel() {
+  const searchParams = useSearchParams();
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
-  const [to, setTo] = useState("");
+  const [to, setTo] = useState(() => searchParams.get("to") ?? "");
   const [templateId, setTemplateId] = useState(NONE);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
