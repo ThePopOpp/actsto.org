@@ -8,9 +8,16 @@ import { SiteHeader } from "@/components/site-header";
 import type { ActSession } from "@/lib/auth/types";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 
-function isDashboardPath(pathname: string | null): boolean {
+function isBareLayoutPath(pathname: string | null): boolean {
   if (!pathname) return false;
-  return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  // Dashboard renders its own shell; the public digital business card (/c/<slug>)
+  // is a standalone, chrome-free page (no site header or footer).
+  return (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/c" ||
+    pathname.startsWith("/c/")
+  );
 }
 
 export function ConditionalSiteChrome({
@@ -27,9 +34,8 @@ export function ConditionalSiteChrome({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const dashboard = isDashboardPath(pathname);
 
-  if (dashboard) {
+  if (isBareLayoutPath(pathname)) {
     return <>{children}</>;
   }
 
