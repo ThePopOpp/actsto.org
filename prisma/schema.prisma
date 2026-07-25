@@ -1197,6 +1197,7 @@ model SocialPost {
   bgColor          String?   @map("bg_color")
   status           String    @default("draft")
   scheduledAt      DateTime? @map("scheduled_at")
+  notifiedAt       DateTime? @map("notified_at")
   campaignId       String?   @map("campaign_id") @db.Uuid
   renderedImageUrl String?   @map("rendered_image_url")
   isTemplate       Boolean   @default(false) @map("is_template")

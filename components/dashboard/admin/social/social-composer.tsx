@@ -50,6 +50,7 @@ export function SocialComposer() {
   const [bgColor, setBgColor] = useState("#0b1220");
   const [caption, setCaption] = useState("");
   const [status, setStatus] = useState("draft");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [blocks, setBlocks] = useState<BlogBlock[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rewritingId, setRewritingId] = useState<string | null>(null);
@@ -89,6 +90,7 @@ export function SocialComposer() {
     setBgColor("#0b1220");
     setCaption("");
     setStatus("draft");
+    setScheduledAt("");
     setBlocks([]);
     setSelectedId(null);
     setMode("compose");
@@ -96,7 +98,7 @@ export function SocialComposer() {
 
   async function edit(id: string) {
     const res = await fetch(`/api/admin/social/${id}`, { cache: "no-store" });
-    const data = (await res.json().catch(() => null)) as { post?: { title: string; platform: string; medium: string; bgColor: string | null; caption: string | null; status: string; blocks: unknown } } | null;
+    const data = (await res.json().catch(() => null)) as { post?: { title: string; platform: string; medium: string; bgColor: string | null; caption: string | null; status: string; scheduledAt: string | null; blocks: unknown } } | null;
     if (!res.ok || !data?.post) return;
     const p = data.post;
     setEditId(id);
@@ -106,6 +108,7 @@ export function SocialComposer() {
     setBgColor(p.bgColor ?? "#0b1220");
     setCaption(p.caption ?? "");
     setStatus(p.status);
+    setScheduledAt(p.scheduledAt ? p.scheduledAt.slice(0, 16) : "");
     const b = coerceBlocks(p.blocks);
     setBlocks(b);
     setSelectedId(b[0]?.id ?? null);
@@ -199,7 +202,7 @@ export function SocialComposer() {
     const res = await fetch("/api/admin/social", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editId ?? undefined, title, platform, medium, widthPx: dims.width, heightPx: dims.height, caption, blocks, bgColor, status }),
+      body: JSON.stringify({ id: editId ?? undefined, title, platform, medium, widthPx: dims.width, heightPx: dims.height, caption, blocks, bgColor, status, scheduledAt: status === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null }),
     });
     const data = (await res.json().catch(() => null)) as { post?: { id: string }; error?: string } | null;
     setBusy(false);
@@ -252,6 +255,9 @@ export function SocialComposer() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={status} onValueChange={(v) => setStatus(v ?? "draft")}><SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="scheduled">Scheduled</SelectItem><SelectItem value="published">Published</SelectItem></SelectContent></Select>
+          {status === "scheduled" ? (
+            <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground" />
+          ) : null}
           <Button type="button" size="sm" variant="outline" onClick={() => void exportPng()} disabled={exporting || blocks.length === 0}>{exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />} Export PNG</Button>
           <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>{busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />} Save</Button>
         </div>
