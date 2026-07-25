@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1200" />
+<title>Shepard AI · Sheep Mark · ACTSTO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="logo-v2.css" />
+<style>
+  a{color:var(--red);} a:hover{color:var(--red-deep);}
+  .sil{display:block;width:100%;height:100%;}
+  .mark.ink-navy{color:var(--navy);} .mark.ink-red{color:var(--red);}
+  .mark.ink-cream{color:var(--cream);} .mark.ink-gold{color:var(--gold-deep);}
+  .compare-stage .mark{width:340px;height:auto;}
+  .variant-stage .mark, .variant-stage--lg .mark{width:100%;height:auto;}
+  .swatch-row4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
+  .lineup{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:end;}
+  .lineup .size-cell{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .lineup .label{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-muted);}
+  .wmk{font-family:var(--serif);font-weight:600;letter-spacing:-.03em;font-variation-settings:'opsz' 96;display:inline-flex;align-items:baseline;gap:.14em;line-height:1;}
+  .wmk .ai{font-family:var(--mono);font-weight:500;font-size:.34em;letter-spacing:.14em;text-transform:uppercase;transform:translateY(-.28em);}
+</style>
+</head>
+<body>
+<template id="tmpl-sheep"><svg class="sil" viewBox="70 120 420 300" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 193.0 134.9 A 21.8 21.8 0 1 0 157.1 130.4 A 21.8 21.8 0 1 0 122.6 141.8 A 21.8 21.8 0 1 0 96.5 166.9 A 21.8 21.8 0 1 0 83.8 200.9 A 21.8 21.8 0 1 0 86.9 237.0 A 21.8 21.8 0 1 0 105.4 268.3 A 21.8 21.8 0 1 0 135.5 288.5 A 21.8 21.8 0 1 0 171.4 293.8 A 21.8 21.8 0 1 0 206.0 283.0"/>
+        <path d="M 456 214 C 384 166 300 148 250 151 L 222 140"/>
+        <path d="M 456 214 C 402 258 330 276 250 272"/>
+        <path d="M 452 224 C 408 274 366 292 338 288"/>
+        <path d="M 454 214 C 428 244 402 262 380 264"/>
+        <path d="M 430 226 C 418 224 417 236 429 237"/>
+        <path d="M 342.7 172.6 C 342.7 156.1 286.6 152.8 286.6 182.5 C 286.6 205.6 332.8 208.9 332.8 235.3 C 332.8 265.0 273.4 265.0 273.4 241.9"/>
+      </g>
+    </svg></template>
+<div class="page">
+  <header class="masthead">
+    <div>
+      <p class="eyebrow eyebrow--red">Shepard AI · Sheep mark</p>
+      <h1 class="h-display">The sheep, with an <em>S</em>.</h1>
+      <p class="lede" style="margin-top:16px">A faithful remake of your reference &mdash; a single-line sheep whose fleece scallops into a soft cloud, its face a smooth pointed wedge, with a script <strong>S</strong> monogram at the centre. Redrawn in ACTSTO ink: one colour, clean line weight, ready to reverse.</p>
+    </div>
+    <div class="masthead__meta"><span>Concept · Jul 2026</span><span>1 mark · single colour</span></div>
+  </header>
+
+  <section class="section">
+    <header class="section__head"><span class="section__num">§ 01</span><div>
+      <p class="eyebrow">The mark</p>
+      <h2 class="h1">One line. One <em>S</em>.</h2>
+      <p class="lede">Navy on cream is primary; it reverses to cream on navy without losing a stroke.</p>
+    </div></header>
+    <div class="compare">
+      <div class="frame frame--light"><span class="frame__label">primary · navy</span>
+        <div class="compare-stage"><span class="mark ink-navy" data-mark="sheep"></span></div></div>
+      <div class="frame frame--dark"><span class="frame__label">reversed · cream</span>
+        <div class="compare-stage"><span class="mark ink-cream" data-mark="sheep"></span></div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <header class="section__head"><span class="section__num">§ 02</span><div>
+      <p class="eyebrow">Single-colour palette</p>
+      <h2 class="h1">Any one of <em>our</em> inks.</h2>
+      <p class="lede">Navy, red, gold, or cream &mdash; never two at once.</p>
+    </div></header>
+    <div class="swatch-row4">
+      <div class="frame frame--light"><div class="variant-stage variant-stage--lg"><span class="mark ink-navy" data-mark="sheep"></span></div><div class="variant-cap"><span>navy</span></div></div>
+      <div class="frame frame--light"><div class="variant-stage variant-stage--lg"><span class="mark ink-red" data-mark="sheep"></span></div><div class="variant-cap"><span>red</span></div></div>
+      <div class="frame frame--light"><div class="variant-stage variant-stage--lg"><span class="mark ink-gold" data-mark="sheep"></span></div><div class="variant-cap"><span>gold</span></div></div>
+      <div class="frame frame--dark"><div class="variant-stage variant-stage--lg"><span class="mark ink-cream" data-mark="sheep"></span></div><div class="variant-cap"><span>cream</span></div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <header class="section__head"><span class="section__num">§ 03</span><div>
+      <p class="eyebrow">With the name</p>
+      <h2 class="h1">The lockup.</h2>
+      <p class="lede">Mark and wordmark, set in Fraunces with a monospace <span class="mono" style="color:var(--red)">AI</span> marker.</p>
+    </div></header>
+    <div class="compare">
+      <div class="frame frame--cream"><span class="frame__label">landscape</span>
+        <div class="compare-stage" style="min-height:300px">
+          <div style="display:flex;align-items:center;gap:20px">
+            <span class="mark ink-navy" data-mark="sheep" style="width:160px"></span>
+            <span class="wmk" style="font-size:52px;color:var(--navy)">Shepard<span class="ai" style="color:var(--red)">AI</span></span>
+          </div>
+        </div></div>
+      <div class="frame frame--dark"><span class="frame__label">stacked</span>
+        <div class="compare-stage" style="min-height:300px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+            <span class="mark ink-cream" data-mark="sheep" style="width:180px"></span>
+            <span class="wmk" style="font-size:44px;color:var(--cream)">Shepard<span class="ai" style="color:var(--gold)">AI</span></span>
+          </div>
+        </div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <header class="section__head"><span class="section__num">§ 04</span><div>
+      <p class="eyebrow">At size</p>
+      <h2 class="h1">Holds down to an <em>avatar</em>.</h2>
+      <p class="lede">The line weight is tuned so the fleece and the S stay open when small.</p>
+    </div></header>
+    <div class="frame frame--light" style="padding:44px 36px">
+      <div class="lineup">
+        <div class="size-cell"><span class="mark ink-navy" data-mark="sheep" style="width:150px"></span><span class="label">large</span></div>
+        <div class="size-cell"><span class="mark ink-navy" data-mark="sheep" style="width:96px"></span><span class="label">medium</span></div>
+        <div class="size-cell"><span class="mark ink-navy" data-mark="sheep" style="width:64px"></span><span class="label">small</span></div>
+        <div class="size-cell"><span class="mark ink-navy" data-mark="sheep" style="width:44px"></span><span class="label">avatar</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <span>actsto · shepard ai · sheep mark</span>
+    <span>single line · S monogram</span>
+    <span>Jul 2026</span>
+  </footer>
+</div>
+<script>
+  (function(){
+    const tpl=document.getElementById('tmpl-sheep');
+    document.querySelectorAll('.mark[data-mark="sheep"]').forEach(el=>el.appendChild(tpl.content.cloneNode(true)));
+  })();
+</script>
+</body>
+</html>

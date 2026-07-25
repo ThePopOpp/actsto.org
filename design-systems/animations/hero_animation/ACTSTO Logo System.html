@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1320" />
+<title>ACTSTO.ORG · Identity System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="logo-system.css" />
+</head>
+<body>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- The Mark — reusable SVG definition                             -->
+<!-- An arched threshold (doorway / classical arch) with a red      -->
+<!-- "keystone" dot above. Civic + educational + faith-friendly.    -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- The Mark — JS injects inline SVG into every .mark-block so     -->
+<!-- normal CSS class selectors can color the parts directly.       -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<template id="tmpl-mark">
+  <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+    <g class="arch">
+      <!-- Plinth (base) -->
+      <rect x="14" y="64" width="52" height="5" rx="1" />
+      <!-- Left column -->
+      <rect x="19" y="36" width="10" height="28" />
+      <!-- Right column -->
+      <rect x="51" y="36" width="10" height="28" />
+      <!-- Arch (stroked) — outer R=21 inner R=11, stroke 10 -->
+      <path d="M 24 36 A 16 16 0 0 1 56 36" fill="none" stroke-width="10" />
+    </g>
+    <circle class="dot" cx="40" cy="20" r="3.5" />
+  </svg>
+</template>
+
+<template id="tmpl-mark-favicon">
+  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <g class="arch">
+      <path d="M 12 56
+               L 12 30
+               A 20 20 0 0 1 52 30
+               L 52 56
+               L 42 56
+               L 42 32
+               A 10 10 0 0 0 22 32
+               L 22 56
+               Z" />
+      <rect x="8" y="56" width="48" height="4" rx="1" />
+    </g>
+    <circle class="dot" cx="32" cy="14" r="4" />
+  </svg>
+</template>
+
+<style>
+  /* color variants applied to .mark-block; children styled directly */
+  .mark-block .arch rect, .mark-block .arch path { fill: currentColor; stroke: currentColor; }
+  .mark-block .arch path { fill: none; }
+  .mark-block .dot { fill: var(--red); }
+
+  .mark-color        { color: var(--navy);  }
+  .mark-color        .dot { fill: var(--red); }
+  .mark-reverse      { color: var(--cream); }
+  .mark-reverse      .dot { fill: var(--red); }
+  .mark-reverse-soft { color: var(--cream); }
+  .mark-reverse-soft .dot { fill: var(--red-soft); }
+  .mark-on-cream     { color: var(--navy);  }
+  .mark-on-cream     .dot { fill: var(--red); }
+  .mark-on-red       { color: var(--cream); }
+  .mark-on-red       .dot { fill: var(--navy); }
+  .mark-mono-black   { color: #000; }
+  .mark-mono-black   .dot { fill: #000; }
+  .mark-mono-white   { color: #fff; }
+  .mark-mono-white   .dot { fill: #fff; }
+</style>
+
+<div class="page">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Identity System · Volume 01 / 2026</p>
+      <h1 class="h-display">acts<span style="color:var(--red)">·</span>to<span style="opacity:.55;font-weight:500">.org</span></h1>
+      <p class="lede">A complete logo system for a Christian tuition platform &mdash; built on the established navy / cream / Liberty Red palette and the Fraunces serif. Trustworthy without being institutional, faithful without being loud, civic without being political.</p>
+    </div>
+    <div class="masthead__meta">
+      <span>Phoenix · Arizona</span>
+      <span>v1.0 · May 2026</span>
+    </div>
+  </header>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 01 · The Master Mark                                          -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 01</span>
+      <div>
+        <p class="eyebrow">The Master Mark</p>
+        <h2 class="h1">A threshold &mdash; with a <em>quiet</em> keystone above.</h2>
+      </div>
+    </header>
+
+    <div class="hero">
+      <div class="hero__stage">
+        <span class="frame__label">acts·to mark · master</span>
+        <div class="mark-block mark-color" style="width:320px;height:320px">
+          
+        </div>
+      </div>
+      <div class="hero__copy">
+        <p class="eyebrow eyebrow--red">⬤ Concept</p>
+        <h3 class="h2">An arch is a doorway, a record, a promise.</h3>
+        <p class="lede">The mark is a classical archway &mdash; two columns supporting a curved lintel on a steady plinth. Above the arch floats a single red dot: the &ldquo;<span style="font-family:var(--serif);color:var(--red);font-style:italic;font-weight:600">&middot;</span>&rdquo; of <em>acts&middot;to</em>, the pivot between obligation and intention, the keystone of every campaign.</p>
+
+        <div class="hero__concept">
+          <div class="hero__concept-cell">
+            <p class="kicker">Reads as</p>
+            <p>A school entrance. A church arch. A tax-receipt seal. The threshold a family crosses.</p>
+          </div>
+          <div class="hero__concept-cell">
+            <p class="kicker">Doesn't read as</p>
+            <p>A cross. A flag. A logo from a megachurch. A megabank. A clipart cap-and-diploma.</p>
+          </div>
+          <div class="hero__concept-cell">
+            <p class="kicker">Why the dot is separate</p>
+            <p>The act of giving lives <em>above</em> the structure, not inside it. The arch holds; the dot decides.</p>
+          </div>
+          <div class="hero__concept-cell">
+            <p class="kicker">Why navy + red</p>
+            <p>Civic palette, quieted for paperwork. Red is reserved for the moment of action; navy carries the architecture.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 02 · App Icon                                                 -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 02</span>
+      <div>
+        <p class="eyebrow">App Icon</p>
+        <h2 class="h1">Square, navy, calm. A keystone that shows up on a home screen.</h2>
+        <p class="lede">The icon is the mark, centered on a navy rounded-square ground, with the keystone dot in Liberty Red. iOS&nbsp;& Android continuous corner. Reads at 1024&nbsp;px and at 24&nbsp;px.</p>
+      </div>
+    </header>
+
+    <div class="appicon-grid">
+      <div class="frame frame--cream appicon-hero">
+        <span class="frame__label">primary · navy ground</span>
+        <div class="ai" style="width:240px;height:240px">
+          <div class="mark-block mark-reverse" style="padding:14%">
+            
+          </div>
+        </div>
+      </div>
+
+      <div class="frame frame--light appicon-sizes">
+        <span class="frame__label">on light · scaling preview</span>
+        <div class="appicon-sizes__row">
+          <div class="appicon-sizes__cell">
+            <div class="ai" style="width:120px;height:120px">
+              <div class="mark-block mark-reverse" style="padding:14%"></div>
+            </div>
+            <span class="label">120 px</span>
+          </div>
+          <div class="appicon-sizes__cell">
+            <div class="ai" style="width:80px;height:80px">
+              <div class="mark-block mark-reverse" style="padding:14%"></div>
+            </div>
+            <span class="label">80 px</span>
+          </div>
+          <div class="appicon-sizes__cell">
+            <div class="ai" style="width:56px;height:56px">
+              <div class="mark-block mark-reverse" style="padding:13%"></div>
+            </div>
+            <span class="label">56 px</span>
+          </div>
+          <div class="appicon-sizes__cell">
+            <div class="ai" style="width:36px;height:36px">
+              <div class="mark-block mark-reverse" style="padding:12%"></div>
+            </div>
+            <span class="label">36 px</span>
+          </div>
+          <div class="appicon-sizes__cell">
+            <div class="ai" style="width:24px;height:24px">
+              <div class="mark-block mark-reverse" style="padding:10%"></div>
+            </div>
+            <span class="label">24 px</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <p class="eyebrow">Ground variants · approved</p>
+        <div class="appicon-sizes__row">
+          <div class="appicon-sizes__cell">
+            <div class="ai" style="width:72px;height:72px;background:var(--navy)">
+              <div class="mark-block mark-reverse" style="padding:14%"></div>
+            </div>
+            <span class="label">Navy · primary</span>
+          </div>
+          <div class="appicon-sizes__cell">
+            <span class="ai ai--light" style="width:72px;height:72px">
+              <div class="mark-block mark-color" style="padding:14%"></div>
+            </span>
+            <span class="label">Cream · secondary</span>
+          </div>
+          <div class="appicon-sizes__cell">
+            <span class="ai ai--red" style="width:72px;height:72px">
+              <div class="mark-block mark-on-red" style="padding:14%"></div>
+            </span>
+            <span class="label">Red · campaign</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 03 · Favicon                                                  -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 03</span>
+      <div>
+        <p class="eyebrow">Favicon</p>
+        <h2 class="h1">A simplified silhouette &mdash; readable at <em>16&nbsp;px</em>.</h2>
+        <p class="lede">The favicon drops fine details: it's a solid arch silhouette with a red keystone dot, no plinth gap. Holds shape against any tab color, light or dark, and remains the mark at 16&nbsp;px.</p>
+      </div>
+    </header>
+
+    <div class="fav-grid">
+      <!-- Light browser preview -->
+      <div class="frame frame--light fav-card">
+        <span class="frame__label">on light · safari / chrome light</span>
+        <div class="fav-card__title" style="margin-top:14px">
+          <h3 class="h3">In the tab bar.</h3>
+          <span class="note">Tested 16–32 px</span>
+        </div>
+        <div class="browser-bar">
+          <div class="bbar-head">
+            <div class="bbar-dots"><span></span><span></span><span></span></div>
+            <div class="bbar-tabs">
+              <span class="bbar-tab">
+                <span class="favicon-slot mark-block mark-color"></span>
+                actsto.org
+              </span>
+              <span class="bbar-tab bbar-tab--inactive">
+                <span class="favicon-slot" style="background:var(--stone);border-radius:3px"></span>
+                AZDOR
+              </span>
+            </div>
+            <div class="bbar-url">
+              <span class="favicon-slot mark-block mark-color"></span>
+              https://actsto.org/campaigns/mendoza
+            </div>
+          </div>
+          <div class="bbar-body"></div>
+        </div>
+
+        <div class="fav-sizes">
+          <div class="fav-sizes__cell">
+            <span class="favicon-slot mark-block mark-color" style="width:32px;height:32px"></span>
+            <span class="label">32</span>
+          </div>
+          <div class="fav-sizes__cell">
+            <span class="favicon-slot mark-block mark-color" style="width:24px;height:24px"></span>
+            <span class="label">24</span>
+          </div>
+          <div class="fav-sizes__cell">
+            <span class="favicon-slot mark-block mark-color" style="width:16px;height:16px"></span>
+            <span class="label">16</span>
+          </div>
+          <div class="fav-sizes__cell" style="margin-left:auto">
+            <span class="favicon-slot mark-block mark-color" style="width:48px;height:48px;background:var(--cream-deep);border-radius:8px;padding:8px;box-sizing:border-box"></span>
+            <span class="label">PWA · 48</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark browser preview -->
+      <div class="frame frame--dark fav-card">
+        <span class="frame__label">on dark · safari / chrome dark</span>
+        <div class="fav-card__title" style="margin-top:14px">
+          <h3 class="h3" style="color:var(--cream)">In dark mode.</h3>
+          <span class="note" style="background:transparent;color:color-mix(in oklch, var(--cream), transparent 40%);border-color:color-mix(in oklch, var(--cream), transparent 70%)">Same dot. Cream arch.</span>
+        </div>
+        <div class="browser-bar">
+          <div class="bbar-head">
+            <div class="bbar-dots"><span></span><span></span><span></span></div>
+            <div class="bbar-tabs">
+              <span class="bbar-tab">
+                <span class="favicon-slot mark-block mark-reverse"></span>
+                actsto.org
+              </span>
+              <span class="bbar-tab bbar-tab--inactive">
+                <span class="favicon-slot" style="background:color-mix(in oklch, var(--cream), transparent 70%);border-radius:3px"></span>
+                AZDOR
+              </span>
+            </div>
+            <div class="bbar-url">
+              <span class="favicon-slot mark-block mark-reverse"></span>
+              https://actsto.org/campaigns/mendoza
+            </div>
+          </div>
+          <div class="bbar-body"></div>
+        </div>
+
+        <div class="fav-sizes">
+          <div class="fav-sizes__cell">
+            <span class="favicon-slot mark-block mark-reverse" style="width:32px;height:32px"></span>
+            <span class="label">32</span>
+          </div>
+          <div class="fav-sizes__cell">
+            <span class="favicon-slot mark-block mark-reverse" style="width:24px;height:24px"></span>
+            <span class="label">24</span>
+          </div>
+          <div class="fav-sizes__cell">
+            <span class="favicon-slot mark-block mark-reverse" style="width:16px;height:16px"></span>
+            <span class="label">16</span>
+          </div>
+          <div class="fav-sizes__cell" style="margin-left:auto">
+            <span class="favicon-slot mark-block mark-reverse" style="width:48px;height:48px;background:var(--navy-deep);border-radius:8px;padding:8px;box-sizing:border-box"></span>
+            <span class="label">PWA · 48</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 04 · Portrait Logo                                            -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 04</span>
+      <div>
+        <p class="eyebrow">Portrait Lockup</p>
+        <h2 class="h1">Mark above, wordmark below &mdash; for <em>square</em> placements.</h2>
+        <p class="lede">Profile pictures, app splash screens, square ads, posters, end&#8209;cards. Mark and wordmark share the same optical axis. Wordmark sits one mark&#8209;height below.</p>
+      </div>
+    </header>
+
+    <div class="lockup-grid">
+      <!-- Light -->
+      <div class="frame frame--light lockup-frame lockup-frame--tall">
+        <span class="frame__label">portrait · light</span>
+        <div class="lockup-portrait">
+          <div class="mark-block mark-color"></div>
+          <span class="wordmark">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Dark -->
+      <div class="frame frame--dark lockup-frame lockup-frame--tall">
+        <span class="frame__label">portrait · dark</span>
+        <div class="lockup-portrait">
+          <div class="mark-block mark-reverse"></div>
+          <span class="wordmark wordmark--reverse">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 05 · Landscape Logo                                           -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 05</span>
+      <div>
+        <p class="eyebrow">Landscape Lockup</p>
+        <h2 class="h1">Mark left, wordmark right &mdash; the <em>everyday</em> lockup.</h2>
+        <p class="lede">Website headers, email signatures, document footers, partner one&#8209;pagers. Wordmark cap height matches the mark's plinth-to-keystone span.</p>
+      </div>
+    </header>
+
+    <div class="lockup-grid">
+      <div class="frame frame--light lockup-frame">
+        <span class="frame__label">landscape · light</span>
+        <div class="lockup-landscape">
+          <div class="mark-block mark-color"></div>
+          <span class="wordmark">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="frame frame--dark lockup-frame">
+        <span class="frame__label">landscape · dark</span>
+        <div class="lockup-landscape">
+          <div class="mark-block mark-reverse"></div>
+          <span class="wordmark wordmark--reverse">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Cream secondary -->
+      <div class="frame frame--cream lockup-frame">
+        <span class="frame__label">landscape · cream</span>
+        <div class="lockup-landscape">
+          <div class="mark-block mark-color"></div>
+          <span class="wordmark">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Red campaign -->
+      <div class="frame frame--red lockup-frame">
+        <span class="frame__label">landscape · red campaign</span>
+        <div class="lockup-landscape">
+          <div class="mark-block mark-on-red"></div>
+          <span class="wordmark wordmark--reverse" style="color:var(--cream)">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot" style="color:var(--navy)">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 06 · One-color variants                                       -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 06</span>
+      <div>
+        <p class="eyebrow">One-Color</p>
+        <h2 class="h1">For <em>fax machines</em>, embossed letterhead, single&#8209;ink press.</h2>
+        <p class="lede">When color is not available, both elements collapse to a single ink. The dot survives because it is round &mdash; it does not get lost in a black-and-white reduction.</p>
+      </div>
+    </header>
+
+    <div class="mono-grid">
+      <div class="mono-cell mono-cell--white">
+        <div class="mark-block mark-mono-black"></div>
+        <span class="mono-cell__label">Black on white</span>
+      </div>
+      <div class="mono-cell mono-cell--cream">
+        <div class="mark-block mark-mono-black"></div>
+        <span class="mono-cell__label">Black on cream</span>
+      </div>
+      <div class="mono-cell mono-cell--navy">
+        <div class="mark-block mark-mono-white"></div>
+        <span class="mono-cell__label">White on navy</span>
+      </div>
+      <div class="mono-cell mono-cell--black">
+        <div class="mark-block mark-mono-white"></div>
+        <span class="mono-cell__label">White on black</span>
+      </div>
+      <div class="mono-cell mono-cell--red">
+        <div class="mark-block mark-mono-white"></div>
+        <span class="mono-cell__label">White on red</span>
+      </div>
+      <div class="mono-cell mono-cell--ink">
+        <div class="mark-block mark-mono-white"></div>
+        <span class="mono-cell__label">White on ink</span>
+      </div>
+      <div class="mono-cell mono-cell--white">
+        <div class="lockup-landscape" style="transform:scale(0.85)">
+          <div class="mark-block mark-mono-black" style="width:44px;height:44px"></div>
+          <span class="wordmark wordmark--mono-black" style="font-size:22px">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+        <span class="mono-cell__label">1-color · black</span>
+      </div>
+      <div class="mono-cell mono-cell--navy">
+        <div class="lockup-landscape" style="transform:scale(0.85)">
+          <div class="mark-block mark-mono-white" style="width:44px;height:44px"></div>
+          <span class="wordmark wordmark--mono-white" style="font-size:22px">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+        </div>
+        <span class="mono-cell__label">1-color · white</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 07 · Clear space + minimum size                               -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 07</span>
+      <div>
+        <p class="eyebrow">Clear Space &amp; Sizing</p>
+        <h2 class="h1">A keystone of breathing room &mdash; <em>X</em> equals the dot diameter.</h2>
+        <p class="lede">No type, no rule, no image enters the dashed perimeter. <em>X</em> is the diameter of the keystone dot at the lockup's current size &mdash; it scales with the logo.</p>
+      </div>
+    </header>
+
+    <div class="spec-grid">
+      <!-- Clear space diagram -->
+      <div class="frame frame--cream clearspace-stage">
+        <span class="frame__label">clear space</span>
+        <div class="clearspace-mark">
+          <div class="mark-block mark-color"></div>
+          <span class="wordmark">
+            <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+          </span>
+          <span class="x-marker x-marker--tl">X</span>
+          <span class="x-marker x-marker--tr">X</span>
+          <span class="x-marker x-marker--bl">X</span>
+          <span class="x-marker x-marker--br">X</span>
+          <span class="x-label x-label--top">1X clear space</span>
+          <span class="x-label x-label--bottom">X = dot diameter</span>
+        </div>
+      </div>
+
+      <!-- Sizing table -->
+      <div class="frame frame--light" style="padding:36px">
+        <p class="eyebrow">Minimum sizes</p>
+        <table class="sizing-table">
+          <thead><tr><th>Asset</th><th>Min size</th><th>Sample</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Landscape lockup &mdash; digital</td>
+              <td class="num">96 px wide</td>
+              <td style="text-align:right">
+                <span class="lockup-landscape" style="gap:6px;display:inline-flex;vertical-align:middle">
+                  <span class="mark-block mark-color" style="width:18px;height:18px"></span>
+                  <span class="wordmark" style="font-size:9px">
+                    <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+                  </span>
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Landscape lockup &mdash; print</td>
+              <td class="num">1.25 in wide</td>
+              <td style="text-align:right">
+                <span class="lockup-landscape" style="gap:8px;display:inline-flex;vertical-align:middle">
+                  <span class="mark-block mark-color" style="width:24px;height:24px"></span>
+                  <span class="wordmark" style="font-size:12px">
+                    <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+                  </span>
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Portrait lockup &mdash; digital</td>
+              <td class="num">64 px wide</td>
+              <td style="text-align:right">
+                <span style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;vertical-align:middle">
+                  <span class="mark-block mark-color" style="width:28px;height:28px"></span>
+                  <span class="wordmark" style="font-size:9px">
+                    <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+                  </span>
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>Mark only &mdash; digital</td>
+              <td class="num">20 px</td>
+              <td style="text-align:right">
+                <span class="mark-block mark-color" style="width:20px;height:20px;display:inline-block;vertical-align:middle"></span>
+              </td>
+            </tr>
+            <tr>
+              <td>Favicon silhouette</td>
+              <td class="num">16 px</td>
+              <td style="text-align:right">
+                <span class="mark-block favicon-slot mark-color" style="width:16px;height:16px;display:inline-block;vertical-align:middle"></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="divider"></div>
+
+        <p class="eyebrow">Do not</p>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+          <li class="caption">— Recolor the dot to anything other than Liberty Red, navy (campaign red), or 1-color ink.</li>
+          <li class="caption">— Rotate the mark. The arch stands upright; the dot rises.</li>
+          <li class="caption">— Stretch, skew, or outline-stroke the wordmark.</li>
+          <li class="caption">— Set the wordmark in any sans-serif. It is Fraunces or it is wrong.</li>
+          <li class="caption">— Drop the &ldquo;·&rdquo; from the wordmark. The dot is the brand.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- 08 · Usage in context                                         -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 08</span>
+      <div>
+        <p class="eyebrow">In Context</p>
+        <h2 class="h1">The logo in the wild &mdash; <em>where</em> it has to earn its keep.</h2>
+      </div>
+    </header>
+
+    <!-- Website + email -->
+    <div class="usage-grid" style="margin-bottom:28px">
+      <div class="frame frame--light usemock-site">
+        <span class="frame__label" style="z-index:2">website header · light</span>
+        <div class="usemock-site__nav">
+          <div class="lockup-landscape">
+            <div class="mark-block mark-color"></div>
+            <span class="wordmark">
+              <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+            </span>
+          </div>
+          <div class="usemock-site__menu">
+            <a>Campaigns</a><a>How it works</a><a>For schools</a><a>About</a>
+          </div>
+          <div class="usemock-site__cta">Redirect my tax</div>
+        </div>
+        <div class="usemock-site__hero">
+          <p class="eyebrow eyebrow--red">A.R.S. §43-1089 · Tax credit scholarships</p>
+          <h1 class="h-display">Same dollar. <em>Different</em> destination.</h1>
+          <p class="lede">Redirect what you already owe Arizona to a child's tuition &mdash; at no extra cost to you.</p>
+        </div>
+      </div>
+
+      <div class="frame frame--cream usemock-email">
+        <span class="frame__label">email signature</span>
+        <div style="margin-top:14px">
+          <div class="lockup-landscape">
+            <div class="mark-block mark-color"></div>
+            <span class="wordmark">
+              <span class="wordmark__a">acts</span><span class="wordmark__dot">·</span><span class="wordmark__b">to</span><span class="wordmark__tld">.org</span>
+            </span>
+          </div>
+        </div>
+        <div class="sig-rule"></div>
+        <div class="sig-name">Carla Mendoza</div>
+        <div class="sig-title">Family Stewardship · Campaign Lead</div>
+        <div class="sig-meta">
+          <span>carla@actsto.org</span>
+          <span>(602) 555·0148 · Phoenix, AZ</span>
+          <span>A.R.S. §43-1089 · STO #STO-2024-018</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone + launcher + social -->
+    <div class="usage-grid" style="grid-template-columns:1fr 1.2fr 1fr; gap:28px">
+      <!-- Phone splash -->
+      <div class="frame frame--cream" style="padding:36px;display:flex;flex-direction:column;gap:18px;position:relative">
+        <span class="frame__label">app · launch screen</span>
+        <div class="usemock-phone" style="margin-top:14px">
+          <div class="usemock-phone__screen">
+            <div class="ai" style="width:88px;height:88px">
+              <div class="mark-block mark-reverse" style="padding:14%"></div>
+            </div>
+            <h3 class="h3">acts<span style="color:var(--red)">·</span>to<span style="opacity:.55">.org</span></h3>
+            <p class="caption">Redirect your Arizona tax. Fund a family.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Launcher row -->
+      <div class="frame" style="padding:0;border:0;background:transparent;position:relative">
+        <span class="frame__label" style="color:var(--ink-muted)">home screen · launcher row</span>
+        <div class="usemock-launcher" style="margin-top:14px">
+          <div class="usemock-launcher__row">
+            <div class="usemock-launcher__icon">
+              <div class="ai"><div class="mark-block mark-reverse" style="padding:14%"></div></div>
+              <span class="label">actsto</span>
+            </div>
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" fill="none"/></svg></div>
+              <span class="label">Wallet</span>
+            </div>
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><circle cx="12" cy="12" r="7" stroke="currentColor" fill="none"/></svg></div>
+              <span class="label">Mail</span>
+            </div>
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" fill="none"/></svg></div>
+              <span class="label">Notes</span>
+            </div>
+          </div>
+          <div class="usemock-launcher__row">
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><path d="M12 4l8 4-8 4-8-4 8-4z" stroke="currentColor" fill="none"/></svg></div>
+              <span class="label">School</span>
+            </div>
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><circle cx="12" cy="12" r="3" stroke="currentColor" fill="none"/></svg></div>
+              <span class="label">Camera</span>
+            </div>
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><path d="M5 7l7-3 7 3v10l-7 3-7-3V7z" stroke="currentColor" fill="none"/></svg></div>
+              <span class="label">Bank</span>
+            </div>
+            <div class="usemock-launcher__icon usemock-launcher__icon--ghost">
+              <div class="ai"><svg viewBox="0 0 24 24" fill="var(--cream)"><rect x="5" y="5" width="14" height="14" rx="2" stroke="currentColor" fill="none"/></svg></div>
+              <span class="label">Files</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social profile -->
+      <div class="frame frame--dark usemock-social">
+        <span class="frame__label">social profile · dark</span>
+        <div class="usemock-social__avatar">
+          <div class="ai" style="border-radius:0">
+            <div class="mark-block mark-reverse" style="padding:16%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="handle" style="color:var(--cream)">acts·to.org</div>
+          <div class="meta">@actsto · Phoenix, AZ</div>
+          <div class="bio">Tax-credit scholarships for Christian families across Arizona. A.R.S. §43-1089.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <!-- Colophon                                                       -->
+  <!-- ───────────────────────────────────────────────────────────── -->
+  <footer class="colophon">
+    <span>actsto.org · identity v1.0</span>
+    <span>Built on the actsto.org brand book</span>
+    <span>Fraunces · Inter · JetBrains Mono</span>
+    <span>May 2026</span>
+  </footer>
+
+</div>
+
+<script>
+  // Replace any inner <svg> in a .mark-block with the inlined template SVG.
+  // Variant selection: a child <svg> with viewBox "0 0 64 64" → favicon; else master.
+  (function () {
+    const tplMark = document.getElementById('tmpl-mark');
+    const tplFav  = document.getElementById('tmpl-mark-favicon');
+    if (!tplMark || !tplFav) return;
+    document.querySelectorAll('.mark-block').forEach(block => {
+      const existing = block.querySelector('svg');
+      const isFav = block.classList.contains('favicon-slot')
+                 || (existing && existing.getAttribute('viewBox') === '0 0 64 64');
+      const src = (isFav ? tplFav : tplMark).content.cloneNode(true);
+      if (existing) existing.remove();
+      block.querySelectorAll('use').forEach(u => u.remove());
+      block.appendChild(src);
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,14 +1,14 @@
-import { AdminInboxWorkspace } from "@/components/dashboard/admin/admin-inbox-workspace";
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { AdminPageTabLinks, type AdminPageTabLink } from "@/components/dashboard/admin/admin-page-tab-links";
 import { EmailAutomationsPanel } from "@/components/dashboard/admin/email/email-automations-panel";
 import { EmailComposePanel } from "@/components/dashboard/admin/email/email-compose-panel";
 import { EmailFormSubmissions } from "@/components/dashboard/admin/email/email-form-submissions";
 import { EmailHistory } from "@/components/dashboard/admin/email/email-history";
+import { EmailInboxAccordion } from "@/components/dashboard/admin/email/email-inbox-accordion";
 import { EmailStats } from "@/components/dashboard/admin/email/email-stats";
-import { EmailTemplateEditorPanel } from "@/components/dashboard/admin/email/email-template-editor-panel";
+import { EmailTemplateEditor } from "@/components/dashboard/admin/email/email-template-editor";
+import { EmailTemplatesLibrary } from "@/components/dashboard/admin/email/email-templates-library";
 import { EmailWizard } from "@/components/dashboard/admin/email/email-wizard";
-import { EmailTemplatesPanel } from "@/components/dashboard/admin/email-templates-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +26,8 @@ const tabs: AdminPageTabLink<EmailTab>[] = [
   { id: "wizard", label: "Wizard" },
 ];
 
-export default async function AdminEmailPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab } = await searchParams;
+export default async function AdminEmailPage({ searchParams }: { searchParams: Promise<{ tab?: string; id?: string }> }) {
+  const { tab, id } = await searchParams;
   const active = (tabs.find((t) => t.id === tab)?.id ?? "stats") as EmailTab;
 
   return (
@@ -40,10 +40,10 @@ export default async function AdminEmailPage({ searchParams }: { searchParams: P
         <AdminPageTabLinks tabs={tabs} activeTab={active} baseHref="/dashboard/admin/email" />
         {active === "stats" && <EmailStats />}
         {active === "send" && <EmailComposePanel />}
-        {active === "templates" && <EmailTemplatesPanel />}
-        {active === "editor" && <EmailTemplateEditorPanel />}
+        {active === "templates" && <EmailTemplatesLibrary />}
+        {active === "editor" && <EmailTemplateEditor editId={id} />}
         {active === "automations" && <EmailAutomationsPanel />}
-        {active === "inbox" && <AdminInboxWorkspace />}
+        {active === "inbox" && <EmailInboxAccordion />}
         {active === "forms" && <EmailFormSubmissions />}
         {active === "history" && <EmailHistory />}
         {active === "wizard" && <EmailWizard />}

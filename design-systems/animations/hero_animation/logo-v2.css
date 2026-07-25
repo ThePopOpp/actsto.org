@@ -1,0 +1,289 @@
+/* ──────────────────────────────────────────────────────────────
+   actsto.org · logo v2 · book + cross · styles
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  --cream:       oklch(0.972 0.014 85);
+  --cream-deep:  oklch(0.948 0.018 85);
+  --paper:       oklch(0.992 0.005 85);
+  --navy:        oklch(0.225 0.058 258);
+  --navy-deep:   oklch(0.165 0.048 258);
+  --navy-soft:   oklch(0.40 0.054 256);
+  --navy-mid:    oklch(0.30 0.055 258);
+  --red:         oklch(0.485 0.158 25);
+  --red-deep:    oklch(0.395 0.148 25);
+  --red-soft:    oklch(0.78 0.10 25);
+  --ink:         oklch(0.22 0.012 80);
+  --ink-muted:   oklch(0.45 0.012 80);
+  --stone:       oklch(0.78 0.012 85);
+  --sand:        oklch(0.91 0.018 85);
+  --gold:        oklch(0.74 0.115 80);
+  --gold-deep:   oklch(0.62 0.115 75);
+
+  --serif: 'Fraunces', 'Iowan Old Style', Charter, Georgia, serif;
+  --sans:  'Inter', -apple-system, system-ui, sans-serif;
+  --mono:  'JetBrains Mono', ui-monospace, monospace;
+
+  --page-max: 1280px;
+  --pad-x: 80px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+p { margin: 0 0 10px; } p:last-child { margin-bottom: 0; }
+
+/* ── Page chrome ─────────────────────────────────────────── */
+.page { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 56px var(--pad-x) 120px; }
+
+.masthead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--ink);
+  margin-bottom: 56px;
+}
+.masthead__meta { display: flex; gap: 28px; align-self: end; }
+.masthead__meta span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-muted);
+  margin: 0 0 12px; font-weight: 500;
+}
+.eyebrow--red { color: var(--red); }
+.eyebrow--cream { color: color-mix(in oklch, var(--cream), transparent 35%); }
+
+.h-display {
+  font-family: var(--serif);
+  font-size: 64px; line-height: 1.02;
+  font-weight: 600; letter-spacing: -0.025em;
+  margin: 0 0 18px;
+  font-variation-settings: "opsz" 144;
+}
+.h-display em { font-style: italic; color: var(--red); font-weight: inherit; }
+.h1 {
+  font-family: var(--serif);
+  font-size: 42px; line-height: 1.08;
+  font-weight: 600; letter-spacing: -0.018em;
+  margin: 0 0 16px;
+  font-variation-settings: "opsz" 72;
+  text-wrap: pretty;
+}
+.h1 em { font-style: italic; color: var(--red); font-weight: inherit; }
+.h2 {
+  font-family: var(--serif);
+  font-size: 28px; line-height: 1.2;
+  font-weight: 500; letter-spacing: -0.012em;
+  margin: 0 0 12px;
+}
+.h3 {
+  font-family: var(--serif);
+  font-size: 20px; line-height: 1.3;
+  font-weight: 500; margin: 0 0 10px;
+}
+.lede {
+  font-size: 17px; line-height: 1.55;
+  letter-spacing: -0.008em; color: var(--ink);
+  max-width: 56ch; text-wrap: pretty;
+}
+.caption { font-size: 12.5px; line-height: 1.5; color: var(--ink-muted); }
+.mono { font-family: var(--mono); font-feature-settings: "tnum"; }
+
+/* ── Section rhythm ──────────────────────────────────────── */
+.section {
+  padding: 64px 0;
+  border-top: 1px solid color-mix(in oklch, var(--stone), transparent 50%);
+}
+.section:first-of-type { border-top: 0; padding-top: 0; }
+.section__head {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 32px; margin-bottom: 40px; align-items: baseline;
+}
+.section__num {
+  font-family: var(--mono);
+  font-size: 12px; letter-spacing: 0.14em;
+  color: var(--ink-muted); padding-top: 12px;
+  border-top: 1px solid var(--ink);
+}
+.section__head p.lede { margin-top: 8px; }
+
+/* ── Frames ──────────────────────────────────────────────── */
+.frame {
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklch, var(--stone), transparent 50%);
+  background: var(--paper);
+  overflow: hidden; position: relative;
+}
+.frame--light { background: var(--paper); color: var(--ink); }
+.frame--cream { background: var(--cream-deep); color: var(--ink); }
+.frame--dark  { background: var(--navy); color: var(--cream); border-color: var(--navy-deep); }
+.frame--ink   { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.frame__label {
+  position: absolute; top: 14px; left: 16px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  opacity: 0.55; z-index: 2;
+}
+.frame--dark .frame__label, .frame--ink .frame__label { color: var(--cream); }
+
+/* ── Compare hero ────────────────────────────────────────── */
+.compare {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 28px; margin-bottom: 12px;
+}
+.compare-stage {
+  display: grid; place-items: center;
+  padding: 64px; min-height: 480px;
+  position: relative;
+}
+.compare-stage .mark { width: 280px; height: 280px; }
+.compare-cap {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 18px 24px; border-top: 1px solid color-mix(in oklch, var(--stone), transparent 50%);
+  background: color-mix(in oklch, var(--paper), var(--cream-deep) 50%);
+}
+.frame--dark .compare-cap {
+  border-top-color: color-mix(in oklch, var(--cream), transparent 85%);
+  background: color-mix(in oklch, var(--navy), black 8%);
+}
+.compare-cap .h3 { margin: 0; font-size: 19px; }
+.compare-cap .eyebrow { margin: 0; }
+
+/* ── Variant grid ────────────────────────────────────────── */
+.variant-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+.variant-grid--four { grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.variant-stage {
+  display: grid; place-items: center;
+  padding: 36px; min-height: 220px;
+  position: relative;
+}
+.variant-stage .mark { width: 120px; height: 120px; }
+.variant-stage--lg { min-height: 320px; padding: 48px; }
+.variant-stage--lg .mark { width: 180px; height: 180px; }
+
+.variant-cap {
+  padding: 14px 18px;
+  border-top: 1px solid color-mix(in oklch, var(--stone), transparent 50%);
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.frame--dark .variant-cap {
+  border-top-color: color-mix(in oklch, var(--cream), transparent 85%);
+  color: color-mix(in oklch, var(--cream), transparent 35%);
+}
+
+/* ── Mark wrapper ────────────────────────────────────────── */
+.mark { display: block; }
+.mark svg { display: block; width: 100%; height: 100%; }
+
+/* ── Wordmark (custom letterforms via Fraunces) ──────────── */
+.wm {
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  font-variation-settings: "opsz" 96, "SOFT" 30;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--navy);
+  white-space: nowrap;
+}
+.wm--caps { text-transform: uppercase; letter-spacing: -0.055em; }
+.wm--lowercase { letter-spacing: -0.045em; }
+.wm__tld { color: inherit; opacity: 0.5; font-weight: 600; }
+.wm--reverse { color: var(--cream); }
+.wm--reverse .wm__tld { opacity: 0.55; }
+.wm--gold { color: var(--navy); }
+.wm--gold .wm__tld { color: var(--gold-deep); opacity: 1; }
+
+/* ── Lockup blocks ───────────────────────────────────────── */
+.lockup {
+  display: flex; align-items: center; gap: 18px;
+}
+.lockup--stacked { flex-direction: column; gap: 22px; }
+.lockup .mark { width: 64px; height: 64px; flex-shrink: 0; }
+.lockup--stacked .mark { width: 96px; height: 96px; }
+.lockup--sm .mark { width: 40px; height: 40px; }
+.lockup--lg .mark { width: 88px; height: 88px; }
+
+.lockup .wm { font-size: 38px; }
+.lockup--sm .wm { font-size: 22px; }
+.lockup--lg .wm { font-size: 56px; }
+.lockup--stacked .wm { font-size: 42px; }
+
+/* ── Note pill ───────────────────────────────────────────── */
+.note {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--cream-deep);
+  border: 1px solid color-mix(in oklch, var(--stone), transparent 40%);
+  padding: 6px 12px 7px; border-radius: 999px;
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.note::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+
+/* ── Wordmark exploration grid ───────────────────────────── */
+.wm-explorer {
+  display: grid; gap: 28px;
+  grid-template-columns: 1fr 1fr;
+}
+.wm-card {
+  padding: 44px 36px;
+  display: flex; flex-direction: column;
+  gap: 28px; min-height: 240px;
+  justify-content: center; align-items: flex-start;
+}
+.wm-card__title {
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-muted); margin: 0;
+}
+.frame--dark .wm-card__title { color: color-mix(in oklch, var(--cream), transparent 40%); }
+.wm-card .wm { font-size: 64px; }
+.wm-card .wm--small { font-size: 38px; }
+
+/* ── Spec rows ───────────────────────────────────────────── */
+.spec-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  padding: 22px 0;
+  border-top: 1px solid color-mix(in oklch, var(--stone), transparent 50%);
+}
+.spec-row:first-child { border-top: 1px solid var(--ink); }
+.spec-row dt {
+  font-family: var(--mono);
+  font-size: 10.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-muted);
+}
+.spec-row dd { margin: 6px 0 0; font-size: 14.5px; color: var(--ink); }
+
+/* ── Colophon ────────────────────────────────────────────── */
+.colophon {
+  display: flex; justify-content: space-between;
+  padding-top: 36px; margin-top: 64px;
+  border-top: 1px solid var(--ink);
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.divider { height: 1px; background: color-mix(in oklch, var(--stone), transparent 50%); margin: 28px 0; }

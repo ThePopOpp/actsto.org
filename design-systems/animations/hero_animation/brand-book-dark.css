@@ -1,0 +1,170 @@
+/* ──────────────────────────────────────────────────────────────
+   actsto.org · brand book · DARK MODE overlay
+   Loaded after brand-book.css; flips token values only.
+   ────────────────────────────────────────────────────────────── */
+
+html:has(body.dark),
+html, body.dark {
+  background: #05163E;
+  color: var(--ink);
+}
+
+body.dark {
+  /* ── Surface / field (deep navy) ───────────────────────── */
+  --cream:        #05163E;                  /* page field */
+  --cream-deep:   oklch(0.205 0.052 258);   /* raised band */
+  --cream-soft:   oklch(0.255 0.054 258);
+  --paper:        oklch(0.225 0.054 258);   /* card surface */
+
+  /* ── Text / ink ────────────────────────────────────────── */
+  --ink:          oklch(0.965 0.012 85);    /* primary text */
+  --ink-muted:    oklch(0.74 0.016 85);
+  --fg-muted:     oklch(0.74 0.016 85);
+
+  /* ── Borders / subtle bg ───────────────────────────────── */
+  --stone:        oklch(0.36 0.046 258);
+  --sand:         oklch(0.28 0.052 258);
+
+  /* ── Brand structural — flipped to cream so badges/CTAs
+        and structural marks pop on dark navy field ───────── */
+  --navy:         oklch(0.965 0.012 85);
+  --navy-deep:    oklch(0.88 0.014 85);
+  --navy-soft:    oklch(0.66 0.020 85);
+
+  /* ── Accent · brighter on dark ─────────────────────────── */
+  --red:          oklch(0.625 0.180 25);
+  --red-deep:     oklch(0.530 0.170 25);
+  --red-soft:     oklch(0.32 0.110 25);
+
+  /* ── Status · money green, light → slightly darker ─────── */
+  --ok:           oklch(0.78 0.130 148);
+  --ok-deep:      oklch(0.62 0.125 148);
+  --ok-soft:      oklch(0.88 0.110 148);
+  --ok-grad:      linear-gradient(135deg, oklch(0.88 0.110 148) 0%, oklch(0.78 0.130 148) 50%, oklch(0.62 0.125 148) 100%);
+}
+
+/* ── Section dividers + subtle top hairlines ────────────── */
+body.dark .spread { border-bottom: 1px solid color-mix(in oklch, var(--ink), transparent 88%); }
+body.dark .spread--cream-deep { background: var(--cream-deep); }
+
+/* ── Wordmark: navy strokes flip to cream ──────────────── */
+body.dark .wordmark__a,
+body.dark .wordmark__b { color: var(--ink); }
+
+/* ── Cover stripe trio: re-balanced for dark ──────────── */
+body.dark .rule-stripe--navy  { background: var(--ink); }
+body.dark .rule-stripe--cream { background: var(--cream-deep); border-top-color: var(--stone); border-bottom-color: var(--stone); }
+body.dark .rule-stripe--red   { background: var(--red); }
+
+/* ── Cards: navy variant becomes a cream invert ───────── */
+body.dark .card--navy {
+  background: var(--ink);          /* cream */
+  color: var(--cream);              /* dark navy text */
+  border-color: var(--ink-muted);
+}
+body.dark .card--navy .h3-serif,
+body.dark .card--navy .h2-serif { color: var(--cream); }
+body.dark .card--navy .h3-serif em,
+body.dark .card--navy .h2-serif em { color: var(--red); }
+body.dark .card--navy .voice__cols .kicker { color: oklch(0.32 0.04 258); }
+body.dark .card--navy .voice__cols p:not(.kicker) { color: oklch(0.18 0.04 258); }
+body.dark .card--navy .voice__cols .serif-italic { color: var(--cream); }
+body.dark .card--navy .voice__cols { border-top-color: oklch(0.6 0.04 258); }
+body.dark .card--navy .eyebrow--cream { color: oklch(0.40 0.05 258); }
+body.dark .closing p[style*="--cream-soft"] { color: oklch(0.32 0.04 258) !important; }
+body.dark .closing h3[style*="--cream"] { color: var(--cream) !important; }
+
+/* ── Eyebrows: --cream variant in dark ─────────────────── */
+body.dark .eyebrow--cream { color: color-mix(in oklch, var(--ink), transparent 25%); }
+
+/* ── Audience accent strips ────────────────────────────── */
+body.dark .audience-card--donor  { border-top-color: var(--ink); }
+body.dark .audience-card--parent { border-top-color: oklch(0.62 0.04 85); }
+body.dark .audience-card--school { border-top-color: var(--red); }
+
+/* ── Ratio bar: re-tuned segments for dark roles ───────── */
+body.dark .ratio__seg--cream   { background: var(--cream); color: var(--ink); border-right: 1px solid var(--stone); }
+body.dark .ratio__seg--navy    { background: var(--paper); color: var(--ink); border-right: 1px solid var(--stone); }
+body.dark .ratio__seg--neutral { background: var(--ink); color: var(--cream); }
+body.dark .ratio__seg--red     { background: var(--red); color: var(--ink); }
+
+/* ── Swatch borders so light cream swatch reads on dark ── */
+body.dark .swatch[style*="--paper"] { border: 1px solid var(--stone) !important; }
+
+/* ── Code block: keep it dark but lift for the field ───── */
+body.dark .code { background: oklch(0.10 0.030 258); color: var(--ink); border: 1px solid var(--stone); }
+
+/* ── Tables: hairlines visible on dark ─────────────────── */
+body.dark .datatable thead th { border-bottom-color: var(--ink); color: var(--ink-muted); }
+body.dark .datatable tbody td { border-bottom-color: color-mix(in oklch, var(--stone), transparent 30%); }
+body.dark .datatable tbody tr:last-child td { border-bottom-color: var(--ink); }
+
+/* ── Buttons: ghost reads on dark ──────────────────────── */
+body.dark .btn--ghost { color: var(--ink); }
+body.dark .btn--ghost:hover { color: var(--red); }
+body.dark .btn--secondary { background: var(--ink); color: var(--cream); }
+body.dark .btn--secondary:hover { background: var(--ink-muted); }
+
+/* ── Stat tile numerals: navy → cream now ──────────────── */
+body.dark .stat-tile__num { color: var(--ink); }
+body.dark .stat-tile__num span { color: var(--red); }
+
+/* ── Campaign card media placeholders, callout mark ────── */
+body.dark .callout { background: var(--cream-deep); border-color: var(--stone); }
+body.dark .callout__mark { background: var(--ink); }
+body.dark .callout__kicker { color: var(--ink); }
+
+/* ── Pull quote rules ──────────────────────────────────── */
+body.dark .pullquote { border-top-color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ── Steps: rules visible ──────────────────────────────── */
+body.dark .steps li:first-child { border-top-color: var(--ink); }
+body.dark .steps li:last-child  { border-bottom-color: var(--ink); }
+
+/* ── Section number underline ──────────────────────────── */
+body.dark .section-num { border-top-color: var(--ink); }
+body.dark .toc li { border-bottom-color: color-mix(in oklch, var(--ink), transparent 70%); }
+body.dark .pillar { border-top-color: color-mix(in oklch, var(--stone), transparent 0%); }
+
+/* ── Audience mini cards ───────────────────────────────── */
+body.dark .aud-mini__card:hover { border-color: var(--ink); }
+
+/* ── Templates: window chrome and nav ──────────────────── */
+body.dark .tpl-frame { box-shadow: 0 24px 48px -28px oklch(0.05 0.02 258); }
+body.dark .tpl-chrome { background: var(--cream-deep); }
+body.dark .mock-nav { background: var(--paper); }
+body.dark .tpl-a-hero { background: var(--cream); }
+body.dark .verified-row { background: var(--cream-deep); border-color: var(--stone); }
+body.dark .verified-row__seal { background: var(--ink); color: var(--cream); }
+
+/* ── Donate amount picker on dark ──────────────────────── */
+body.dark .amount { background: var(--cream-deep); border-color: var(--stone); color: var(--ink); }
+body.dark .amount:hover { border-color: var(--ink); }
+body.dark .amount--active { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+/* ── Grid demo readable ────────────────────────────────── */
+body.dark .grid-demo { background: var(--paper); border-color: var(--stone); }
+body.dark .grid-demo__cols span { background: color-mix(in oklch, var(--ink), transparent 80%); }
+body.dark .sp > div { background: var(--ink); }
+
+/* ── Spacing : type aa cards ───────────────────────────── */
+body.dark .serif-aa, body.dark .sans-aa, body.dark .mono-aa { color: var(--ink); }
+
+/* ── Phase checks readable ─────────────────────────────── */
+body.dark .phase__exit { color: var(--ink); border-top-color: var(--stone); }
+
+/* ── code mono inline pill ─────────────────────────────── */
+body.dark code.mono { background: var(--cream-deep); color: var(--ink); border: 1px solid var(--stone); }
+
+/* ── Do/Don't ground colors ────────────────────────────── */
+body.dark .dd-sample { background: var(--cream-deep); border-color: var(--stone); }
+body.dark .dd-sample--bad { background: color-mix(in oklch, var(--red), oklch(0.15 0.04 258) 70%); border-color: var(--red-soft); }
+
+/* ── List inline bullets ───────────────────────────────── */
+body.dark .list-inline li::before { color: var(--red); }
+
+/* ── Emphasis stack strikethrough ──────────────────────── */
+body.dark .emphasis-stack .bad::after { background: var(--red); }
+
+/* ── Selection ─────────────────────────────────────────── */
+body.dark ::selection { background: var(--red); color: var(--ink); }

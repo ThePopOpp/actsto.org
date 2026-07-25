@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1320" />
+<title>ACTSTO · Book + Cross Identity v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;0,9..144,900;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="logo-v2.css" />
+<style>
+  /* ── Mark fill mappings ──────────────────────────────────── */
+
+  /* Isometric flat — light variant */
+  .iso-flat-light .iso-cover     { fill: var(--navy); }
+  .iso-flat-light .iso-page-top  { fill: var(--cream); }
+  .iso-flat-light .iso-page-side { fill: var(--cream-deep); }
+  .iso-flat-light .iso-cross     { fill: var(--red); }
+  .iso-flat-light .iso-edge      { stroke: var(--navy-deep); stroke-width: 0.4; fill: none; opacity: 0.4; }
+
+  /* Isometric flat — dark variant (on navy bg) */
+  .iso-flat-dark .iso-cover      { fill: var(--cream); }
+  .iso-flat-dark .iso-page-top   { fill: oklch(0.55 0.045 256); }
+  .iso-flat-dark .iso-page-side  { fill: oklch(0.42 0.045 256); }
+  .iso-flat-dark .iso-cross      { fill: var(--red); }
+  .iso-flat-dark .iso-edge       { stroke: var(--navy-deep); stroke-width: 0.4; fill: none; opacity: 0.4; }
+
+  /* Isometric 3D — uses gradient classes on stops */
+  .iso-3d .grad-cover-a   { stop-color: oklch(0.32 0.058 258); }
+  .iso-3d .grad-cover-b   { stop-color: oklch(0.16 0.048 258); }
+  .iso-3d .grad-pagetop-a { stop-color: oklch(0.99 0.005 85); }
+  .iso-3d .grad-pagetop-b { stop-color: oklch(0.91 0.018 85); }
+  .iso-3d .grad-pageside-a{ stop-color: oklch(0.94 0.014 85); }
+  .iso-3d .grad-pageside-b{ stop-color: oklch(0.80 0.015 85); }
+  .iso-3d .grad-cross-a   { stop-color: oklch(0.58 0.158 25); }
+  .iso-3d .grad-cross-b   { stop-color: oklch(0.36 0.148 25); }
+  .iso-3d .page-line      { stroke: oklch(0.66 0.012 85); stroke-width: 0.25; opacity: 0.7; }
+  .iso-3d .shadow         { fill: var(--ink); opacity: 0.18; }
+  .iso-3d .cross-hi       { stroke: oklch(0.62 0.16 25); stroke-width: 0.4; fill: none; opacity: 0.6; }
+
+  /* Isometric 3D — dark variant */
+  .iso-3d-dark .grad-cover-a   { stop-color: oklch(0.99 0.005 85); }
+  .iso-3d-dark .grad-cover-b   { stop-color: oklch(0.85 0.014 85); }
+  .iso-3d-dark .grad-pagetop-a { stop-color: oklch(0.62 0.05 256); }
+  .iso-3d-dark .grad-pagetop-b { stop-color: oklch(0.32 0.052 258); }
+  .iso-3d-dark .grad-pageside-a{ stop-color: oklch(0.50 0.05 256); }
+  .iso-3d-dark .grad-pageside-b{ stop-color: oklch(0.24 0.05 258); }
+  .iso-3d-dark .grad-cross-a   { stop-color: oklch(0.58 0.158 25); }
+  .iso-3d-dark .grad-cross-b   { stop-color: oklch(0.36 0.148 25); }
+  .iso-3d-dark .page-line      { stroke: oklch(0.22 0.05 258); stroke-width: 0.25; opacity: 0.8; }
+  .iso-3d-dark .shadow         { fill: black; opacity: 0.4; }
+  .iso-3d-dark .cross-hi       { stroke: oklch(0.66 0.18 25); stroke-width: 0.4; fill: none; opacity: 0.6; }
+
+  /* Negative space flat — light */
+  .ns-flat-light .ns-book   { fill: var(--navy); }
+  .ns-flat-light .ns-spine  { stroke: var(--cream); stroke-width: 0.7; opacity: 0.35; }
+  .ns-flat-light .ns-corner { fill: var(--navy-deep); }
+
+  /* Negative space flat — dark (cream book on navy bg) */
+  .ns-flat-dark .ns-book   { fill: var(--cream); }
+  .ns-flat-dark .ns-spine  { stroke: var(--navy); stroke-width: 0.7; opacity: 0.35; }
+  .ns-flat-dark .ns-corner { fill: var(--cream-deep); }
+
+  /* Negative space 3D — light */
+  .ns-3d-light .ns3d-cover  { fill: var(--navy); }
+  .ns-3d-light .ns3d-inner  { fill: var(--red); }
+  .ns-3d-light .ns3d-side   { fill: var(--cream-deep); }
+  .ns-3d-light .ns3d-top    { fill: var(--cream); }
+  .ns-3d-light .ns3d-spine  { stroke: var(--cream); stroke-width: 0.7; opacity: 0.4; }
+  .ns-3d-light .ns3d-ground { fill: var(--ink); opacity: 0.16; }
+  .ns-3d-light .ns3d-inner-shadow { fill: var(--red-deep); }
+  .ns-3d-light .ns3d-page-lines line { stroke: oklch(0.68 0.012 85); stroke-width: 0.3; opacity: 0.6; }
+
+  /* Negative space 3D — dark */
+  .ns-3d-dark .ns3d-cover  { fill: var(--cream); }
+  .ns-3d-dark .ns3d-inner  { fill: var(--red); }
+  .ns-3d-dark .ns3d-side   { fill: oklch(0.78 0.018 85); }
+  .ns-3d-dark .ns3d-top    { fill: oklch(0.88 0.014 85); }
+  .ns-3d-dark .ns3d-spine  { stroke: var(--navy-deep); stroke-width: 0.7; opacity: 0.4; }
+  .ns-3d-dark .ns3d-ground { fill: black; opacity: 0.4; }
+  .ns-3d-dark .ns3d-inner-shadow { fill: var(--red-deep); }
+  .ns-3d-dark .ns3d-page-lines line { stroke: oklch(0.62 0.012 85); stroke-width: 0.3; opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<!-- SVG mark templates                                            -->
+<!-- ──────────────────────────────────────────────────────────── -->
+
+<!-- 1 · ISOMETRIC FLAT (book lying on its back, cover up) -->
+<template id="tmpl-iso-flat">
+  <svg viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg">
+    <!-- Right side / fore-edge of pages -->
+    <path class="iso-page-side" d="M 85.98 45 L 85.98 85 L 79.05 89 L 79.05 49 Z" />
+    <!-- Top of pages (visible behind cover, between cover top edge and spine) -->
+    <path class="iso-page-top" d="M 60 30 L 85.98 45 L 79.05 49 L 53.07 34 Z" />
+    <!-- Front cover -->
+    <path class="iso-cover" d="M 53.07 34 L 79.05 49 L 79.05 89 L 53.07 74 Z" />
+    <!-- Cross — vertical arm (Latin, longer below center) -->
+    <path class="iso-cross" d="M 64.33 41.5 L 67.79 43.5 L 67.79 76 L 64.33 74 Z" />
+    <!-- Cross — horizontal arm (upper portion) -->
+    <path class="iso-cross" d="M 58.27 47 L 73.86 56 L 73.86 60 L 58.27 51 Z" />
+  </svg>
+</template>
+
+<!-- 2 · ISOMETRIC 3D (gradients, page lines, drop shadow) -->
+<template id="tmpl-iso-3d">
+  <svg viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="g-iso-cover" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   class="grad-cover-a" />
+        <stop offset="100%" class="grad-cover-b" />
+      </linearGradient>
+      <linearGradient id="g-iso-pagetop" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   class="grad-pagetop-a" />
+        <stop offset="100%" class="grad-pagetop-b" />
+      </linearGradient>
+      <linearGradient id="g-iso-pageside" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   class="grad-pageside-a" />
+        <stop offset="100%" class="grad-pageside-b" />
+      </linearGradient>
+      <linearGradient id="g-iso-cross" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   class="grad-cross-a" />
+        <stop offset="100%" class="grad-cross-b" />
+      </linearGradient>
+    </defs>
+
+    <!-- Drop shadow ground -->
+    <ellipse class="shadow" cx="68" cy="95" rx="32" ry="3" />
+
+    <!-- Right side with page edge lines -->
+    <path fill="url(#g-iso-pageside)" d="M 85.98 45 L 85.98 85 L 79.05 89 L 79.05 49 Z" />
+    <g class="page-lines">
+      <line class="page-line" x1="85.98" y1="50" x2="79.05" y2="54" />
+      <line class="page-line" x1="85.98" y1="54" x2="79.05" y2="58" />
+      <line class="page-line" x1="85.98" y1="58" x2="79.05" y2="62" />
+      <line class="page-line" x1="85.98" y1="62" x2="79.05" y2="66" />
+      <line class="page-line" x1="85.98" y1="66" x2="79.05" y2="70" />
+      <line class="page-line" x1="85.98" y1="70" x2="79.05" y2="74" />
+      <line class="page-line" x1="85.98" y1="74" x2="79.05" y2="78" />
+      <line class="page-line" x1="85.98" y1="78" x2="79.05" y2="82" />
+      <line class="page-line" x1="85.98" y1="82" x2="79.05" y2="86" />
+    </g>
+
+    <!-- Top of pages -->
+    <path fill="url(#g-iso-pagetop)" d="M 60 30 L 85.98 45 L 79.05 49 L 53.07 34 Z" />
+
+    <!-- Front cover -->
+    <path fill="url(#g-iso-cover)" d="M 53.07 34 L 79.05 49 L 79.05 89 L 53.07 74 Z" />
+
+    <!-- Cross — vertical arm (Latin) -->
+    <path fill="url(#g-iso-cross)" d="M 64.33 41.5 L 67.79 43.5 L 67.79 76 L 64.33 74 Z" />
+    <!-- Cross — horizontal arm (upper) -->
+    <path fill="url(#g-iso-cross)" d="M 58.27 47 L 73.86 56 L 73.86 60 L 58.27 51 Z" />
+    <!-- Cross top-edge highlight (3D bevel) -->
+    <path class="cross-hi" d="M 64.33 41.5 L 67.79 43.5" />
+    <path class="cross-hi" d="M 58.27 47 L 73.86 56" />
+  </svg>
+</template>
+
+<!-- 3 · NEGATIVE SPACE FLAT (front view, cross cut out) -->
+<template id="tmpl-ns-flat">
+  <svg viewBox="0 0 90 105" xmlns="http://www.w3.org/2000/svg">
+    <!-- Book rectangle with Latin cross-shaped hole -->
+    <path class="ns-book" fill-rule="evenodd"
+      d="M 12 12 H 78 V 96 H 12 Z
+         M 42 22 H 48 V 36 H 65 V 44 H 48 V 84 H 42 V 44 H 25 V 36 H 42 Z" />
+    <!-- Spine accent on left -->
+    <line class="ns-spine" x1="19" y1="14" x2="19" y2="94" />
+  </svg>
+</template>
+
+<!-- 4 · NEGATIVE SPACE 3D (extruded book; cross reveals red interior) -->
+<template id="tmpl-ns-3d">
+  <svg viewBox="0 0 100 112" xmlns="http://www.w3.org/2000/svg">
+    <!-- Ground shadow -->
+    <ellipse class="ns3d-ground" cx="48" cy="104" rx="38" ry="3" />
+
+    <!-- Top edge of book (page tops, seen due to slight overhang) -->
+    <path class="ns3d-top" d="M 12 12 L 18 6 H 84 L 78 12 Z" />
+    <!-- Right side / fore-edge of pages -->
+    <path class="ns3d-side" d="M 78 12 L 84 6 V 90 L 78 96 Z" />
+    <!-- Inner color showing through the cross (red interior) -->
+    <rect class="ns3d-inner" x="14" y="14" width="62" height="80" />
+    <!-- Inner darker shadow ring around the cross hole (depth illusion) -->
+    <path class="ns3d-inner-shadow" fill-rule="evenodd"
+      d="M 44 24 H 46 V 34 H 63 V 42 H 46 V 86 H 44 V 42 H 27 V 34 H 44 Z
+         M 42 22 H 48 V 36 H 65 V 44 H 48 V 84 H 42 V 44 H 25 V 36 H 42 Z" />
+    <!-- Front cover (navy) with Latin cross cutout -->
+    <path class="ns3d-cover" fill-rule="evenodd"
+      d="M 12 12 H 78 V 96 H 12 Z
+         M 42 22 H 48 V 36 H 65 V 44 H 48 V 84 H 42 V 44 H 25 V 36 H 42 Z" />
+    <!-- Spine -->
+    <line class="ns3d-spine" x1="19" y1="14" x2="19" y2="94" />
+    <!-- Page edge striations on the right side -->
+    <g class="ns3d-page-lines">
+      <line x1="79" y1="22" x2="83" y2="18" />
+      <line x1="79" y1="28" x2="83" y2="24" />
+      <line x1="79" y1="34" x2="83" y2="30" />
+      <line x1="79" y1="40" x2="83" y2="36" />
+      <line x1="79" y1="46" x2="83" y2="42" />
+      <line x1="79" y1="52" x2="83" y2="48" />
+      <line x1="79" y1="58" x2="83" y2="54" />
+      <line x1="79" y1="64" x2="83" y2="60" />
+      <line x1="79" y1="70" x2="83" y2="66" />
+      <line x1="79" y1="76" x2="83" y2="72" />
+      <line x1="79" y1="82" x2="83" y2="78" />
+      <line x1="79" y1="88" x2="83" y2="84" />
+    </g>
+  </svg>
+</template>
+
+<div class="page">
+
+  <!-- ─────────────────────────── Masthead ─────────────────────────── -->
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Identity v2 · Book + Cross Direction</p>
+      <h1 class="h-display"><span class="wm wm--caps" style="font-size:64px">ACTSTO</span></h1>
+      <p class="lede" style="margin-top:18px">Two design directions for the ACTSTO mark &mdash; each rooted in a closed book and a Christian cross. <em>Isometric</em>, where the book sits in dimensional space and the cross is on the cover. <em>Negative space</em>, where the cross is cut out of the book itself. Each direction in flat and 3D, on light and dark.</p>
+    </div>
+    <div class="masthead__meta">
+      <span>v2.0 · May 2026</span>
+      <span>4 marks · 2 modes</span>
+    </div>
+  </header>
+
+  <!-- ─────────────────────────── §01 Direction comparison ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 01</span>
+      <div>
+        <p class="eyebrow">The Two Directions</p>
+        <h2 class="h1">A book and a cross &mdash; <em>two</em> ways to render the same idea.</h2>
+        <p class="lede">A closed Christian book carries education, scripture, and stewardship in one mark. Whether to put the cross <em>on</em> the book (isometric) or <em>through</em> it (negative space) is the brand decision.</p>
+      </div>
+    </header>
+
+    <div class="compare">
+      <div class="frame frame--light">
+        <span class="frame__label">direction · isometric</span>
+        <div class="compare-stage">
+          <span class="mark iso-3d" data-mark="iso-3d"></span>
+        </div>
+        <div class="compare-cap">
+          <div><p class="eyebrow eyebrow--red">⬤ A · Isometric</p><p class="h3">Book in dimensional space</p></div>
+          <span class="note">3D shown</span>
+        </div>
+      </div>
+
+      <div class="frame frame--light">
+        <span class="frame__label">direction · negative space</span>
+        <div class="compare-stage">
+          <span class="mark ns-flat-light" data-mark="ns-flat"></span>
+        </div>
+        <div class="compare-cap">
+          <div><p class="eyebrow eyebrow--red">⬤ B · Negative Space</p><p class="h3">Cross cut from the cover</p></div>
+          <span class="note">Flat shown</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── §02 Isometric — flat ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 02</span>
+      <div>
+        <p class="eyebrow">Direction A · Isometric · Flat</p>
+        <h2 class="h1">The book <em>sits</em> in space. The cross sits on its cover.</h2>
+        <p class="lede">Two-color isometric rendering. Three faces visible: cover (navy), top of pages, and fore-edge. The cross is on the cover &mdash; long vertical, short horizontal &mdash; aligned with the book's local axes.</p>
+      </div>
+    </header>
+
+    <div class="variant-grid">
+      <div class="frame frame--light">
+        <span class="frame__label">light</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark iso-flat-light" data-mark="iso-flat"></span>
+        </div>
+        <div class="variant-cap"><span>iso · flat · light</span><span>cream + navy + red</span></div>
+      </div>
+      <div class="frame frame--dark">
+        <span class="frame__label">dark</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark iso-flat-dark" data-mark="iso-flat"></span>
+        </div>
+        <div class="variant-cap"><span>iso · flat · dark</span><span>navy + cream + red</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── §03 Isometric — 3D ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 03</span>
+      <div>
+        <p class="eyebrow">Direction A · Isometric · 3D</p>
+        <h2 class="h1">Same book &mdash; with <em>light</em>, page edges, a shadow.</h2>
+        <p class="lede">3D rendering adds linear gradients (lit from upper-right), page-edge striations on the fore-edge, a beveled highlight on the cross, and a soft ground shadow. Use when the brand wants depth &mdash; campaign hero art, app marquees, gala invites.</p>
+      </div>
+    </header>
+
+    <div class="variant-grid">
+      <div class="frame frame--light">
+        <span class="frame__label">light</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark iso-3d" data-mark="iso-3d"></span>
+        </div>
+        <div class="variant-cap"><span>iso · 3D · light</span><span>shaded + page lines</span></div>
+      </div>
+      <div class="frame frame--dark">
+        <span class="frame__label">dark</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark iso-3d-dark" data-mark="iso-3d"></span>
+        </div>
+        <div class="variant-cap"><span>iso · 3D · dark</span><span>shaded + page lines</span></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Lockups with wordmark -->
+    <p class="eyebrow">With wordmark · landscape lockup</p>
+    <div class="variant-grid" style="margin-top:18px">
+      <div class="frame frame--light">
+        <div class="variant-stage" style="min-height:160px">
+          <div class="lockup lockup--lg">
+            <span class="mark iso-3d" data-mark="iso-3d"></span>
+            <span class="wm wm--caps">ACTSTO</span>
+          </div>
+        </div>
+      </div>
+      <div class="frame frame--dark">
+        <div class="variant-stage" style="min-height:160px">
+          <div class="lockup lockup--lg">
+            <span class="mark iso-3d-dark" data-mark="iso-3d"></span>
+            <span class="wm wm--caps wm--reverse">ACTSTO</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── §04 Negative space — flat ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 04</span>
+      <div>
+        <p class="eyebrow">Direction B · Negative Space · Flat</p>
+        <h2 class="h1">The cross is <em>not</em> drawn &mdash; the book opens around it.</h2>
+        <p class="lede">A front-view book silhouette with a Christian cross cut as a hole. The negative space carries the meaning: the cross is what the book makes room for. Highly reducible &mdash; works at favicon size with no detail loss.</p>
+      </div>
+    </header>
+
+    <div class="variant-grid">
+      <div class="frame frame--light">
+        <span class="frame__label">light</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark ns-flat-light" data-mark="ns-flat"></span>
+        </div>
+        <div class="variant-cap"><span>negative · flat · light</span><span>navy book, cream cross</span></div>
+      </div>
+      <div class="frame frame--dark">
+        <span class="frame__label">dark</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark ns-flat-dark" data-mark="ns-flat"></span>
+        </div>
+        <div class="variant-cap"><span>negative · flat · dark</span><span>cream book, navy cross</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── §05 Negative space — 3D ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 05</span>
+      <div>
+        <p class="eyebrow">Direction B · Negative Space · 3D</p>
+        <h2 class="h1">The book has depth &mdash; the cross reveals a <em>red interior</em>.</h2>
+        <p class="lede">Extruded version. The cover sits in front, the top and fore-edges of pages show above and to the right, and the cross cut-out reveals a Liberty Red interior &mdash; as if the book itself is full of the gift inside. Use for large-format and dimensional applications.</p>
+      </div>
+    </header>
+
+    <div class="variant-grid">
+      <div class="frame frame--light">
+        <span class="frame__label">light</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark ns-3d-light" data-mark="ns-3d"></span>
+        </div>
+        <div class="variant-cap"><span>negative · 3D · light</span><span>navy cover, red interior</span></div>
+      </div>
+      <div class="frame frame--dark">
+        <span class="frame__label">dark</span>
+        <div class="variant-stage variant-stage--lg">
+          <span class="mark ns-3d-dark" data-mark="ns-3d"></span>
+        </div>
+        <div class="variant-cap"><span>negative · 3D · dark</span><span>cream cover, red interior</span></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Lockups with wordmark -->
+    <p class="eyebrow">With wordmark · landscape lockup</p>
+    <div class="variant-grid" style="margin-top:18px">
+      <div class="frame frame--light">
+        <div class="variant-stage" style="min-height:160px">
+          <div class="lockup lockup--lg">
+            <span class="mark ns-3d-light" data-mark="ns-3d"></span>
+            <span class="wm wm--caps">ACTSTO</span>
+          </div>
+        </div>
+      </div>
+      <div class="frame frame--dark">
+        <div class="variant-stage" style="min-height:160px">
+          <div class="lockup lockup--lg">
+            <span class="mark ns-3d-dark" data-mark="ns-3d"></span>
+            <span class="wm wm--caps wm--reverse">ACTSTO</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── §06 Wordmark ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 06</span>
+      <div>
+        <p class="eyebrow">Wordmark</p>
+        <h2 class="h1">ACTSTO &mdash; one word, <em>combined</em> letterforms.</h2>
+        <p class="lede">Set in Fraunces 700, tracking pulled tight so adjacent serifs touch. Reads as a single word, never &ldquo;acts to&rdquo; separated. The <span class="mono">.org</span> domain rides as a quieter suffix when needed.</p>
+      </div>
+    </header>
+
+    <div class="wm-explorer">
+      <div class="frame frame--light wm-card">
+        <p class="wm-card__title">Primary · brand name only</p>
+        <span class="wm wm--caps">ACTSTO</span>
+        <p class="caption">Use on the mark lockup, app launch screen, hero, swag.</p>
+      </div>
+      <div class="frame frame--cream wm-card">
+        <p class="wm-card__title">With domain · light</p>
+        <span class="wm wm--lowercase">actsto<span class="wm__tld">.org</span></span>
+        <p class="caption">Use in nav headers, footers, email signatures, anywhere the URL matters.</p>
+      </div>
+      <div class="frame frame--dark wm-card">
+        <p class="wm-card__title">Primary · reversed</p>
+        <span class="wm wm--caps wm--reverse">ACTSTO</span>
+      </div>
+      <div class="frame frame--ink wm-card">
+        <p class="wm-card__title">With domain · reversed</p>
+        <span class="wm wm--lowercase wm--reverse">actsto<span class="wm__tld">.org</span></span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <p class="eyebrow">Scale</p>
+    <div class="frame frame--light" style="padding:48px 36px; margin-top:14px">
+      <div style="display:flex; flex-direction:column; gap:30px">
+        <span class="wm wm--caps" style="font-size:96px">ACTSTO</span>
+        <span class="wm wm--caps" style="font-size:64px">ACTSTO</span>
+        <span class="wm wm--caps" style="font-size:42px">ACTSTO</span>
+        <span class="wm wm--caps" style="font-size:24px">ACTSTO</span>
+        <span class="wm wm--lowercase" style="font-size:42px">actsto<span class="wm__tld">.org</span></span>
+        <span class="wm wm--lowercase" style="font-size:24px">actsto<span class="wm__tld">.org</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── §07 Full lockups ─────────────────────────── -->
+  <section class="section">
+    <header class="section__head">
+      <span class="section__num">§ 07</span>
+      <div>
+        <p class="eyebrow">Full Lockups</p>
+        <h2 class="h1">The mark, with its name &mdash; how it ships.</h2>
+      </div>
+    </header>
+
+    <!-- Direction A · Isometric 3D lockups -->
+    <p class="eyebrow">Direction A · Isometric</p>
+    <div class="variant-grid" style="margin: 18px 0 28px">
+      <!-- Portrait stacked -->
+      <div class="frame frame--light">
+        <span class="frame__label">portrait · with domain</span>
+        <div class="variant-stage variant-stage--lg">
+          <div class="lockup lockup--stacked">
+            <span class="mark iso-3d" data-mark="iso-3d" style="width:120px;height:120px"></span>
+            <span class="wm wm--lowercase" style="font-size:38px">actsto<span class="wm__tld">.org</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="frame frame--dark">
+        <span class="frame__label">portrait · reversed</span>
+        <div class="variant-stage variant-stage--lg">
+          <div class="lockup lockup--stacked">
+            <span class="mark iso-3d-dark" data-mark="iso-3d" style="width:120px;height:120px"></span>
+            <span class="wm wm--lowercase wm--reverse" style="font-size:38px">actsto<span class="wm__tld">.org</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direction B · Negative space lockups -->
+    <p class="eyebrow">Direction B · Negative Space</p>
+    <div class="variant-grid" style="margin-top:18px">
+      <div class="frame frame--light">
+        <span class="frame__label">portrait · with domain</span>
+        <div class="variant-stage variant-stage--lg">
+          <div class="lockup lockup--stacked">
+            <span class="mark ns-3d-light" data-mark="ns-3d" style="width:120px;height:130px"></span>
+            <span class="wm wm--lowercase" style="font-size:38px">actsto<span class="wm__tld">.org</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="frame frame--dark">
+        <span class="frame__label">portrait · reversed</span>
+        <div class="variant-stage variant-stage--lg">
+          <div class="lockup lockup--stacked">
+            <span class="mark ns-3d-dark" data-mark="ns-3d" style="width:120px;height:130px"></span>
+            <span class="wm wm--lowercase wm--reverse" style="font-size:38px">actsto<span class="wm__tld">.org</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Small-scale comparison -->
+    <p class="eyebrow">At UI scale · favicon to landscape header</p>
+    <div class="variant-grid variant-grid--four" style="margin-top:18px">
+      <div class="frame frame--light">
+        <div class="variant-stage" style="min-height:140px">
+          <div class="lockup lockup--sm">
+            <span class="mark iso-flat-light" data-mark="iso-flat" style="width:36px;height:36px"></span>
+            <span class="wm wm--caps" style="font-size:18px">ACTSTO</span>
+          </div>
+        </div>
+        <div class="variant-cap"><span>iso flat · 36px</span><span>nav header</span></div>
+      </div>
+      <div class="frame frame--light">
+        <div class="variant-stage" style="min-height:140px">
+          <div class="lockup lockup--sm">
+            <span class="mark ns-flat-light" data-mark="ns-flat" style="width:36px;height:36px"></span>
+            <span class="wm wm--caps" style="font-size:18px">ACTSTO</span>
+          </div>
+        </div>
+        <div class="variant-cap"><span>negative flat · 36px</span><span>nav header</span></div>
+      </div>
+      <div class="frame frame--dark">
+        <div class="variant-stage" style="min-height:140px">
+          <div class="lockup lockup--sm">
+            <span class="mark iso-flat-dark" data-mark="iso-flat" style="width:36px;height:36px"></span>
+            <span class="wm wm--caps wm--reverse" style="font-size:18px">ACTSTO</span>
+          </div>
+        </div>
+        <div class="variant-cap"><span>iso flat · dark</span><span>nav header</span></div>
+      </div>
+      <div class="frame frame--dark">
+        <div class="variant-stage" style="min-height:140px">
+          <div class="lockup lockup--sm">
+            <span class="mark ns-flat-dark" data-mark="ns-flat" style="width:36px;height:36px"></span>
+            <span class="wm wm--caps wm--reverse" style="font-size:18px">ACTSTO</span>
+          </div>
+        </div>
+        <div class="variant-cap"><span>negative flat · dark</span><span>nav header</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <span>actsto · identity v2.0 · book + cross</span>
+    <span>Fraunces · custom letterforms</span>
+    <span>May 2026 · exploration</span>
+  </footer>
+
+</div>
+
+<script>
+  // Inject the right SVG template into each .mark[data-mark]
+  (function () {
+    const templates = {
+      'iso-flat': document.getElementById('tmpl-iso-flat'),
+      'iso-3d':   document.getElementById('tmpl-iso-3d'),
+      'ns-flat':  document.getElementById('tmpl-ns-flat'),
+      'ns-3d':    document.getElementById('tmpl-ns-3d'),
+    };
+    document.querySelectorAll('.mark[data-mark]').forEach(el => {
+      const key = el.getAttribute('data-mark');
+      const tpl = templates[key];
+      if (!tpl) return;
+      el.appendChild(tpl.content.cloneNode(true));
+    });
+  })();
+</script>
+
+</body>
+</html>

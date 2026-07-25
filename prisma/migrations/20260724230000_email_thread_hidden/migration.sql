@@ -1,0 +1,1 @@
+ALTER TABLE "email_threads" ADD COLUMN IF NOT EXISTS "hidden" BOOLEAN NOT NULL DEFAULT false;

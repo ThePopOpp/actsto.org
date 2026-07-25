@@ -8,6 +8,7 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const threads = await prisma.emailThread.findMany({
+    where: { hidden: false },
     orderBy: { lastMessageAt: "desc" },
     take: 100,
     include: {

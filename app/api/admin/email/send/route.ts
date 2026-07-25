@@ -12,11 +12,14 @@ export async function POST(request: Request) {
     to?: string;
     subject?: string;
     text?: string;
+    html?: string;
   } | null;
 
   const to = (body?.to ?? "").trim();
   const subject = (body?.subject ?? "").trim();
-  const text = (body?.text ?? "").trim();
+  const html = body?.html?.trim() || undefined;
+  // When sending an HTML template, derive a plain-text fallback if none supplied.
+  const text = (body?.text ?? "").trim() || (html ? "This email is best viewed in an HTML-capable mail client." : "");
 
   if (!to || !to.includes("@")) {
     return NextResponse.json({ error: "Recipient email is required." }, { status: 400 });
@@ -26,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const info = await sendSmtpEmail({ to, subject, text });
+    const info = await sendSmtpEmail({ to, subject, text, html });
     await prisma.emailThread.create({
       data: {
         channel: "email",
