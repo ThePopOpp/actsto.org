@@ -1119,6 +1119,56 @@ model CallLog {
   @@map("call_logs")
 }
 
+/// Internal direct-messaging (no third-party APIs). Participation is gated by
+/// role-pair rules in lib/messaging/permissions.ts.
+model Conversation {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  isGroup       Boolean  @default(false) @map("is_group")
+  title         String?
+  createdBy     String?  @map("created_by") @db.Uuid
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  participants ConversationParticipant[]
+  messages     DirectMessage[]
+
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  role           String?
+  lastReadAt     DateTime? @map("last_read_at")
+  hidden         Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model DirectMessage {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  senderId       String    @map("sender_id") @db.Uuid
+  body           String
+  attachmentUrl  String?   @map("attachment_url")
+  editedAt       DateTime? @map("edited_at")
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("direct_messages")
+}
+
 model SmsTemplate {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title     String
