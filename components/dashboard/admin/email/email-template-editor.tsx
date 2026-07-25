@@ -2,22 +2,67 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Code2, Copy, Eye, LayoutGrid, Loader2, Save } from "lucide-react";
+import {
+  Code,
+  Code2,
+  Columns2,
+  Columns3,
+  Columns4,
+  Copy,
+  Heading as HeadingIcon,
+  Image as ImageIcon,
+  Images,
+  LayoutGrid,
+  Loader2,
+  Minus,
+  MousePointerClick,
+  MoveVertical,
+  Music,
+  Pilcrow,
+  Quote,
+  Save,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 
-import { BlockEditor } from "@/components/dashboard/admin/blog/block-editor";
+import { BlockFields, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { blocksToHtml, coerceBlocks, type BlogBlock } from "@/lib/blog/blocks";
+import {
+  BLOG_BLOCK_DEFS,
+  blockDefaults,
+  blockToHtml,
+  blocksToHtml,
+  coerceBlocks,
+  type BlogBlock,
+  type BlogBlockProps,
+  type BlogBlockType,
+} from "@/lib/blog/blocks";
 import { EMAIL_MERGE_FIELDS } from "@/lib/email/merge-fields";
+import { cn } from "@/lib/utils";
 
 type Mode = "visual" | "html";
 
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Heading: HeadingIcon, Pilcrow, Image: ImageIcon, Images, Video: MoveVertical, Music, Quote,
+  MousePointerClick, Columns2, Columns3, Columns4, Code, Minus, MoveVertical,
+};
+
 function previewShell(inner: string) {
   return `<div style="background:#f5fbff;padding:24px 12px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#fff;border-radius:14px;padding:28px;font-family:Arial,Helvetica,sans-serif;"><tr><td>${inner}</td></tr></table></td></tr></table></div>`;
+}
+
+function uid() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `b-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+}
+function makeBlock(type: BlogBlockType): BlogBlock {
+  return { id: uid(), type, props: blockDefaults(type) };
 }
 
 export function EmailTemplateEditor({ editId }: { editId?: string }) {
@@ -29,7 +74,12 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
   const [mode, setMode] = useState<Mode>("visual");
   const [blocks, setBlocks] = useState<BlogBlock[]>([]);
   const [html, setHtml] = useState("");
-  const [showPreview, setShowPreview] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rewritingId, setRewritingId] = useState<string | null>(null);
+  const [fullPreview, setFullPreview] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -46,12 +96,83 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
       setPreheader(t.preheader ?? "");
       setStatus(t.status);
       const b = coerceBlocks(t.blocks);
-      if (b.length) { setBlocks(b); setMode("visual"); } else { setHtml(t.content ?? ""); setMode("html"); }
+      if (b.length) { setBlocks(b); setMode("visual"); setSelectedId(b[0].id); } else { setHtml(t.content ?? ""); setMode("html"); }
     })();
     return () => { active = false; };
   }, [editId]);
 
+  const selected = useMemo(() => blocks.find((b) => b.id === selectedId) ?? null, [blocks, selectedId]);
   const previewHtml = useMemo(() => previewShell(mode === "visual" ? blocksToHtml(blocks) : html), [mode, blocks, html]);
+
+  function add(type: BlogBlockType) {
+    const block = makeBlock(type);
+    setBlocks((prev) => [...prev, block]);
+    setSelectedId(block.id);
+  }
+  function update(id: string, patch: Partial<BlogBlockProps>) {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, props: { ...b.props, ...patch } } : b)));
+  }
+  function remove(id: string) {
+    setBlocks((prev) => prev.filter((b) => b.id !== id));
+    setSelectedId((cur) => (cur === id ? null : cur));
+  }
+  function duplicate(id: string) {
+    setBlocks((prev) => {
+      const i = prev.findIndex((b) => b.id === id);
+      if (i < 0) return prev;
+      const copy = { ...prev[i], id: uid(), props: { ...prev[i].props } };
+      return [...prev.slice(0, i + 1), copy, ...prev.slice(i + 1)];
+    });
+  }
+  function move(from: number, to: number) {
+    setBlocks((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }
+
+  async function rewrite(block: BlogBlock, instruction: string) {
+    setRewritingId(block.id);
+    try {
+      const res = await fetch("/api/admin/blog-posts/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "rewrite", text: block.props.content ?? "", instruction }),
+      });
+      const data = (await res.json().catch(() => null)) as { text?: string; error?: string } | null;
+      if (res.ok && data?.text) update(block.id, { content: data.text });
+    } finally {
+      setRewritingId(null);
+    }
+  }
+
+  async function aiDraft() {
+    if (!aiTopic.trim()) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/admin/blog-posts/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate", topic: aiTopic }),
+      });
+      const data = (await res.json().catch(() => null)) as { blocks?: BlogBlock[]; error?: string } | null;
+      const generated = Array.isArray(data?.blocks) ? data!.blocks : [];
+      if (generated.length) {
+        const withIds = generated.map((b) => ({ ...b, id: uid() }));
+        setBlocks((prev) => [...prev, ...withIds]);
+        setSelectedId(withIds[0].id);
+        setAiOpen(false);
+        setAiTopic("");
+      } else {
+        setNotice("The AI didn't return any blocks. Try a more specific topic.");
+      }
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   const save = useCallback(async () => {
     if (!title.trim()) { setNotice("A title is required."); return; }
@@ -78,17 +199,19 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
     window.setTimeout(() => setNotice(null), 1500);
   }
 
+  const selectedLabel = selected ? BLOG_BLOCK_DEFS.find((d) => d.type === selected.type)?.label ?? "Block" : null;
+
   return (
     <div className="space-y-4">
       {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 bg-card p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
         <span className="font-heading text-sm font-semibold text-primary">{editId ? "Edit template" : "New template"}</span>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
-            <button type="button" onClick={() => setMode("visual")} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${mode === "visual" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}><LayoutGrid className="size-4" /> Visual</button>
-            <button type="button" onClick={() => setMode("html")} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${mode === "html" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}><Code2 className="size-4" /> HTML</button>
+            <button type="button" onClick={() => setMode("visual")} className={cn("inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium", mode === "visual" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}><LayoutGrid className="size-4" /> Visual</button>
+            <button type="button" onClick={() => setMode("html")} className={cn("inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium", mode === "html" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}><Code2 className="size-4" /> HTML</button>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview((v) => !v)}><Eye className="mr-1.5 size-4" /> {showPreview ? "Hide" : "Show"} preview</Button>
+          {mode === "visual" ? <Button type="button" variant="outline" size="sm" onClick={() => setFullPreview(true)}>Full preview</Button> : null}
           <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>{busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />} Save</Button>
         </div>
       </div>
@@ -119,26 +242,127 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
         </div>
       </div>
 
-      <div className={showPreview ? "grid gap-4 xl:grid-cols-2" : ""}>
-        {/* Editor */}
-        <div>
-          {mode === "visual" ? (
-            <BlockEditor value={blocks} onChange={setBlocks} />
-          ) : (
-            <div>
-              <Label className="text-xs text-muted-foreground">Email HTML (inner body — the 600px shell is added automatically)</Label>
-              <Textarea value={html} onChange={(e) => setHtml(e.target.value)} className="mt-1 min-h-[420px] font-mono text-xs" placeholder="<h1>Hello {{first_name}}</h1><p>…</p>" />
-            </div>
-          )}
-        </div>
-        {/* Preview */}
-        {showPreview ? (
+      {mode === "html" ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">Email HTML (inner body — the 600px shell is added automatically)</Label>
+            <Textarea value={html} onChange={(e) => setHtml(e.target.value)} className="mt-1 min-h-[560px] font-mono text-xs" placeholder="<h1>Hello {{first_name}}</h1><p>…</p>" />
+          </div>
           <div className="xl:sticky xl:top-4 xl:self-start">
             <p className="mb-2 text-center text-xs text-muted-foreground">Live preview</p>
             <iframe title="Email preview" srcDoc={previewHtml} className="h-[560px] w-full rounded-lg border border-border bg-white" />
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        /* 3-pane visual editor: palette · canvas · inspector */
+        <div className="grid gap-4 lg:grid-cols-[210px_minmax(0,1fr)_340px]">
+          {/* Left: block palette (sticky) */}
+          <aside className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-auto">
+            <div className="rounded-xl border border-border bg-card p-2 shadow-sm">
+              <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Add block</p>
+              <div className="space-y-1">
+                {BLOG_BLOCK_DEFS.map((def) => {
+                  const Icon = ICONS[def.icon] ?? Pilcrow;
+                  return (
+                    <button key={def.type} type="button" onClick={() => add(def.type)} className="flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:border-border hover:bg-muted">
+                      <Icon className="size-4 shrink-0 text-primary" /> {def.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 border-t border-border/60 p-1">
+                <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setAiOpen((o) => !o)}><Sparkles className="mr-1.5 size-3.5" /> AI draft</Button>
+                {aiOpen ? (
+                  <div className="mt-2 space-y-2">
+                    <Textarea value={aiTopic} onChange={(e) => setAiTopic(e.target.value)} placeholder="Describe the email…" className="min-h-[64px] text-sm" />
+                    <Button type="button" size="sm" className="w-full" onClick={() => void aiDraft()} disabled={aiBusy || !aiTopic.trim()}>{aiBusy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null} Generate</Button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </aside>
+
+          {/* Center: WYSIWYG canvas */}
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <span className="text-xs text-muted-foreground">{blocks.length} block{blocks.length === 1 ? "" : "s"}</span>
+              <button type="button" onClick={() => setFullPreview(true)} className="text-xs font-medium text-primary hover:underline">Full preview</button>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-4 sm:p-6">
+              {blocks.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-background p-10 text-center text-sm text-muted-foreground">Add a block from the left to start building.</p>
+              ) : (
+                <div className="mx-auto w-full max-w-[600px] rounded-xl bg-white p-6 shadow-sm sm:p-7">
+                  {blocks.map((block, i) => {
+                    const isSel = block.id === selectedId;
+                    return (
+                      <div
+                        key={block.id}
+                        onClick={() => setSelectedId(block.id)}
+                        className={cn(
+                          "group relative cursor-pointer rounded-md transition",
+                          isSel ? "outline outline-2 outline-primary outline-offset-2" : "hover:outline hover:outline-1 hover:outline-primary/40 hover:outline-offset-2",
+                        )}
+                      >
+                        <div className={cn("absolute -top-3 right-1 z-10 hidden items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm group-hover:flex", isSel && "flex")}>
+                          <MiniBtn label="Move up" disabled={i === 0} onClick={(e) => { e.stopPropagation(); move(i, i - 1); }}><MoveVertical className="size-3 rotate-180" /></MiniBtn>
+                          <MiniBtn label="Move down" disabled={i === blocks.length - 1} onClick={(e) => { e.stopPropagation(); move(i, i + 1); }}><MoveVertical className="size-3" /></MiniBtn>
+                          <MiniBtn label="Duplicate" onClick={(e) => { e.stopPropagation(); duplicate(block.id); }}><Copy className="size-3" /></MiniBtn>
+                          <MiniBtn label="Delete" destructive onClick={(e) => { e.stopPropagation(); remove(block.id); }}><Trash2 className="size-3" /></MiniBtn>
+                        </div>
+                        <div className="pointer-events-none [&_a]:pointer-events-none" dangerouslySetInnerHTML={{ __html: blockToHtml(block) }} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: block inspector (sticky) */}
+          <aside className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-auto">
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              {selected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-heading text-sm font-semibold text-primary">{selectedLabel} settings</h3>
+                    <MiniBtn label="Delete block" destructive onClick={() => remove(selected.id)}><Trash2 className="size-3.5" /></MiniBtn>
+                  </div>
+                  <BlockFields block={selected} onPatch={(patch) => update(selected.id, patch)} onRewrite={(instruction) => void rewrite(selected, instruction)} rewriting={rewritingId === selected.id} />
+                  <div className="border-t border-border/60 pt-3">
+                    <SectionSettings props={selected.props} onPatch={(patch) => update(selected.id, patch)} />
+                  </div>
+                </div>
+              ) : (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  <LayoutGrid className="mx-auto mb-2 size-6 opacity-40" />
+                  Select a block on the canvas to edit its settings.
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {fullPreview ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setFullPreview(false)}>
+          <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium text-white">Full preview</p>
+              <button type="button" onClick={() => setFullPreview(false)} className="inline-flex size-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"><X className="size-4" /></button>
+            </div>
+            <iframe title="Full email preview" srcDoc={previewHtml} className="h-[70vh] w-full rounded-lg border border-border bg-white" />
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function MiniBtn({ children, onClick, label, disabled, destructive }: { children: React.ReactNode; onClick: (e: React.MouseEvent) => void; label: string; disabled?: boolean; destructive?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label} className={cn("inline-flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40", destructive && "hover:bg-destructive/10 hover:text-destructive")}>
+      {children}
+    </button>
   );
 }

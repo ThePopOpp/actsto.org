@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
 export type AdminPageTabLink<T extends string> = {
@@ -18,15 +17,20 @@ export function AdminPageTabLinks<T extends string>({
   baseHref: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Page sections">
+    <div
+      className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1 shadow-sm"
+      role="tablist"
+      aria-label="Page sections"
+    >
       {tabs.map((tab) => (
         <Link
           key={tab.id}
           href={`${baseHref}?tab=${tab.id}`}
           className={cn(
-            buttonVariants({ variant: activeTab === tab.id ? "default" : "outline", size: "sm" }),
-            "h-8 shadow-none",
-            activeTab === tab.id && "shadow-sm"
+            "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+            activeTab === tab.id
+              ? "bg-foreground text-background shadow-sm"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
           role="tab"
           aria-selected={activeTab === tab.id}
