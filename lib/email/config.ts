@@ -14,6 +14,26 @@ export function getSmtpConfig() {
   return { host, port, user, pass, secure, fromEmail, fromName };
 }
 
+/**
+ * Resend send config. Returns null when RESEND_API_KEY is unset (so the sender
+ * falls back to SMTP). When the key IS set, RESEND_FROM_EMAIL is required — we
+ * deliberately refuse to fall back to another identity/unverified domain.
+ */
+export function getResendConfig() {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return null;
+  const fromEmail = (process.env.RESEND_FROM_EMAIL ?? process.env.SMTP_FROM_EMAIL ?? "").trim();
+  if (!fromEmail) {
+    throw new Error("RESEND_API_KEY is set but RESEND_FROM_EMAIL is empty. Set a verified from-address.");
+  }
+  return {
+    apiKey,
+    fromEmail,
+    fromName: (process.env.RESEND_FROM_NAME ?? process.env.SMTP_FROM_NAME ?? "Arizona Christian Tuition").trim(),
+    replyTo: process.env.RESEND_REPLY_TO?.trim() || undefined,
+  };
+}
+
 export function getImapConfig() {
   const host = process.env.IMAP_HOST;
   const port = Number(process.env.IMAP_PORT ?? "993");

@@ -84,8 +84,8 @@ const nav: NavEntry[] = [
     label: "Communications",
     icon: MessageSquare,
     children: [
+      { href: "/dashboard/admin/email", label: "Email", icon: Mail },
       { href: "/dashboard/admin/sms", label: "SMS", icon: MessageSquare },
-      { href: "/dashboard/admin/messages", label: "Inbox", icon: Mail },
       { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
     ],
   },
