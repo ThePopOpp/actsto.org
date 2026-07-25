@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Voicemail,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ function dtFull(v: string): string {
 
 export function DialerPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const deviceRef = useRef<Device | null>(null);
   const activeCallRef = useRef<Call | null>(null);
 
@@ -86,7 +87,7 @@ export function DialerPanel() {
   const [callerIds, setCallerIds] = useState<string[]>([]);
   const [callerId, setCallerId] = useState("");
 
-  const [number, setNumber] = useState("");
+  const [number, setNumber] = useState(() => searchParams.get("to") ?? "");
   const [callState, setCallState] = useState<"idle" | "connecting" | "ringing" | "open">("idle");
   const [muted, setMuted] = useState(false);
   const [seconds, setSeconds] = useState(0);

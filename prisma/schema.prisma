@@ -1211,6 +1211,42 @@ model SocialPost {
   @@map("social_posts")
 }
 
+/// CRM contacts. Anyone (users and non-users). A linked profile (userId) means
+/// they're also a platform user; their roles come from user_roles.
+model Contact {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
+  firstName       String?   @map("first_name")
+  lastName        String?   @map("last_name")
+  displayName     String?   @map("display_name")
+  email           String?
+  emailNormalized String?   @map("email_normalized")
+  phone           String?
+  phoneNormalized String?   @map("phone_normalized")
+  company         String?
+  jobTitle        String?   @map("job_title")
+  contactType     String?   @map("contact_type")
+  stage           String    @default("new")
+  status          String    @default("active")
+  tags            String[]  @default([])
+  source          String?
+  notes           String?
+  avatarUrl       String?   @map("avatar_url")
+  city            String?
+  state           String?
+  lastContactedAt DateTime? @map("last_contacted_at")
+  createdBy       String?   @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([stage])
+  @@index([emailNormalized])
+  @@index([phoneNormalized])
+  @@index([userId])
+  @@map("contacts")
+}
+
 /// In-app dashboard notifications (maps to existing `notifications` table for new entries)
 model DashboardNotification {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

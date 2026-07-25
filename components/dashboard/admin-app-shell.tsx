@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  BookUser,
   ChevronDown,
   ClipboardList,
   Contact,
@@ -88,7 +89,7 @@ const nav: NavEntry[] = [
     label: "Communications",
     icon: MessageSquare,
     children: [
-      { href: "/dashboard/admin/communications", label: "Hub", icon: LayoutDashboard },
+      { href: "/dashboard/admin/contacts", label: "Contacts", icon: BookUser },
       { href: "/dashboard/admin/messages", label: "Messages", icon: MessageCircle },
       { href: "/dashboard/admin/email", label: "Email", icon: Mail },
       { href: "/dashboard/admin/dialer", label: "Dialer", icon: PhoneCall },
