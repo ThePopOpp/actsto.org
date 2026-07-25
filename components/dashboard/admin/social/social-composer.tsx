@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Code, Columns2, Columns3, Columns4, Heading as HeadingIcon, Image as ImageIcon, Images,
-  Loader2, Minus, MousePointerClick, MoveVertical, Music, Pilcrow, Plus, Quote, Save, Trash2,
+  Code, Columns2, Columns3, Columns4, Download, Heading as HeadingIcon, Image as ImageIcon, Images,
+  Loader2, Minus, MousePointerClick, MoveVertical, Music, Pilcrow, Plus, Quote, Save, Sparkles, Trash2,
 } from "lucide-react";
 
 import { BlockFields, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
@@ -14,11 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  BLOG_BLOCK_DEFS, blockDefaults, blockToHtml, coerceBlocks,
+  BLOG_BLOCK_DEFS, blockDefaults, blockToHtml, blocksToHtml, coerceBlocks,
   type BlogBlock, type BlogBlockProps, type BlogBlockType,
 } from "@/lib/blog/blocks";
 import { SOCIAL_PLATFORMS, defaultMedium, getMedium, getPlatform } from "@/lib/social/dimensions";
+import { SOCIAL_TEMPLATES, buildCaption, buildTemplateBlocks, type SocialTemplateCampaign } from "@/lib/social/templates";
 import { cn } from "@/lib/utils";
+
+type CampaignAsset = SocialTemplateCampaign & { id: string; images: string[] };
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Heading: HeadingIcon, Pilcrow, Image: ImageIcon, Images, Video: MoveVertical, Music, Quote,
@@ -53,6 +56,12 @@ export function SocialComposer() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [campaigns, setCampaigns] = useState<CampaignAsset[]>([]);
+  const [campaignId, setCampaignId] = useState<string>("");
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const selectedCampaign = useMemo(() => campaigns.find((c) => c.id === campaignId) ?? null, [campaigns, campaignId]);
+
   const dims = useMemo(() => getMedium(platform, medium) ?? defaultMedium(platform)!, [platform, medium]);
   const box = useMemo(() => fit(dims.width, dims.height), [dims]);
   const selected = useMemo(() => blocks.find((b) => b.id === selectedId) ?? null, [blocks, selectedId]);
@@ -65,6 +74,11 @@ export function SocialComposer() {
 
   useEffect(() => {
     void loadPosts();
+    void (async () => {
+      const res = await fetch("/api/admin/social/campaigns", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as { campaigns?: CampaignAsset[] } | null;
+      if (res.ok && data) setCampaigns(data.campaigns ?? []);
+    })();
   }, [loadPosts]);
 
   function newPost() {
@@ -141,6 +155,44 @@ export function SocialComposer() {
     setMedium(defaultMedium(id)?.id ?? "square");
   }
 
+  function applyTemplate(templateId: string) {
+    if (!selectedCampaign) { setNotice("Pick a campaign first to fill the template."); return; }
+    const site = window.location.origin;
+    const built = buildTemplateBlocks(templateId, selectedCampaign, site).map((b) => ({ ...b, id: uid() }));
+    setBlocks(built);
+    setSelectedId(built[0]?.id ?? null);
+    const tpl = SOCIAL_TEMPLATES.find((t) => t.id === templateId);
+    if (tpl) setBgColor(tpl.bg);
+    setCaption(buildCaption(selectedCampaign, site));
+    if (title === "New social post") setTitle(`${selectedCampaign.title} — ${tpl?.label ?? "Post"}`);
+  }
+
+  function insertCampaignImage(url: string) {
+    if (!url) return;
+    const block = { id: uid(), type: "image" as BlogBlockType, props: { ...blockDefaults("image"), src: url, imgWidth: "100%", align: "center" as const } };
+    setBlocks((prev) => [...prev, block]);
+    setSelectedId(block.id);
+  }
+
+  async function exportPng() {
+    setExporting(true);
+    setNotice(null);
+    try {
+      const { toPng } = await import("html-to-image");
+      const node = exportRef.current;
+      if (!node) return;
+      const dataUrl = await toPng(node, { width: dims.width, height: dims.height, pixelRatio: 1, cacheBust: true, backgroundColor: bgColor });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${title.replace(/\s+/g, "-").toLowerCase().slice(0, 60) || "social-post"}.png`;
+      a.click();
+    } catch {
+      setNotice("Export failed — a campaign image may be blocking cross-origin capture. Try an uploaded image.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function save() {
     setBusy(true);
     setNotice(null);
@@ -200,6 +252,7 @@ export function SocialComposer() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={status} onValueChange={(v) => setStatus(v ?? "draft")}><SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="scheduled">Scheduled</SelectItem><SelectItem value="published">Published</SelectItem></SelectContent></Select>
+          <Button type="button" size="sm" variant="outline" onClick={() => void exportPng()} disabled={exporting || blocks.length === 0}>{exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />} Export PNG</Button>
           <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>{busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />} Save</Button>
         </div>
       </div>
@@ -225,6 +278,44 @@ export function SocialComposer() {
         <div>
           <Label className="text-xs text-muted-foreground">Background</Label>
           <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="mt-1 block size-9 cursor-pointer rounded border border-border" />
+        </div>
+      </CardContent></Card>
+
+      {/* Campaign + turn-key templates */}
+      <Card className="border-border/80"><CardContent className="space-y-3 p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="w-64">
+            <Label className="text-xs text-muted-foreground">Pull from campaign</Label>
+            <Select value={campaignId || "none"} onValueChange={(v) => setCampaignId(v === "none" ? "" : (v ?? ""))}>
+              <SelectTrigger className="mt-1 w-full"><SelectValue placeholder="Select a campaign" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No campaign</SelectItem>
+                {campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedCampaign && selectedCampaign.images.length > 0 ? (
+            <div className="w-56">
+              <Label className="text-xs text-muted-foreground">Insert campaign image</Label>
+              <Select value="none" onValueChange={(v) => { if (v && v !== "none") insertCampaignImage(v); }}>
+                <SelectTrigger className="mt-1 w-full"><SelectValue placeholder="Choose an image" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Choose an image…</SelectItem>
+                  {selectedCampaign.images.map((url, i) => <SelectItem key={url} value={url}>Image {i + 1}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Turn-key templates {selectedCampaign ? "" : "(pick a campaign first)"}</Label>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {SOCIAL_TEMPLATES.map((t) => (
+              <button key={t.id} type="button" onClick={() => applyTemplate(t.id)} disabled={!selectedCampaign} title={t.description} className={cn("inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm", selectedCampaign ? "border-border text-foreground hover:bg-muted" : "border-border/60 text-muted-foreground/50")}>
+                <Sparkles className="size-3.5 text-primary" /> {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </CardContent></Card>
 
@@ -289,6 +380,11 @@ export function SocialComposer() {
             )}
           </div>
         </aside>
+      </div>
+
+      {/* Hidden full-resolution node used for PNG export. */}
+      <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, width: dims.width, height: dims.height, background: bgColor, padding: 64, overflow: "hidden", pointerEvents: "none" }} ref={exportRef}>
+        <div dangerouslySetInnerHTML={{ __html: blocksToHtml(blocks) }} />
       </div>
     </div>
   );
