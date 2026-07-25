@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { validateTwilioSignature } from "@/lib/sms/twilio";
+import { twilioSignatureUrls, validateTwilioSignature } from "@/lib/sms/twilio";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!form) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
   const valid = await validateTwilioSignature({
-    url: request.url,
+    url: twilioSignatureUrls(request.url),
     params: form,
     signature: request.headers.get("x-twilio-signature"),
   });

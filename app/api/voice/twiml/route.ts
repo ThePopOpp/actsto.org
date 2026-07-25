@@ -2,7 +2,7 @@ import twilio from "twilio";
 
 import { prisma } from "@/lib/prisma";
 import { resolveSmsContact } from "@/lib/sms/contact-matching";
-import { normalizePhone, validateTwilioSignature } from "@/lib/sms/twilio";
+import { normalizePhone, twilioSignatureUrls, validateTwilioSignature } from "@/lib/sms/twilio";
 import { getVoiceServerConfig, VOICE_IDENTITY } from "@/lib/voice/config";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   if (!form) return xml("<Response><Reject/></Response>");
 
   const valid = await validateTwilioSignature({
-    url: request.url,
+    url: twilioSignatureUrls(request.url),
     params: form,
     signature: request.headers.get("x-twilio-signature"),
   });

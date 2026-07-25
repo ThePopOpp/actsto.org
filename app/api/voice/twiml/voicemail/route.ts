@@ -1,7 +1,7 @@
 import twilio from "twilio";
 
 import { prisma } from "@/lib/prisma";
-import { validateTwilioSignature } from "@/lib/sms/twilio";
+import { twilioSignatureUrls, validateTwilioSignature } from "@/lib/sms/twilio";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!form) return xml("<Response><Hangup/></Response>");
 
   const valid = await validateTwilioSignature({
-    url: request.url,
+    url: twilioSignatureUrls(request.url),
     params: form,
     signature: request.headers.get("x-twilio-signature"),
   });

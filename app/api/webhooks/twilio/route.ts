@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { resolveSmsContact } from "@/lib/sms/contact-matching";
-import { normalizePhone, validateTwilioSignature } from "@/lib/sms/twilio";
+import { normalizePhone, twilioSignatureUrls, validateTwilioSignature } from "@/lib/sms/twilio";
 
 export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   const valid = await validateTwilioSignature({
-    url: request.url,
+    url: twilioSignatureUrls(request.url),
     params: form,
     signature: request.headers.get("x-twilio-signature"),
   });

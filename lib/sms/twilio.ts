@@ -51,12 +51,33 @@ export async function getTwilioRuntimeStatus() {
   };
 }
 
+/**
+ * Candidate URLs to validate a Twilio signature against. Twilio signs the exact
+ * URL configured in its console (the public https origin), but behind a reverse
+ * proxy `request.url` can arrive as an internal http host — so we also try the
+ * APP_URL-based public URL (with and without a trailing slash).
+ */
+export function twilioSignatureUrls(requestUrl: string): string[] {
+  const urls = new Set<string>([requestUrl]);
+  const appUrl = process.env.APP_URL?.trim();
+  if (appUrl) {
+    try {
+      const parsed = new URL(requestUrl);
+      const base = appUrl.replace(/\/$/, "");
+      urls.add(`${base}${parsed.pathname}${parsed.search}`);
+    } catch {
+      // ignore malformed request URL
+    }
+  }
+  return Array.from(urls);
+}
+
 export async function validateTwilioSignature({
   url,
   params,
   signature,
 }: {
-  url: string;
+  url: string | string[];
   params: FormData;
   signature: string | null;
 }) {
@@ -67,11 +88,15 @@ export async function validateTwilioSignature({
   const sorted = Array.from(params.entries())
     .filter(([, value]) => typeof value === "string")
     .sort(([a], [b]) => a.localeCompare(b));
-  const base = sorted.reduce((acc, [key, value]) => `${acc}${key}${value}`, url);
-  const expected = createHmac("sha1", settings.authToken).update(base).digest("base64");
-  const a = Buffer.from(signature);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  const candidates = Array.isArray(url) ? url : [url];
+  const sig = Buffer.from(signature);
+
+  for (const candidate of candidates) {
+    const base = sorted.reduce((acc, [key, value]) => `${acc}${key}${value}`, candidate);
+    const expected = Buffer.from(createHmac("sha1", settings.authToken).update(base).digest("base64"));
+    if (sig.length === expected.length && timingSafeEqual(sig, expected)) return true;
+  }
+  return false;
 }
 
 export async function sendTwilioSms({
