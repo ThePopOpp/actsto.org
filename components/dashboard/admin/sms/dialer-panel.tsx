@@ -351,24 +351,24 @@ export function DialerPanel() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-              <div className="flex gap-1.5">
-                <button type="button" onClick={() => setView("history")} className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium", view === "history" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}><RefreshCw className="size-3.5" /> Call History</button>
-                <button type="button" onClick={() => setView("voicemail")} className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium", view === "voicemail" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}><Voicemail className="size-3.5" /> Voicemail{voicemails.length ? ` (${voicemails.length})` : ""}</button>
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3">
+              <button type="button" onClick={() => setView("history")} className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium", view === "history" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}><RefreshCw className="size-3.5" /> Call History</button>
+              <button type="button" onClick={() => setView("voicemail")} className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium", view === "voicemail" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}><Voicemail className="size-3.5" /> Voicemail{voicemails.length ? ` (${voicemails.length})` : ""}</button>
+
+              {view === "history" ? (
+                <>
+                  <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
+                  {(["all", "inbound", "outbound"] as const).map((f) => (
+                    <button key={f} type="button" onClick={() => setFilter(f)} className={cn("rounded-full border px-3 py-1 text-xs font-medium capitalize", filter === f ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>{f}</button>
+                  ))}
+                </>
+              ) : null}
+
+              <div className="ml-auto flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{historyRows.length} calls</span>
                 <Button type="button" variant="outline" size="sm" onClick={() => void loadCalls()}><RefreshCw className="mr-1.5 size-3.5" /> Refresh</Button>
               </div>
             </div>
-
-            {view === "history" ? (
-              <div className="flex gap-1.5">
-                {(["all", "inbound", "outbound"] as const).map((f) => (
-                  <button key={f} type="button" onClick={() => setFilter(f)} className={cn("rounded-full border px-3 py-1 text-xs font-medium capitalize", filter === f ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>{f}</button>
-                ))}
-              </div>
-            ) : null}
 
             {historyRows.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
