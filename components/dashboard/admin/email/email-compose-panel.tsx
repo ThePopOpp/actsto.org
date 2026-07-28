@@ -17,7 +17,7 @@ const NONE = "__none__";
 export function EmailComposePanel() {
   const searchParams = useSearchParams();
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [to, setTo] = useState("");
+  const [to, setTo] = useState(() => searchParams.get("to") ?? "");
   const [subject, setSubject] = useState("");
   const [text, setText] = useState("");
   const [templateId, setTemplateId] = useState<string>(NONE);

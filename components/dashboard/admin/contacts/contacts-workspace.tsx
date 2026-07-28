@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Archive, ArchiveRestore, Columns3, Download, LayoutGrid, List, Loader2, Mail, MessageSquare,
   Pencil, Phone, Plus, Search, Table as TableIcon, Trash2, Upload, X,
@@ -53,11 +53,12 @@ type FormState = typeof EMPTY_FORM;
 
 export function ContactsWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [contacts, setContacts] = useState<ContactDTO[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("list");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(() => searchParams.get("q") ?? "");
   const [stageFilter, setStageFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
