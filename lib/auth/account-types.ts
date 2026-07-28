@@ -170,11 +170,40 @@ export async function ensureRoleScaffold(
   userId: string,
   role: PortalRole
 ) {
+  const alreadyHad = await prisma.userRoleRecord.findUnique({
+    where: { userId_role: { userId, role } },
+    select: { status: true },
+  });
   await prisma.userRoleRecord.upsert({
     where: { userId_role: { userId, role } },
     create: { userId, role, status: "active" },
     update: { status: "active" },
   });
+
+  // Fire `role_added` only when the active role is genuinely new (not a re-sync).
+  if (!alreadyHad || alreadyHad.status !== "active") {
+    try {
+      const { fireAutomationEvent } = await import("@/lib/automations/fire");
+      const profile = await prisma.profile
+        .findUnique({ where: { id: userId }, select: { firstName: true, fullName: true, displayName: true, email: true } })
+        .catch(() => null);
+      if (profile?.email) {
+        await fireAutomationEvent("role_added", {
+          userId,
+          email: profile.email,
+          roles: [role],
+          fields: {
+            first_name: profile.firstName ?? "",
+            full_name: profile.fullName ?? profile.displayName ?? "",
+            email: profile.email,
+            role,
+          },
+        });
+      }
+    } catch {
+      /* non-blocking */
+    }
+  }
 
   if (role === "parent") {
     await prisma.parentGuardianProfile.upsert({

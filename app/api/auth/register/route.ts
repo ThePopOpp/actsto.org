@@ -128,6 +128,19 @@ export async function POST(req: Request) {
       await consumeStudentInvite({ token: studentInviteToken, userId, email });
     }
     await syncAccountSetupProgress(userId, role);
+
+    try {
+      const { fireAutomationEvent } = await import("@/lib/automations/fire");
+      await fireAutomationEvent("user_registered", {
+        userId,
+        email,
+        phone: phone ?? null,
+        roles: [role],
+        fields: { first_name: firstName ?? "", last_name: lastName ?? "", full_name: fullName ?? "", email, role },
+      });
+    } catch {
+      /* non-blocking */
+    }
     await recordSmsConsent({
       smsOptIn,
       source: body.smsConsentSource ?? sourceForRole(role),

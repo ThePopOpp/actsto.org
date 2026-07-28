@@ -1,4 +1,12 @@
+import { fireAutomationEvent } from "@/lib/automations/fire";
 import { prisma } from "@/lib/prisma";
+
+function siteBase() {
+  return (process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://actsto.org").replace(/\/$/, "");
+}
+function usd(v: unknown) {
+  return `$${Number(v ?? 0).toFixed(2)}`;
+}
 
 export async function finalizePaidDonation({
   donationId,
@@ -74,6 +82,39 @@ export async function finalizePaidDonation({
     processed: true,
   });
 
+  if (paidUpdate.count > 0) {
+    try {
+      const detail = await prisma.donationDetail.findUnique({ where: { donationId } }).catch(() => null);
+      const campaign = donation.campaignId
+        ? await prisma.campaign.findUnique({ where: { id: donation.campaignId }, select: { title: true, slug: true } }).catch(() => null)
+        : null;
+      const site = siteBase();
+      const email = receipt.issuedToEmail ?? detail?.donorEmail ?? null;
+      const firstName = detail?.donorFirstName ?? receipt.issuedToName?.split(" ")[0] ?? "";
+      await fireAutomationEvent("donation_paid", {
+        userId: donation.userId,
+        email,
+        phone: detail?.donorPhone ?? null,
+        campaignId: donation.campaignId,
+        amount: Number(amountUsd),
+        fields: {
+          first_name: firstName,
+          last_name: detail?.donorLastName ?? "",
+          full_name: receipt.issuedToName ?? "",
+          email: email ?? "",
+          phone: detail?.donorPhone ?? "",
+          donation_amount: usd(amountUsd),
+          campaign_title: campaign?.title ?? "General fund",
+          campaign_url: campaign?.slug ? `${site}/campaigns/${campaign.slug}` : site,
+          receipt_number: receipt.receiptNumber,
+          tax_year: String(receipt.taxYear),
+        },
+      });
+    } catch {
+      /* automations must not block payment finalization */
+    }
+  }
+
   return { receipt, newlyPaid: paidUpdate.count > 0 };
 }
 
@@ -132,7 +173,7 @@ export async function ensureTaxReceiptForDonation(donationId: string, amountUsd?
         .trim() || null
     : null;
 
-  return prisma.taxReceipt.create({
+  const created = await prisma.taxReceipt.create({
     data: {
       donationId,
       receiptNumber,
@@ -144,6 +185,32 @@ export async function ensureTaxReceiptForDonation(donationId: string, amountUsd?
       status: "generated",
     },
   });
+
+  try {
+    const campaign = donation.campaignId
+      ? await prisma.campaign.findUnique({ where: { id: donation.campaignId }, select: { title: true } }).catch(() => null)
+      : null;
+    await fireAutomationEvent("tax_receipt_generated", {
+      userId: donation.userId,
+      email: created.issuedToEmail,
+      phone: donation.donationDetail?.donorPhone ?? null,
+      campaignId: donation.campaignId,
+      amount: Number(created.amount),
+      fields: {
+        first_name: donation.donationDetail?.donorFirstName ?? created.issuedToName?.split(" ")[0] ?? "",
+        full_name: created.issuedToName ?? "",
+        email: created.issuedToEmail ?? "",
+        donation_amount: usd(created.amount),
+        receipt_number: created.receiptNumber,
+        tax_year: String(created.taxYear),
+        campaign_title: campaign?.title ?? "General fund",
+      },
+    });
+  } catch {
+    /* non-blocking */
+  }
+
+  return created;
 }
 
 export async function markDonationPaymentStatus({

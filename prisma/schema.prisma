@@ -1247,6 +1247,65 @@ model Contact {
   @@map("contacts")
 }
 
+/// Automation rule: a trigger event → one or more delayed steps that send a template.
+model Automation {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  description  String?
+  triggerEvent String   @map("trigger_event")
+  enabled      Boolean  @default(true)
+  conditions   Json     @default("{}")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  steps AutomationStep[]
+  jobs  AutomationJob[]
+
+  @@index([triggerEvent, enabled])
+  @@map("automations")
+}
+
+model AutomationStep {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  automationId    String   @map("automation_id") @db.Uuid
+  sortOrder       Int      @default(0) @map("sort_order")
+  channel         String   @default("email")
+  emailTemplateId String?  @map("email_template_id") @db.Uuid
+  smsTemplateId   String?  @map("sms_template_id") @db.Uuid
+  subjectOverride String?  @map("subject_override")
+  delayMinutes    Int      @default(0) @map("delay_minutes")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+  @@map("automation_steps")
+}
+
+model AutomationJob {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  automationId    String    @map("automation_id") @db.Uuid
+  stepId          String    @map("step_id") @db.Uuid
+  triggerEvent    String    @map("trigger_event")
+  channel         String    @default("email")
+  recipientUserId String?   @map("recipient_user_id") @db.Uuid
+  recipientEmail  String?   @map("recipient_email")
+  recipientPhone  String?   @map("recipient_phone")
+  payload         Json      @default("{}")
+  scheduledFor    DateTime  @map("scheduled_for")
+  status          String    @default("pending")
+  sentAt          DateTime? @map("sent_at")
+  error           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([automationId])
+  @@map("automation_jobs")
+}
+
 /// In-app dashboard notifications (maps to existing `notifications` table for new entries)
 model DashboardNotification {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
