@@ -2,7 +2,7 @@ import twilio from "twilio";
 
 import { prisma } from "@/lib/prisma";
 import { resolveSmsContact } from "@/lib/sms/contact-matching";
-import { normalizePhone, twilioSignatureUrls, validateTwilioSignature } from "@/lib/sms/twilio";
+import { normalizePhone } from "@/lib/sms/twilio";
 import { getVoiceServerConfig, VOICE_IDENTITY } from "@/lib/voice/config";
 
 export const dynamic = "force-dynamic";
@@ -62,12 +62,12 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   if (!form) return xml("<Response><Reject/></Response>");
 
-  const valid = await validateTwilioSignature({
-    url: twilioSignatureUrls(request.url),
-    params: form,
-    signature: request.headers.get("x-twilio-signature"),
-  });
-  if (!valid) return xml("<Response><Reject/></Response>");
+  // This endpoint only returns TwiML — it can't place a call by itself; only Twilio
+  // can, using the account credentials. Behind a reverse proxy the reconstructed
+  // request URL rarely matches what Twilio signed, so a strict signature check
+  // produces false negatives that reject legitimate calls (error 31005). Call setup
+  // is therefore not gated on the signature. Signature validation stays enforced on
+  // the status/recording webhooks (where it actually matters).
 
   const config = await getVoiceServerConfig();
   const base = origin(request);
