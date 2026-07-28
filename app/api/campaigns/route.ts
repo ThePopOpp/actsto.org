@@ -341,6 +341,28 @@ export async function POST(request: Request) {
       });
     }
 
+    try {
+      const { fireAutomationEvent } = await import("@/lib/automations/fire");
+      const site = (process.env.NEXT_PUBLIC_SITE_URL || "https://actsto.org").replace(/\/$/, "");
+      const email = values.parentEmail || profile.email;
+      const parentName = values.parentName || "";
+      await fireAutomationEvent("campaign_created", {
+        userId: profile.id,
+        email,
+        phone: values.parentPhone || profile.phone,
+        campaignId: campaign.id,
+        fields: {
+          first_name: parentName.split(" ")[0] ?? "",
+          full_name: parentName || email,
+          email,
+          campaign_title: campaign.title,
+          campaign_url: `${site}/campaigns/${campaign.slug}`,
+        },
+      });
+    } catch {
+      /* non-blocking */
+    }
+
     return NextResponse.json({
       ok: true,
       campaign,

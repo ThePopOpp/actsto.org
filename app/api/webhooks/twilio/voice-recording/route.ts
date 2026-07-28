@@ -34,6 +34,20 @@ export async function POST(request: Request) {
         },
       })
       .catch(() => null);
+
+    try {
+      const call = await prisma.callLog.findFirst({ where: { providerCallId: callSid }, select: { isVoicemail: true, fromPhone: true, contactName: true, userId: true } });
+      if (call?.isVoicemail) {
+        const { fireAutomationEvent } = await import("@/lib/automations/fire");
+        await fireAutomationEvent("voicemail_received", {
+          userId: call.userId,
+          phone: call.fromPhone,
+          fields: { full_name: call.contactName ?? "", phone: call.fromPhone ?? "" },
+        });
+      }
+    } catch {
+      /* non-blocking */
+    }
   }
 
   return NextResponse.json({ ok: true });

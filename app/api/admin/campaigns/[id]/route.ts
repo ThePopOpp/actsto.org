@@ -35,6 +35,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     await prisma.campaign.update({ where: { id }, data });
+
+    if (body.status === "active") {
+      try {
+        const { fireAutomationEvent } = await import("@/lib/automations/fire");
+        const camp = await prisma.campaign.findUnique({ where: { id }, select: { title: true, slug: true, createdByUserId: true } });
+        const creator = camp ? await prisma.profile.findUnique({ where: { id: camp.createdByUserId }, select: { firstName: true, fullName: true, displayName: true, email: true } }).catch(() => null) : null;
+        const site = (process.env.NEXT_PUBLIC_SITE_URL || "https://actsto.org").replace(/\/$/, "");
+        if (camp && creator?.email) {
+          await fireAutomationEvent("campaign_approved", {
+            userId: camp.createdByUserId,
+            email: creator.email,
+            campaignId: id,
+            fields: {
+              first_name: creator.firstName ?? "",
+              full_name: creator.fullName ?? creator.displayName ?? "",
+              email: creator.email,
+              campaign_title: camp.title,
+              campaign_url: camp.slug ? `${site}/campaigns/${camp.slug}` : site,
+            },
+          });
+        }
+      } catch {
+        /* non-blocking */
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Update failed." }, { status: 400 });

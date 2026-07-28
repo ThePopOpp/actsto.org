@@ -46,5 +46,16 @@ export async function POST(request: Request) {
     await prisma.contact.create({ data: { ...data, stage: "new", tags: ["app-waitlist", os] } });
   }
 
+  try {
+    const { fireAutomationEvent } = await import("@/lib/automations/fire");
+    await fireAutomationEvent("form_submitted", {
+      email,
+      phone: phone || null,
+      fields: { first_name: firstName ?? "", full_name: name, email, phone: phone ?? "", message: `App waitlist (${os})`, form_name: "App waitlist" },
+    });
+  } catch {
+    /* non-blocking */
+  }
+
   return NextResponse.json({ ok: true });
 }

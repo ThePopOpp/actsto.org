@@ -30,6 +30,23 @@ export async function POST(request: Request) {
         endedAt: ended ? new Date() : undefined,
       },
     });
+
+    if (status === "completed") {
+      try {
+        const { fireAutomationEvent } = await import("@/lib/automations/fire");
+        const call = await prisma.callLog.findFirst({ where: { providerCallId: sid }, select: { direction: true, toPhone: true, fromPhone: true, contactName: true, userId: true } });
+        if (call) {
+          const phone = call.direction === "inbound" ? call.fromPhone : call.toPhone;
+          await fireAutomationEvent("call_completed", {
+            userId: call.userId,
+            phone,
+            fields: { full_name: call.contactName ?? "", phone: phone ?? "" },
+          });
+        }
+      } catch {
+        /* non-blocking */
+      }
+    }
   }
 
   return NextResponse.json({ ok: true });

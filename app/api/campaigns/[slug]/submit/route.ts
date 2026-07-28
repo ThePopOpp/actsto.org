@@ -77,5 +77,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     }
   });
 
+  try {
+    const { fireAutomationEvent } = await import("@/lib/automations/fire");
+    const [camp, creator] = await Promise.all([
+      prisma.campaign.findUnique({ where: { id: existing.id }, select: { title: true, slug: true } }),
+      prisma.profile.findUnique({ where: { id: existing.createdByUserId }, select: { firstName: true, fullName: true, displayName: true, email: true } }).catch(() => null),
+    ]);
+    const site = (process.env.NEXT_PUBLIC_SITE_URL || "https://actsto.org").replace(/\/$/, "");
+    if (creator?.email) {
+      await fireAutomationEvent("campaign_submitted", {
+        userId: existing.createdByUserId,
+        email: creator.email,
+        campaignId: existing.id,
+        fields: {
+          first_name: creator.firstName ?? "",
+          full_name: creator.fullName ?? creator.displayName ?? "",
+          email: creator.email,
+          campaign_title: camp?.title ?? "Your campaign",
+          campaign_url: camp?.slug ? `${site}/campaigns/${camp.slug}` : site,
+        },
+      });
+    }
+  } catch {
+    /* non-blocking */
+  }
+
   return NextResponse.json({ ok: true, status: "pending_review" });
 }
