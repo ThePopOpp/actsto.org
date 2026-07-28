@@ -8,7 +8,7 @@ import { getVoiceServerConfig, VOICE_IDENTITY } from "@/lib/voice/config";
 export const dynamic = "force-dynamic";
 
 function origin(request: Request): string {
-  const fromEnv = process.env.APP_URL?.trim();
+  const fromEnv = process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
   try {
     return new URL(request.url).origin;

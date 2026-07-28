@@ -59,7 +59,7 @@ export async function getTwilioRuntimeStatus() {
  */
 export function twilioSignatureUrls(requestUrl: string): string[] {
   const urls = new Set<string>([requestUrl]);
-  const appUrl = process.env.APP_URL?.trim();
+  const appUrl = process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (appUrl) {
     try {
       const parsed = new URL(requestUrl);

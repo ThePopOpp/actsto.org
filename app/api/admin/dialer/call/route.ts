@@ -7,7 +7,7 @@ import { normalizePhone } from "@/lib/sms/twilio";
 import { initiateBridgeCall } from "@/lib/voice/twilio-voice";
 
 function appOrigin(request: Request): string {
-  const fromEnv = process.env.APP_URL?.trim();
+  const fromEnv = process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
   try {
     return new URL(request.url).origin;
