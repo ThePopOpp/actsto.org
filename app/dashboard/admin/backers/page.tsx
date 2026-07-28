@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { BackersDashboard } from "@/components/dashboard/backers-dashboard";
+import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
+import { DonorsWorkspace } from "@/components/dashboard/admin/donors/donors-workspace";
 import { getActSession } from "@/lib/auth/session-server";
 
 export const dynamic = "force-dynamic";
@@ -11,5 +12,13 @@ export default async function AdminBackersPage() {
     redirect("/login?next=/dashboard/admin/backers&role=super_admin");
   }
 
-  return <BackersDashboard session={session} backHref="/dashboard/admin" />;
+  return (
+    <>
+      <AdminPageHeader
+        title="Donors"
+        description="Every donation — donor, campaign, payment status, and tax receipt. Search, filter, view, and export."
+      />
+      <DonorsWorkspace />
+    </>
+  );
 }
