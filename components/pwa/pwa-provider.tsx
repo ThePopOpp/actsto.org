@@ -50,7 +50,6 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     // Detect platform after mount only — running these during render would
@@ -76,11 +75,18 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     const onDisplayChange = () => setIsStandalone(detectStandalone());
     media?.addEventListener?.("change", onDisplayChange);
 
-    // Register the service worker (push + offline shell).
+    // PWA retired: unregister any previously installed service worker and clear
+    // its caches so no old worker keeps intercepting navigations.
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/sw.js", { scope: "/" })
-        .then((reg) => setRegistration(reg))
+        .getRegistrations()
+        .then((regs) => regs.forEach((reg) => reg.unregister().catch(() => {})))
+        .catch(() => {});
+    }
+    if (typeof caches !== "undefined") {
+      caches
+        .keys()
+        .then((keys) => keys.forEach((k) => caches.delete(k).catch(() => {})))
         .catch(() => {});
     }
 
@@ -104,10 +110,10 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       canInstall: Boolean(deferredPrompt),
       isStandalone,
       isIOS,
-      registration,
+      registration: null,
       promptInstall,
     }),
-    [deferredPrompt, isStandalone, isIOS, registration, promptInstall],
+    [deferredPrompt, isStandalone, isIOS, promptInstall],
   );
 
   return <PwaContext.Provider value={value}>{children}</PwaContext.Provider>;

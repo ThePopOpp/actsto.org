@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 
 import { ConditionalSiteChrome } from "@/components/conditional-site-chrome";
-import { NotificationBanner } from "@/components/pwa/notification-banner";
 import { PwaProvider } from "@/components/pwa/pwa-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getActSession } from "@/lib/auth/session-server";
@@ -86,7 +85,6 @@ export default async function RootLayout({
             >
               {children}
             </ConditionalSiteChrome>
-            <NotificationBanner />
           </PwaProvider>
         </ThemeProvider>
       </body>
