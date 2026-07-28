@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Heart, MessageSquare, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +13,9 @@ import { cn } from "@/lib/utils";
 
 function money(value: unknown) {
   const amount = Number(value ?? 0);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(Number.isFinite(amount) ? amount : 0);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    Number.isFinite(amount) ? amount : 0,
+  );
 }
 
 function dt(value: Date | null | undefined) {
@@ -25,101 +25,114 @@ function dt(value: Date | null | undefined) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   }).format(value);
 }
 
-function backerStatusBadge(status: string) {
-  if (status === "visible") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Visible</Badge>;
-  if (status === "pending_review") return <Badge variant="secondary">Pending review</Badge>;
-  if (status === "hidden") return <Badge variant="outline">Hidden</Badge>;
-  if (status === "removed") return <Badge variant="destructive">Removed</Badge>;
-  return <Badge variant="outline">{status}</Badge>;
+function statusBadge(status: string) {
+  const s = (status || "pending").toLowerCase();
+  if (s === "paid") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Paid</Badge>;
+  if (s.includes("refund")) return <Badge variant="outline">Refunded</Badge>;
+  if (s === "failed" || s === "cancelled") return <Badge variant="destructive">{status}</Badge>;
+  return <Badge variant="secondary">{status || "pending"}</Badge>;
 }
 
-function backerScope(userId: string, role: string) {
+/** Scope donations by the viewer's role. */
+function donationScope(userId: string, role: string): Prisma.DonationWhereInput {
   if (role === "super_admin") return {};
-
-  if (role === "parent") {
-    return { campaign: managedCampaignWhere(userId) };
-  }
-
+  if (role === "parent") return { campaign: managedCampaignWhere(userId) };
   if (role === "student") {
-    return {
-      campaign: {
-        campaignStudents: { some: { student: { studentUserId: userId } } },
-      },
-    };
+    return { campaign: { campaignStudents: { some: { student: { studentUserId: userId } } } } };
   }
-
-  return {
-    OR: [{ userId }, { donation: { userId } }],
-  };
+  return { userId };
 }
+
+type DonorRow = {
+  id: string;
+  createdAt: Date;
+  donorName: string;
+  anonymous: boolean;
+  message: string | null;
+  campaignTitle: string;
+  campaignSlug: string | null;
+  status: string;
+  orderId: string | null;
+  receiptNumber: string | null;
+  amount: number;
+};
+
+const EMPTY = {
+  rows: [] as DonorRow[],
+  error: null as string | null,
+  stats: { totalBackers: 0, paidTotal: 0, campaignsCount: 0, messageCount: 0, anonymousCount: 0 },
+};
 
 async function getBackerData(email: string, role: string) {
   const profile = await getProfileForEmail(email).catch(() => null);
   const userId = profile?.id ?? null;
-  if (!userId && role !== "super_admin") {
-    return {
-      rows: [],
-      error: null,
-      stats: {
-        totalBackers: 0,
-        visibleTotal: 0,
-        campaignsCount: 0,
-        messageCount: 0,
-        anonymousCount: 0,
-      },
-    };
-  }
+  if (!userId && role !== "super_admin") return EMPTY;
 
   try {
-    const where = backerScope(userId ?? "", role);
-    const rows = await prisma.campaignBacker.findMany({
-      where,
+    const donations = await prisma.donation.findMany({
+      where: donationScope(userId ?? "", role),
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 200,
       include: {
         campaign: { select: { title: true, slug: true } },
-        donation: {
-          select: {
-            status: true,
-            paymentProviderOrderId: true,
-            taxReceipts: { orderBy: { createdAt: "desc" }, take: 1, select: { receiptNumber: true } },
-          },
+        donationDetail: {
+          select: { donorFirstName: true, donorLastName: true, publicDisplayName: true, donorEmail: true },
         },
+        taxReceipts: { orderBy: { createdAt: "desc" }, take: 1, select: { receiptNumber: true } },
       },
     });
 
-    const campaignIds = new Set(rows.map((row) => row.campaignId));
-    const visibleRows = rows.filter((row) => row.status === "visible");
-    const visibleTotal = visibleRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
-    const messageCount = rows.filter((row) => row.message && row.showMessage).length;
-    const anonymousCount = rows.filter((row) => row.isAnonymous).length;
+    // Donor names for registered users (batch).
+    const userIds = Array.from(new Set(donations.map((d) => d.userId).filter(Boolean))) as string[];
+    const profiles = userIds.length
+      ? await prisma.profile.findMany({ where: { id: { in: userIds } }, select: { id: true, displayName: true, fullName: true, email: true } })
+      : [];
+    const nameByUser = new Map(profiles.map((p) => [p.id, p.displayName || p.fullName || p.email]));
 
+    const rows: DonorRow[] = donations.map((d) => {
+      const detailName = [d.donationDetail?.donorFirstName, d.donationDetail?.donorLastName].filter(Boolean).join(" ").trim();
+      const donorName = d.anonymous
+        ? "Anonymous"
+        : d.donationDetail?.publicDisplayName?.trim() ||
+          detailName ||
+          (d.userId ? nameByUser.get(d.userId) : null) ||
+          d.donationDetail?.donorEmail ||
+          "Supporter";
+      return {
+        id: d.id,
+        createdAt: d.createdAt,
+        donorName: donorName || "Supporter",
+        anonymous: d.anonymous,
+        message: d.donorMessage,
+        campaignTitle: d.campaign?.title ?? "General fund",
+        campaignSlug: d.campaign?.slug ?? null,
+        status: d.status,
+        orderId: d.paymentProviderOrderId,
+        receiptNumber: d.taxReceipts[0]?.receiptNumber ?? null,
+        amount: Number(d.amount ?? 0),
+      };
+    });
+
+    const paidTotal = rows.filter((r) => r.status === "paid").reduce((sum, r) => sum + r.amount, 0);
+    const campaignIds = new Set(donations.map((d) => d.campaignId).filter(Boolean));
     return {
       rows,
       error: null,
       stats: {
         totalBackers: rows.length,
-        visibleTotal,
+        paidTotal,
         campaignsCount: campaignIds.size,
-        messageCount,
-        anonymousCount,
+        messageCount: rows.filter((r) => r.message).length,
+        anonymousCount: rows.filter((r) => r.anonymous).length,
       },
     };
   } catch (error) {
-    return {
-      rows: [],
-      error: error instanceof Error ? error.message : "Donors could not be loaded.",
-      stats: {
-        totalBackers: 0,
-        visibleTotal: 0,
-        campaignsCount: 0,
-        messageCount: 0,
-        anonymousCount: 0,
-      },
-    };
+    return { ...EMPTY, error: error instanceof Error ? error.message : "Donors could not be loaded." };
   }
 }
 
@@ -131,12 +144,15 @@ function titleForRole(role: string) {
 
 function descriptionForRole(role: string) {
   if (role === "super_admin") {
-    return "All paid campaign donation activity connected to donor records, receipts, and donor visibility settings.";
+    return "Every donation record — donor, campaign, payment, and tax receipt.";
   }
   if (role === "parent") {
-    return "Donors connected to the campaigns you manage and the students linked to your parent account.";
+    return "Donations connected to the campaigns you manage and the students linked to your parent account.";
   }
-  return "Paid campaign donation activity connected to your account.";
+  if (role === "donor_individual" || role === "donor_business") {
+    return "Your donation history, payment status, and tax receipts.";
+  }
+  return "Donation activity connected to your account.";
 }
 
 export async function BackersDashboard({
@@ -168,8 +184,8 @@ export async function BackersDashboard({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Users} label="Donor records" value={String(data.stats.totalBackers)} />
-        <StatCard icon={Heart} label="Visible support" value={money(data.stats.visibleTotal)} />
+        <StatCard icon={Users} label="Donation records" value={String(data.stats.totalBackers)} />
+        <StatCard icon={Heart} label="Paid support" value={money(data.stats.paidTotal)} />
         <StatCard icon={ExternalLink} label="Campaigns" value={String(data.stats.campaignsCount)} />
         <StatCard icon={MessageSquare} label="Messages" value={String(data.stats.messageCount)} />
       </div>
@@ -179,9 +195,8 @@ export async function BackersDashboard({
           <CardHeader>
             <CardTitle className="font-heading text-base text-destructive">Donors could not load</CardTitle>
             <CardDescription>
-              The page is available, but the live donor query failed. This usually means the deployed
-              database needs the latest schema/migration or the relation query found old data in an
-              unexpected shape.
+              The page is available, but the live donation query failed. This usually means the deployed
+              database needs the latest schema/migration.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">{data.error}</CardContent>
@@ -215,36 +230,30 @@ export async function BackersDashboard({
                     <tr key={row.id} className="border-b border-border/60 last:border-0">
                       <td className="px-4 py-3 tabular-nums text-muted-foreground">{dt(row.createdAt)}</td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">
-                          {row.isAnonymous ? "Anonymous" : row.displayName || "Supporter"}
-                        </div>
-                        {row.message && row.showMessage ? (
+                        <div className="font-medium text-foreground">{row.donorName}</div>
+                        {row.message ? (
                           <p className="mt-1 max-w-xs truncate text-xs text-muted-foreground">{row.message}</p>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
-                        <Link href={`/campaigns/${row.campaign.slug}`} className="text-primary hover:underline">
-                          {row.campaign.title}
-                        </Link>
+                        {row.campaignSlug ? (
+                          <Link href={`/campaigns/${row.campaignSlug}`} className="text-primary hover:underline">
+                            {row.campaignTitle}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">{row.campaignTitle}</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3">{backerStatusBadge(row.status)}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={row.donation?.status === "paid" ? "secondary" : "outline"}>
-                          {row.donation?.status ?? "unknown"}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {row.donation?.taxReceipts[0]?.receiptNumber ?? "-"}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium tabular-nums">
-                        {row.showAmount || session.role === "super_admin" ? money(row.amount) : "-"}
-                      </td>
+                      <td className="px-4 py-3">{statusBadge(row.status)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.orderId ?? "-"}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.receiptNumber ?? "-"}</td>
+                      <td className="px-4 py-3 text-right font-medium tabular-nums">{money(row.amount)}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                      No campaign donor activity is connected to this account yet.
+                      No donation activity is connected to this account yet.
                     </td>
                   </tr>
                 )}
@@ -257,15 +266,7 @@ export async function BackersDashboard({
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
+function StatCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <Card className="border-border/80">
       <CardHeader className="pb-3">
