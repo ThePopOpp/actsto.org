@@ -86,9 +86,39 @@ export async function finalizePaidDonation({
     try {
       const detail = await prisma.donationDetail.findUnique({ where: { donationId } }).catch(() => null);
       const campaign = donation.campaignId
-        ? await prisma.campaign.findUnique({ where: { id: donation.campaignId }, select: { title: true, slug: true } }).catch(() => null)
+        ? await prisma.campaign
+            .findUnique({ where: { id: donation.campaignId }, select: { title: true, slug: true, goalAmount: true, raisedAmount: true, createdByUserId: true } })
+            .catch(() => null)
         : null;
       const site = siteBase();
+
+      // Campaign goal reached — fire once, when this donation crosses the goal.
+      if (campaign && Number(campaign.goalAmount) > 0) {
+        const goal = Number(campaign.goalAmount);
+        const raised = Number(campaign.raisedAmount);
+        if (raised >= goal && raised - Number(amountUsd) < goal) {
+          const creator = await prisma.profile
+            .findUnique({ where: { id: campaign.createdByUserId }, select: { firstName: true, fullName: true, displayName: true, email: true } })
+            .catch(() => null);
+          if (creator?.email) {
+            await fireAutomationEvent("goal_reached", {
+              userId: campaign.createdByUserId,
+              email: creator.email,
+              campaignId: donation.campaignId,
+              fields: {
+                first_name: creator.firstName ?? "",
+                full_name: creator.fullName ?? creator.displayName ?? "",
+                email: creator.email,
+                campaign_title: campaign.title,
+                campaign_url: campaign.slug ? `${site}/campaigns/${campaign.slug}` : site,
+                goal_amount: usd(goal),
+                raised_amount: usd(raised),
+              },
+            });
+          }
+        }
+      }
+
       const email = receipt.issuedToEmail ?? detail?.donorEmail ?? null;
       const firstName = detail?.donorFirstName ?? receipt.issuedToName?.split(" ")[0] ?? "";
       await fireAutomationEvent("donation_paid", {

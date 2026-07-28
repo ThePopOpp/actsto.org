@@ -42,6 +42,17 @@ export async function POST(request: Request) {
         status: status || "received",
       },
     });
+    try {
+      const { fireAutomationEvent } = await import("@/lib/automations/fire");
+      await fireAutomationEvent("sms_received", {
+        userId: contact.userId,
+        phone: from,
+        email: contact.contactEmail,
+        fields: { full_name: contact.contactName ?? "", phone: from, message: body },
+      });
+    } catch {
+      /* non-blocking */
+    }
     return new Response("<Response></Response>", {
       headers: { "Content-Type": "text/xml" },
     });

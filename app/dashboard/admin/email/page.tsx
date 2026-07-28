@@ -1,6 +1,5 @@
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { AdminPageTabLinks, type AdminPageTabLink } from "@/components/dashboard/admin/admin-page-tab-links";
-import { EmailAutomationsPanel } from "@/components/dashboard/admin/email/email-automations-panel";
 import { EmailComposePanel } from "@/components/dashboard/admin/email/email-compose-panel";
 import { EmailFormSubmissions } from "@/components/dashboard/admin/email/email-form-submissions";
 import { EmailHistory } from "@/components/dashboard/admin/email/email-history";
@@ -12,14 +11,13 @@ import { EmailWizard } from "@/components/dashboard/admin/email/email-wizard";
 
 export const dynamic = "force-dynamic";
 
-type EmailTab = "stats" | "send" | "templates" | "editor" | "automations" | "inbox" | "forms" | "history" | "wizard";
+type EmailTab = "stats" | "send" | "templates" | "editor" | "inbox" | "forms" | "history" | "wizard";
 
 const tabs: AdminPageTabLink<EmailTab>[] = [
   { id: "stats", label: "Stats" },
   { id: "send", label: "Send Email" },
   { id: "templates", label: "Templates" },
   { id: "editor", label: "Template Editor" },
-  { id: "automations", label: "Automations" },
   { id: "inbox", label: "Inbox" },
   { id: "forms", label: "Form Submissions" },
   { id: "history", label: "History" },
@@ -42,7 +40,6 @@ export default async function AdminEmailPage({ searchParams }: { searchParams: P
         {active === "send" && <EmailComposePanel />}
         {active === "templates" && <EmailTemplatesLibrary />}
         {active === "editor" && <EmailTemplateEditor editId={id} />}
-        {active === "automations" && <EmailAutomationsPanel />}
         {active === "inbox" && <EmailInboxAccordion />}
         {active === "forms" && <EmailFormSubmissions />}
         {active === "history" && <EmailHistory />}

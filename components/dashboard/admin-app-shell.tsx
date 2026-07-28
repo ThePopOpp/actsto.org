@@ -30,6 +30,7 @@ import {
   Users,
   UserRoundCheck,
   Wallet,
+  Zap,
 } from "lucide-react";
 
 import type { ActSession } from "@/lib/auth/types";
@@ -99,6 +100,7 @@ const nav: NavEntry[] = [
       { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
     ],
   },
+  { href: "/dashboard/admin/automations", label: "Automations", icon: Zap },
   {
     label: "Site Content",
     icon: FileText,

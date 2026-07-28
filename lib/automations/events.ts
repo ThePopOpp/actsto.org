@@ -38,6 +38,12 @@ export const AUTOMATION_EVENTS: AutomationEventDef[] = [
     fields: ["first_name", "full_name", "email", "role", "site_url"],
   },
   {
+    id: "campaign_created",
+    label: "Campaign created",
+    description: "Fires when a new campaign is created.",
+    fields: ["first_name", "full_name", "email", "campaign_title", "campaign_url", "site_url"],
+  },
+  {
     id: "campaign_submitted",
     label: "Campaign submitted",
     description: "Fires when a campaign is submitted for review.",
@@ -48,6 +54,36 @@ export const AUTOMATION_EVENTS: AutomationEventDef[] = [
     label: "Campaign approved",
     description: "Fires when a campaign is approved.",
     fields: ["first_name", "full_name", "email", "campaign_title", "campaign_url", "site_url"],
+  },
+  {
+    id: "goal_reached",
+    label: "Campaign goal reached",
+    description: "Fires when a campaign's raised amount crosses its goal.",
+    fields: ["first_name", "full_name", "email", "campaign_title", "campaign_url", "goal_amount", "raised_amount", "site_url"],
+  },
+  {
+    id: "form_submitted",
+    label: "Form submitted",
+    description: "Fires when a public/contact form is submitted.",
+    fields: ["first_name", "full_name", "email", "phone", "message", "form_name", "site_url"],
+  },
+  {
+    id: "sms_received",
+    label: "SMS received",
+    description: "Fires when an inbound SMS arrives (e.g. auto-reply).",
+    fields: ["full_name", "phone", "message", "site_url"],
+  },
+  {
+    id: "call_completed",
+    label: "Call completed",
+    description: "Fires when a phone call ends (e.g. follow-up text).",
+    fields: ["full_name", "phone", "site_url"],
+  },
+  {
+    id: "voicemail_received",
+    label: "Voicemail received",
+    description: "Fires when a caller leaves a voicemail.",
+    fields: ["full_name", "phone", "site_url"],
   },
 ];
 
