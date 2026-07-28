@@ -6,6 +6,7 @@ import { Mail, FileDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -172,7 +173,7 @@ export function AdminInvoicePanel() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="due">Due date</Label>
-              <Input id="due" type="date" className="mt-1.5" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <DatePicker id="due" value={dueDate} onChange={setDueDate} placeholder="Pick a due date" />
             </div>
             <div>
               <Label htmlFor="tax">Tax rate (%)</Label>

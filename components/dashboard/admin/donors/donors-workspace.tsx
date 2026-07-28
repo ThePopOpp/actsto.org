@@ -10,6 +10,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -232,8 +233,8 @@ export function DonorsWorkspace() {
           <SelectTrigger className="w-40"><SelectValue placeholder="Campaign" /></SelectTrigger>
           <SelectContent><SelectItem value={NONE}>All campaigns</SelectItem>{campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}</SelectContent>
         </Select>
-        <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); resetPage(); }} className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" aria-label="From date" />
-        <input type="date" value={to} onChange={(e) => { setTo(e.target.value); resetPage(); }} className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" aria-label="To date" />
+        <div className="w-36"><DatePicker value={from} onChange={(v) => { setFrom(v); resetPage(); }} placeholder="From date" className="mt-0 h-9" /></div>
+        <div className="w-36"><DatePicker value={to} onChange={(v) => { setTo(v); resetPage(); }} placeholder="To date" className="mt-0 h-9" /></div>
         <button type="button" onClick={() => { setMissingReceipt((v) => !v); resetPage(); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium", missingReceipt ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400" : "border-border text-muted-foreground hover:bg-muted")}><ReceiptText className="size-3.5" /> Missing receipt</button>
         {presets.length ? (
           <Select value={NONE} onValueChange={(v) => { if (v && v !== NONE) applyPreset(v); }}>
