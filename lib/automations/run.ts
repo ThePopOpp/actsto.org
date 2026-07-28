@@ -2,6 +2,7 @@ import "server-only";
 
 import { getEmailTemplateById } from "@/lib/admin/email-templates";
 import { applyMergeFields, type AutomationPayload } from "@/lib/automations/events";
+import { defaultMedium } from "@/lib/social/dimensions";
 import { prisma } from "@/lib/prisma";
 import { sendAdminSms } from "@/lib/sms/send-admin-sms";
 import { sendEmail } from "@/lib/email/send";
@@ -42,6 +43,28 @@ export async function processDueAutomationJobs(limit = 50): Promise<{ processed:
         if (!tpl) throw new Error("SMS template not found.");
         const [res] = await sendAdminSms([job.recipientPhone], applyMergeFields(tpl.message, payload));
         if (!res?.ok) throw new Error(res?.error ?? "SMS send failed.");
+      } else if (step.channel === "social") {
+        // Auto-draft a social post for review. We never post to Facebook/LinkedIn
+        // directly — an admin reviews and publishes from the Social composer.
+        const platform = step.socialPlatform || "facebook";
+        const medium = defaultMedium(platform);
+        if (!medium) throw new Error(`Unknown social platform: ${platform}.`);
+        const caption = applyMergeFields(step.socialCaption ?? "", payload);
+        await prisma.socialPost.create({
+          data: {
+            title: `Automation · ${job.triggerEvent}`,
+            platform,
+            medium: medium.id,
+            widthPx: medium.width,
+            heightPx: medium.height,
+            caption: caption || null,
+            blocks: [],
+            bgColor: "#0b1220",
+            status: "draft",
+            campaignId: typeof payload.campaign_id === "string" ? payload.campaign_id : null,
+            createdBy: "automation",
+          },
+        });
       } else {
         if (!job.recipientEmail) throw new Error("No recipient email.");
         if (!step.emailTemplateId) throw new Error("Step has no email template.");

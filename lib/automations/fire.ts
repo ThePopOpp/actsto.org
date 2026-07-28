@@ -49,6 +49,7 @@ export async function fireAutomationEvent(event: string, ctx: AutomationContext)
     if (automations.length === 0) return;
 
     const fields: AutomationPayload = { site_url: siteUrl(), ...ctx.fields };
+    if (ctx.campaignId) fields.campaign_id = ctx.campaignId;
     const now = Date.now();
     const jobs: {
       automationId: string; stepId: string; triggerEvent: string; channel: string;

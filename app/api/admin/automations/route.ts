@@ -24,7 +24,7 @@ export async function GET() {
       triggerEvent: a.triggerEvent,
       enabled: a.enabled,
       conditions: a.conditions,
-      steps: a.steps.map((s) => ({ id: s.id, sortOrder: s.sortOrder, channel: s.channel, emailTemplateId: s.emailTemplateId, smsTemplateId: s.smsTemplateId, subjectOverride: s.subjectOverride, delayMinutes: s.delayMinutes })),
+      steps: a.steps.map((s) => ({ id: s.id, sortOrder: s.sortOrder, channel: s.channel, emailTemplateId: s.emailTemplateId, smsTemplateId: s.smsTemplateId, socialPlatform: s.socialPlatform, socialCaption: s.socialCaption, subjectOverride: s.subjectOverride, delayMinutes: s.delayMinutes })),
       updatedAt: a.updatedAt.toISOString(),
     })),
     emailTemplates,
@@ -33,7 +33,24 @@ export async function GET() {
   });
 }
 
-type StepInput = { channel?: string; emailTemplateId?: string | null; smsTemplateId?: string | null; subjectOverride?: string | null; delayMinutes?: number };
+export type StepInput = { channel?: string; emailTemplateId?: string | null; smsTemplateId?: string | null; socialPlatform?: string | null; socialCaption?: string | null; subjectOverride?: string | null; delayMinutes?: number };
+
+const CHANNELS = new Set(["email", "sms", "social"]);
+
+/** Normalize an incoming step into DB columns (shared by POST + PATCH). */
+export function mapStepInput(s: StepInput, i: number) {
+  const channel = CHANNELS.has(s.channel ?? "") ? (s.channel as string) : "email";
+  return {
+    sortOrder: i,
+    channel,
+    emailTemplateId: channel === "email" ? s.emailTemplateId || null : null,
+    smsTemplateId: channel === "sms" ? s.smsTemplateId || null : null,
+    socialPlatform: channel === "social" ? s.socialPlatform || "facebook" : null,
+    socialCaption: channel === "social" ? (s.socialCaption || "").slice(0, 2000) || null : null,
+    subjectOverride: channel === "email" ? s.subjectOverride || null : null,
+    delayMinutes: Math.max(0, Number(s.delayMinutes) || 0),
+  };
+}
 
 export async function POST(request: Request) {
   const auth = await requireSuperAdminApi();
@@ -54,14 +71,7 @@ export async function POST(request: Request) {
       conditions: (b.conditions ?? {}) as object,
       createdBy: auth.email,
       steps: {
-        create: (Array.isArray(b.steps) ? b.steps : []).map((s, i) => ({
-          sortOrder: i,
-          channel: s.channel === "sms" ? "sms" : "email",
-          emailTemplateId: s.emailTemplateId || null,
-          smsTemplateId: s.smsTemplateId || null,
-          subjectOverride: s.subjectOverride || null,
-          delayMinutes: Math.max(0, Number(s.delayMinutes) || 0),
-        })),
+        create: (Array.isArray(b.steps) ? b.steps : []).map(mapStepInput),
       },
     },
     select: { id: true },

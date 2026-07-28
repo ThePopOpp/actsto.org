@@ -9,17 +9,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { AUTOMATION_CONDITION_ROLES, AUTOMATION_EVENTS, automationEventDef } from "@/lib/automations/events";
 import { cn } from "@/lib/utils";
 
 type Opt = { id: string; title: string };
-type StepForm = { channel: "email" | "sms"; emailTemplateId: string; smsTemplateId: string; subjectOverride: string; delayValue: string; delayUnit: "minutes" | "hours" | "days" };
+type Channel = "email" | "sms" | "social";
+type StepForm = { channel: Channel; emailTemplateId: string; smsTemplateId: string; socialPlatform: string; socialCaption: string; subjectOverride: string; delayValue: string; delayUnit: "minutes" | "hours" | "days" };
 type Automation = {
   id: string; name: string; description: string | null; triggerEvent: string; enabled: boolean;
   conditions: { roles?: string[]; minAmount?: number; campaignId?: string };
-  steps: { channel: string; emailTemplateId: string | null; smsTemplateId: string | null; subjectOverride: string | null; delayMinutes: number }[];
+  steps: { channel: string; emailTemplateId: string | null; smsTemplateId: string | null; socialPlatform: string | null; socialCaption: string | null; subjectOverride: string | null; delayMinutes: number }[];
   updatedAt: string;
 };
+const SOCIAL_CHANNEL_PLATFORMS = [
+  { id: "facebook", label: "Facebook" },
+  { id: "linkedin", label: "LinkedIn" },
+];
 type Job = { id: string; automation: string; channel: string; triggerEvent: string; recipient: string; status: string; scheduledFor: string; sentAt: string | null; error: string | null };
 
 function unitFactor(u: StepForm["delayUnit"]) { return u === "days" ? 1440 : u === "hours" ? 60 : 1; }
@@ -30,7 +36,7 @@ function minutesToUnit(m: number): { value: string; unit: StepForm["delayUnit"] 
 }
 function eventLabel(id: string) { return automationEventDef(id)?.label ?? id; }
 function dt(v: string) { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v)); }
-const emptyStep = (): StepForm => ({ channel: "email", emailTemplateId: "", smsTemplateId: "", subjectOverride: "", delayValue: "0", delayUnit: "minutes" });
+const emptyStep = (): StepForm => ({ channel: "email", emailTemplateId: "", smsTemplateId: "", socialPlatform: "facebook", socialCaption: "", subjectOverride: "", delayValue: "0", delayUnit: "minutes" });
 
 export function EmailAutomationsPanel() {
   const [automations, setAutomations] = useState<Automation[]>([]);
@@ -76,7 +82,7 @@ export function EmailAutomationsPanel() {
   function edit(a: Automation) {
     setEditId(a.id); setName(a.name); setDescription(a.description ?? ""); setTriggerEvent(a.triggerEvent); setEnabled(a.enabled);
     setRoles(a.conditions.roles ?? []); setMinAmount(a.conditions.minAmount ? String(a.conditions.minAmount) : ""); setCampaignId(a.conditions.campaignId ?? "");
-    setSteps(a.steps.length ? a.steps.map((s) => { const d = minutesToUnit(s.delayMinutes); return { channel: s.channel === "sms" ? "sms" : "email", emailTemplateId: s.emailTemplateId ?? "", smsTemplateId: s.smsTemplateId ?? "", subjectOverride: s.subjectOverride ?? "", delayValue: d.value, delayUnit: d.unit }; }) : [emptyStep()]);
+    setSteps(a.steps.length ? a.steps.map((s) => { const d = minutesToUnit(s.delayMinutes); const channel: Channel = s.channel === "sms" ? "sms" : s.channel === "social" ? "social" : "email"; return { channel, emailTemplateId: s.emailTemplateId ?? "", smsTemplateId: s.smsTemplateId ?? "", socialPlatform: s.socialPlatform ?? "facebook", socialCaption: s.socialCaption ?? "", subjectOverride: s.subjectOverride ?? "", delayValue: d.value, delayUnit: d.unit }; }) : [emptyStep()]);
     setMode("edit");
   }
   async function toggleEnabled(a: Automation) {
@@ -100,7 +106,7 @@ export function EmailAutomationsPanel() {
     if (campaignId) conditions.campaignId = campaignId;
     const payload = {
       name, description, triggerEvent, enabled, conditions,
-      steps: steps.map((s) => ({ channel: s.channel, emailTemplateId: s.channel === "email" ? s.emailTemplateId || null : null, smsTemplateId: s.channel === "sms" ? s.smsTemplateId || null : null, subjectOverride: s.subjectOverride || null, delayMinutes: (Number(s.delayValue) || 0) * unitFactor(s.delayUnit) })),
+      steps: steps.map((s) => ({ channel: s.channel, emailTemplateId: s.channel === "email" ? s.emailTemplateId || null : null, smsTemplateId: s.channel === "sms" ? s.smsTemplateId || null : null, socialPlatform: s.channel === "social" ? s.socialPlatform || "facebook" : null, socialCaption: s.channel === "social" ? s.socialCaption || null : null, subjectOverride: s.subjectOverride || null, delayMinutes: (Number(s.delayValue) || 0) * unitFactor(s.delayUnit) })),
     };
     const res = editId
       ? await fetch(`/api/admin/automations/${editId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -165,22 +171,29 @@ export function EmailAutomationsPanel() {
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div><Label className="text-xs text-muted-foreground">Channel</Label>
-                  <Select value={s.channel} onValueChange={(v) => updateStep(i, { channel: v === "sms" ? "sms" : "email" })}><SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="email">Email</SelectItem><SelectItem value="sms">SMS</SelectItem></SelectContent></Select>
+                  <Select value={s.channel} onValueChange={(v) => updateStep(i, { channel: (v as Channel) ?? "email" })}><SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="email">Email</SelectItem><SelectItem value="sms">SMS</SelectItem><SelectItem value="social">Social post</SelectItem></SelectContent></Select>
                 </div>
-                <div><Label className="text-xs text-muted-foreground">{s.channel === "sms" ? "SMS template" : "Email template"}</Label>
-                  {s.channel === "sms" ? (
-                    <Select value={s.smsTemplateId || "none"} onValueChange={(v) => updateStep(i, { smsTemplateId: v === "none" ? "" : (v ?? "") })}><SelectTrigger className="mt-1 w-full"><SelectValue placeholder="Choose…" /></SelectTrigger><SelectContent><SelectItem value="none">Choose…</SelectItem>{smsTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select>
-                  ) : (
-                    <Select value={s.emailTemplateId || "none"} onValueChange={(v) => updateStep(i, { emailTemplateId: v === "none" ? "" : (v ?? "") })}><SelectTrigger className="mt-1 w-full"><SelectValue placeholder="Choose…" /></SelectTrigger><SelectContent><SelectItem value="none">Choose…</SelectItem>{emailTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select>
-                  )}
-                </div>
+                {s.channel === "social" ? (
+                  <div><Label className="text-xs text-muted-foreground">Platform</Label>
+                    <Select value={s.socialPlatform || "facebook"} onValueChange={(v) => updateStep(i, { socialPlatform: v ?? "facebook" })}><SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger><SelectContent>{SOCIAL_CHANNEL_PLATFORMS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent></Select>
+                  </div>
+                ) : (
+                  <div><Label className="text-xs text-muted-foreground">{s.channel === "sms" ? "SMS template" : "Email template"}</Label>
+                    {s.channel === "sms" ? (
+                      <Select value={s.smsTemplateId || "none"} onValueChange={(v) => updateStep(i, { smsTemplateId: v === "none" ? "" : (v ?? "") })}><SelectTrigger className="mt-1 w-full"><SelectValue placeholder="Choose…" /></SelectTrigger><SelectContent><SelectItem value="none">Choose…</SelectItem>{smsTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select>
+                    ) : (
+                      <Select value={s.emailTemplateId || "none"} onValueChange={(v) => updateStep(i, { emailTemplateId: v === "none" ? "" : (v ?? "") })}><SelectTrigger className="mt-1 w-full"><SelectValue placeholder="Choose…" /></SelectTrigger><SelectContent><SelectItem value="none">Choose…</SelectItem>{emailTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <div className="flex-1"><Label className="text-xs text-muted-foreground">Delay</Label><Input value={s.delayValue} onChange={(e) => updateStep(i, { delayValue: e.target.value })} type="number" className="mt-1" /></div>
                   <Select value={s.delayUnit} onValueChange={(v) => updateStep(i, { delayUnit: (v as StepForm["delayUnit"]) ?? "minutes" })}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="minutes">minutes</SelectItem><SelectItem value="hours">hours</SelectItem><SelectItem value="days">days</SelectItem></SelectContent></Select>
                 </div>
                 {s.channel === "email" ? <div><Label className="text-xs text-muted-foreground">Subject override (optional)</Label><Input value={s.subjectOverride} onChange={(e) => updateStep(i, { subjectOverride: e.target.value })} className="mt-1" /></div> : null}
+                {s.channel === "social" ? <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Post caption</Label><Textarea value={s.socialCaption} onChange={(e) => updateStep(i, { socialCaption: e.target.value })} className="mt-1" rows={3} placeholder="Thanks to {{full_name}} for supporting our students! {{campaign_url}}" /></div> : null}
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">{i === 0 && s.delayValue === "0" ? "Sends immediately when the event fires." : `Sends ${s.delayValue} ${s.delayUnit} after the event.`}</p>
+              <p className="mt-2 text-[11px] text-muted-foreground">{s.channel === "social" ? `Creates a ${SOCIAL_CHANNEL_PLATFORMS.find((p) => p.id === s.socialPlatform)?.label ?? "social"} draft post ${i === 0 && s.delayValue === "0" ? "when the event fires" : `${s.delayValue} ${s.delayUnit} after the event`} — review & publish it from Social.` : i === 0 && s.delayValue === "0" ? "Sends immediately when the event fires." : `Sends ${s.delayValue} ${s.delayUnit} after the event.`}</p>
             </div>
           ))}
         </CardContent></Card>

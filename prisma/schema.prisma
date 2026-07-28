@@ -1273,6 +1273,8 @@ model AutomationStep {
   channel         String   @default("email")
   emailTemplateId String?  @map("email_template_id") @db.Uuid
   smsTemplateId   String?  @map("sms_template_id") @db.Uuid
+  socialPlatform  String?  @map("social_platform")
+  socialCaption   String?  @map("social_caption")
   subjectOverride String?  @map("subject_override")
   delayMinutes    Int      @default(0) @map("delay_minutes")
   createdAt       DateTime @default(now()) @map("created_at")

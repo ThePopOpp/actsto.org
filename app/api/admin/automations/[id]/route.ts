@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
+import { mapStepInput, type StepInput } from "../route";
 
 export const dynamic = "force-dynamic";
-
-type StepInput = { channel?: string; emailTemplateId?: string | null; smsTemplateId?: string | null; subjectOverride?: string | null; delayMinutes?: number };
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireSuperAdminApi();
@@ -31,15 +30,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     await prisma.automationStep.deleteMany({ where: { automationId: id } });
     if (b.steps.length) {
       await prisma.automationStep.createMany({
-        data: b.steps.map((s, i) => ({
-          automationId: id,
-          sortOrder: i,
-          channel: s.channel === "sms" ? "sms" : "email",
-          emailTemplateId: s.emailTemplateId || null,
-          smsTemplateId: s.smsTemplateId || null,
-          subjectOverride: s.subjectOverride || null,
-          delayMinutes: Math.max(0, Number(s.delayMinutes) || 0),
-        })),
+        data: b.steps.map((s, i) => ({ automationId: id, ...mapStepInput(s, i) })),
       });
     }
   }
