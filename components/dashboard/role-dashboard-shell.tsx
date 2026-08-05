@@ -52,7 +52,7 @@ function RoleNavLinks({
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               active
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -111,7 +111,10 @@ export function RoleDashboardShell({
 
   return (
     <div className={cn("flex min-h-dvh bg-muted/30", dashboardFont)}>
-      <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col border-r border-border bg-background lg:flex">
+      {/* w-64 rather than w-56: the longest nav label ("Scholarship
+          application") needs ~160px of text room, and w-56 left only 152px
+          once padding, icon and gap were taken out, so it wrapped to two rows. */}
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-background lg:flex">
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 border-b border-border px-4 py-4">
             <DashboardSidebarLogo />
