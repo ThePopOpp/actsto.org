@@ -85,6 +85,31 @@ export const AUTOMATION_EVENTS: AutomationEventDef[] = [
     description: "Fires when a caller leaves a voicemail.",
     fields: ["full_name", "phone", "site_url"],
   },
+  {
+    id: "application_submitted",
+    label: "Scholarship application submitted",
+    description: "Fires when a parent submits a scholarship application.",
+    fields: ["first_name", "full_name", "email", "student_name", "school_year", "confirmation_code", "site_url"],
+  },
+  {
+    id: "application_info_requested",
+    label: "Application: more info requested",
+    description: "Fires when staff ask a family for more information on an application.",
+    fields: ["first_name", "email", "student_name", "due_date", "site_url"],
+  },
+  {
+    id: "application_approved",
+    label: "Scholarship application approved",
+    description:
+      "Fires when an application is approved. Approval means eligible — never write these as award notifications.",
+    fields: ["first_name", "email", "student_name", "school_year", "site_url"],
+  },
+  {
+    id: "application_denied",
+    label: "Scholarship application denied",
+    description: "Fires when an application is denied.",
+    fields: ["first_name", "email", "student_name", "school_year", "site_url"],
+  },
 ];
 
 export function automationEventDef(id: string): AutomationEventDef | undefined {

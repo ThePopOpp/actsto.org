@@ -25,6 +25,57 @@ enum AccountStatus {
 }
 
 // ============================================================
+// Scholarship application enums
+// ============================================================
+
+/// How a household member reported an income figure. Store the frequency as
+/// entered — never only an annualized number. Annualize with `toAnnual()`.
+enum IncomeFrequency {
+  annually
+  monthly
+  semimonthly
+  biweekly
+  weekly
+
+  @@map("income_frequency")
+}
+
+enum ApplicationStatus {
+  draft
+  submitted
+  under_review
+  needs_info
+  approved
+  denied
+  withdrawn
+
+  @@map("application_status")
+}
+
+enum ReviewAction {
+  claim
+  approve
+  deny
+  request_info
+  reopen
+  note
+  expire
+
+  @@map("review_action")
+}
+
+/// Staff tiers. Gate on a capability (see lib/scholarship/capabilities.ts),
+/// never on this string directly, so new tiers drop in without an audit.
+enum StaffRole {
+  admin
+  reviewer
+  read_only
+  finance
+
+  @@map("staff_role")
+}
+
+// ============================================================
 // Custom auth tables (current session system — replaced in Phase 2)
 // ============================================================
 
@@ -161,6 +212,8 @@ model Profile {
   status             String   @default("active")
   isAdmin            Boolean  @default(false) @map("is_admin")
   isSuperAdmin       Boolean  @default(false) @map("is_super_admin")
+  /// Staff review tier. Null for parents, students and donors.
+  staffRole          StaffRole? @map("staff_role")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -169,6 +222,7 @@ model Profile {
   parentGuardianProfile  ParentGuardianProfile?
   individualDonorProfile IndividualDonorProfile?
   businessDonorProfile   BusinessDonorProfile?
+  householdMembers       HouseholdMember[]
 
   @@map("profiles")
 }
@@ -366,6 +420,7 @@ model Student {
   campaignStudents     CampaignStudent[]
   scholarshipApps      ScholarshipApplication[]
   scholarshipAwards    ScholarshipAward[]
+  yearEligibility      StudentYearEligibility[]
   donationAllocations  DonationAllocation[]
   donorRecommendations DonorRecommendation[]
 
@@ -798,26 +853,258 @@ model DonorRecommendation {
 // Scholarship
 // ============================================================
 
+/// One scholarship application, per student, per school year, per attempt.
+///
+/// Deliberately holds no award amount. Approval decides *eligibility*; awarding
+/// is a separate downstream process on `scholarship_awards`.
 model ScholarshipApplication {
-  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId            String    @map("student_id") @db.Uuid
-  guardianUserId       String?   @map("guardian_user_id") @db.Uuid
-  schoolId             String?   @map("school_id") @db.Uuid
-  schoolYear           String?   @map("school_year")
-  requestedAmount      Decimal?  @map("requested_amount") @db.Decimal(14, 2)
-  householdIncomeRange String?   @map("household_income_range")
-  applicationStatus    String    @default("draft") @map("application_status")
-  submittedAt          DateTime? @map("submitted_at")
-  reviewedBy           String?   @map("reviewed_by") @db.Uuid
-  reviewedAt           DateTime? @map("reviewed_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String  @map("student_id") @db.Uuid
+  /// The owning parent/guardian profile. Every scoped query filters on this.
+  guardianUserId String? @map("guardian_user_id") @db.Uuid
+  schoolId       String? @map("school_id") @db.Uuid
+  schoolYear     String? @map("school_year")
 
-  student Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  school  School?            @relation(fields: [schoolId], references: [id])
-  awards  ScholarshipAward[]
+  // ── Step 1: family and student ──────────────────────────────────────────
+  grade String?
+  /// What the family still owes for the year — not the school's published rate.
+  tuitionAfterDiscounts Decimal? @map("tuition_after_discounts") @db.Decimal(10, 2)
 
+  // ── Step 2: narrative ───────────────────────────────────────────────────
+  narrative String?
+
+  // ── Step 3: household income ────────────────────────────────────────────
+  /// Parent affirmed the household figures are current for THIS school year.
+  /// Cleared by any subsequent household edit — a stale confirmation is the
+  /// exact failure this guards against.
+  incomeConfirmedAt DateTime? @map("income_confirmed_at")
+  incomeConfirmedBy String?   @map("income_confirmed_by") @db.Uuid
+  /// Frozen copy of the household written at submission. Reviewers see what was
+  /// certified, not whatever the parent edited afterwards.
+  incomeSnapshot    Json?     @map("income_snapshot")
+
+  // ── Step 4: overflow qualification (the parent's *claim*) ───────────────
+  /// Slug from OVERFLOW_QUALIFICATIONS. Empty means unanswered; 'none' is the
+  /// explicit "doesn't apply" answer and is a real, actionable response. The
+  /// default is deliberately *not* 'none' — that would let an unanswered
+  /// application read as a genuinely Original-only one.
+  overflowQualification String  @default("") @map("overflow_qualification")
+  /// Awarding organization — only when qualification = 'prior-award'.
+  overflowOrg           String? @map("overflow_org")
+  overflowComments      String? @map("overflow_comments")
+
+  // ── Step 5: ESA status ──────────────────────────────────────────────────
+  /// 'yes' | 'no' | 'unsure'
+  esaCurrentYear String? @map("esa_current_year")
+  /// 'yes' | 'no'
+  esaPriorYear   String? @map("esa_prior_year")
+
+  // ── Step 6: submission ──────────────────────────────────────────────────
+  status           ApplicationStatus @default(draft) @map("application_status")
+  certifiedAt      DateTime?         @map("certified_at")
+  submittedAt      DateTime?         @map("submitted_at")
+  confirmationCode String?           @unique @map("confirmation_code")
+  windowId         String?           @map("window_id") @db.Uuid
+  /// Set on submit. Non-null means the parent cannot write — checked server-side
+  /// on every mutation, not only in the UI.
+  lockedAt         DateTime?         @map("locked_at")
+
+  // ── Review workflow ─────────────────────────────────────────────────────
+  reviewedBy      String?   @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime? @map("reviewed_at")
+  /// Deadline attached to an open request_info. 30 days from the request.
+  needsInfoDueAt  DateTime? @map("needs_info_due_at")
+  /// Sections reopened by a request_info; everything else stays locked.
+  fieldsRequested String[]  @default([]) @map("fields_requested")
+  /// Set when staff unlock a submitted application.
+  reopenedBy      String?   @map("reopened_by") @db.Uuid
+  reopenedAt      DateTime? @map("reopened_at")
+  /// True once a needs-info deadline lapsed with no response. Returns the
+  /// application to the queue flagged — never auto-denied.
+  infoNotReceived Boolean   @default(false) @map("info_not_received")
+
+  // ── Attempt chain (a denied family may reapply in the same year) ─────────
+  attemptNumber Int     @default(1) @map("attempt_number")
+  supersedesId  String? @map("supersedes_id") @db.Uuid
+
+  /// Superseded by household_members + income_snapshot. Kept for historical
+  /// rows only; nothing writes to it.
+  requestedAmount      Decimal? @map("requested_amount") @db.Decimal(14, 2)
+  householdIncomeRange String?  @map("household_income_range")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  student     Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school      School?                 @relation(fields: [schoolId], references: [id])
+  window      ApplicationWindow?      @relation(fields: [windowId], references: [id])
+  supersedes  ScholarshipApplication? @relation("ApplicationChain", fields: [supersedesId], references: [id])
+  supersededBy ScholarshipApplication[] @relation("ApplicationChain")
+  awards      ScholarshipAward[]
+  documents   ApplicationDocument[]
+  reviews     ApplicationReview[]
+  eligibility StudentYearEligibility[]
+
+  @@index([guardianUserId])
+  @@index([studentId, schoolYear])
+  @@index([status])
   @@map("scholarship_applications")
+}
+
+/// Household income, owned by the parent — **not** by an application.
+///
+/// The wizard's financial step and the standalone income page read and write
+/// these same rows. Editing in one place must show up in the other.
+model HouseholdMember {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId  String  @map("parent_id") @db.Uuid
+  fullName  String  @map("full_name")
+  /// Free text: "Parent", "Child", "Student · 8th grade".
+  roleLabel String? @map("role_label")
+
+  workAmount          Decimal         @default(0) @map("work_amount") @db.Decimal(12, 2)
+  workFrequency       IncomeFrequency @default(annually) @map("work_frequency")
+  supportAmount       Decimal         @default(0) @map("support_amount") @db.Decimal(12, 2)
+  supportFrequency    IncomeFrequency @default(annually) @map("support_frequency")
+  retirementAmount    Decimal         @default(0) @map("retirement_amount") @db.Decimal(12, 2)
+  retirementFrequency IncomeFrequency @default(annually) @map("retirement_frequency")
+  otherAmount         Decimal         @default(0) @map("other_amount") @db.Decimal(12, 2)
+  otherFrequency      IncomeFrequency @default(annually) @map("other_frequency")
+
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@index([parentId])
+  @@map("household_members")
+}
+
+/// Supporting documentation for an overflow qualification claim.
+/// Private bucket, signed URLs only, purged on a schedule.
+model ApplicationDocument {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String @map("application_id") @db.Uuid
+  storagePath   String @map("storage_path")
+  fileName      String @map("file_name")
+  fileSize      Int    @map("file_size")
+  mimeType      String @map("mime_type")
+  /// 'iep' | 'military_orders' | 'esa_closure' | 'enrollment' | 'other'
+  documentKind  String @default("other") @map("document_kind")
+
+  uploadedBy String?   @map("uploaded_by") @db.Uuid
+  uploadedAt DateTime  @default(now()) @map("uploaded_at")
+  /// Staff confirmed this supports the claimed qualification.
+  verifiedAt DateTime? @map("verified_at")
+  verifiedBy String?   @map("verified_by") @db.Uuid
+
+  /// Set at upload time from the window's school year. A job purges the object
+  /// and sets purgedAt, keeping the row as an audit trail.
+  purgeAfter DateTime  @map("purge_after") @db.Date
+  purgedAt   DateTime? @map("purged_at")
+
+  /// When a denied attempt is superseded, documents relink to the same storage
+  /// object rather than asking the family to upload an IEP twice.
+  importedFromId String? @map("imported_from_id") @db.Uuid
+
+  application ScholarshipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  accessLogs  DocumentAccessLog[]
+
+  @@index([applicationId])
+  @@index([purgeAfter])
+  @@index([storagePath])
+  @@map("application_documents")
+}
+
+/// Append-only. Every staff decision writes a row; the application's status is
+/// just the latest one. Never overwrite a decision.
+model ApplicationReview {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String       @map("application_id") @db.Uuid
+  reviewerId    String       @map("reviewer_id") @db.Uuid
+  action        ReviewAction
+  /// Staff eyes only. Never surfaced to the parent, in any view or email.
+  internalNote  String?      @map("internal_note")
+  /// Sent verbatim to the parent on 'request_info' and 'deny'.
+  parentMessage String?      @map("parent_message")
+  /// Which sections reopen on 'request_info'.
+  fieldsRequested String[]   @default([]) @map("fields_requested")
+  /// request_info only — the deadline as it stood at the time of the action.
+  dueAt         DateTime?    @map("due_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  application ScholarshipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@map("application_reviews")
+}
+
+/// The open/close range for a school year. Data, not constants — staff move
+/// these dates without a deploy.
+model ApplicationWindow {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolYear     String    @unique @map("school_year")
+  opensAt        DateTime  @map("opens_at")
+  closesAt       DateTime  @map("closes_at")
+  /// Drafts already started may still submit until this moment.
+  lateGraceUntil DateTime? @map("late_grace_until")
+  isPublished    Boolean   @default(false) @map("is_published")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  applications ScholarshipApplication[]
+
+  @@map("application_windows")
+}
+
+/// **The table the awarding process reads.** Eligibility is scoped to the
+/// school year of the potential award, never read from application status.
+/// Only an approval writes here.
+model StudentYearEligibility {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId  String @map("student_id") @db.Uuid
+  schoolYear String @map("school_year")
+
+  overflowEligible      Boolean @default(false) @map("overflow_eligible")
+  overflowQualification String? @map("overflow_qualification")
+
+  verifiedAt          DateTime @map("verified_at")
+  verifiedBy          String   @map("verified_by") @db.Uuid
+  sourceApplicationId String   @map("source_application_id") @db.Uuid
+
+  /// Overturning a decision sets this rather than deleting the row. Checked at
+  /// award time *and* again at disbursement.
+  revokedAt     DateTime? @map("revoked_at")
+  revokedReason String?   @map("revoked_reason")
+  revokedBy     String?   @map("revoked_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  student           Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sourceApplication ScholarshipApplication @relation(fields: [sourceApplicationId], references: [id])
+
+  @@unique([studentId, schoolYear])
+  @@map("student_year_eligibility")
+}
+
+/// Who opened which document, and when. If a family asks who saw their child's
+/// IEP, this is the answer.
+model DocumentAccessLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  accessedBy String?  @map("accessed_by") @db.Uuid
+  accessorEmail String? @map("accessor_email")
+  /// 'signed_url' | 'download' | 'delete' | 'denied'
+  action     String
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document ApplicationDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
+  @@map("document_access_log")
 }
 
 model ScholarshipAward {

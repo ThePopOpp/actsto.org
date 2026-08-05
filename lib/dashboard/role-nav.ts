@@ -3,6 +3,7 @@ import {
   Banknote,
   Bell,
   Building2,
+  ClipboardList,
   Contact,
   CreditCard,
   FileText,
@@ -16,6 +17,7 @@ import {
   UserCircle,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import type { UserRole } from "@/lib/auth/types";
@@ -49,6 +51,8 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
         profile,
         accountTypes,
         { href: `${b}/students`, label: "Students", icon: Users },
+        { href: `${b}/apply`, label: "Scholarship application", icon: ClipboardList },
+        { href: `${b}/household-income`, label: "Household income", icon: Wallet },
         { href: `${b}/campaigns`, label: "Campaigns", icon: Megaphone },
         { href: `${b}/marketing`, label: "Marketing", icon: Images },
         { href: `${b}/donations`, label: "Donations received", icon: Heart },

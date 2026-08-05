@@ -1,0 +1,1025 @@
+<!-- Arizona Christian Tuition — Parent Portal: Apply wizard + Household income
+     Inspired by the reference screenshots; all copy rewritten. Demo data is fictional. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-950:#0b1220;
+    --navy-900:#101a2d;
+    --navy-800:#17253d;
+    --navy-700:#1f3151;
+    --gold:#d9a13a;
+    --gold-600:#c2871f;
+    --gold-100:#fbf1dd;
+    --gold-line:#ecd3a0;
+    --paper:#f5f6f8;
+    --surface:#ffffff;
+    --ink:#131c2b;
+    --ink-soft:#5b6879;
+    --ink-faint:#8c98a8;
+    --line:#e4e8ee;
+    --line-strong:#d2d9e3;
+    --tint:#eef2f8;
+    --info-bg:#eef4fb;
+    --info-line:#cfe0f2;
+    --info-ink:#1c4472;
+    --ok:#2c7a54;
+    --ok-bg:#e9f5ee;
+    --ok-line:#bfe0cb;
+    --warn-bg:#fdf3e0;
+    --warn-line:#ecd3a0;
+    --warn-ink:#6b4a12;
+    --danger:#b03a3a;
+    --danger-bg:#fbecec;
+    --r:14px; --r-sm:10px;
+    --sh-sm:0 1px 2px rgba(11,18,32,.06);
+    --sh-md:0 14px 34px -14px rgba(11,18,32,.32);
+    --sh-lg:0 34px 80px -24px rgba(11,18,32,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{margin:0;font-family:"Fraunces","Georgia",serif;font-weight:500;letter-spacing:-.012em;color:var(--ink)}
+  button{font-family:inherit;cursor:pointer}
+  a{color:var(--navy-700)}
+  .tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .hidden{display:none !important}
+
+  /* ================= shell ================= */
+  .shell{display:grid;grid-template-columns:268px 1fr;min-height:100vh;max-width:1340px;margin:0 auto}
+
+  .side{background:linear-gradient(180deg,var(--navy-950) 0%,var(--navy-900) 100%);color:#c8d2e2;padding:24px 16px 40px}
+  .brand{display:flex;align-items:center;gap:11px;padding:2px 8px 22px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:6px}
+  .brand-mark{width:40px;height:40px;border-radius:11px;background:var(--gold);display:grid;place-items:center;flex:none}
+  .brand-mark svg{width:23px;height:23px}
+  .brand-name{font-family:"Fraunces",serif;font-size:16.5px;color:#fff;line-height:1.15}
+  .brand-sub{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8fa2bf;margin-top:3px}
+  .nav-label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#7b8ead;padding:16px 12px 8px}
+  .nav button{display:flex;width:100%;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;border:none;background:none;
+    color:#b9c6da;font-size:14px;font-weight:500;text-align:left;transition:background .15s,color .15s}
+  .nav button svg{width:18px;height:18px;flex:none;opacity:.85}
+  .nav button:hover{background:rgba(255,255,255,.06);color:#fff}
+  .nav button.active{background:var(--gold);color:#241902;font-weight:600}
+  .nav button.active svg{opacity:1}
+  .nav button:focus-visible{outline:2px solid var(--gold-line);outline-offset:2px}
+  .side-foot{margin-top:26px;padding:14px;border-radius:12px;background:rgba(255,255,255,.05);font-size:12.5px;color:#9fb0c9;line-height:1.5}
+  .side-foot b{color:#fff;display:block;font-weight:600;margin-bottom:3px;font-size:13px}
+
+  .main{padding:30px clamp(18px,3.6vw,54px) 80px;min-width:0}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-600);font-weight:700;margin-bottom:7px}
+  h1{font-size:clamp(27px,3.6vw,36px);line-height:1.06}
+  .page-head p{margin:9px 0 0;color:var(--ink-soft);max-width:58ch}
+
+  /* ================= stepper ================= */
+  .stepper{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:8px;margin-bottom:18px;overflow-x:auto;box-shadow:var(--sh-sm)}
+  .step-btn{display:flex;align-items:center;gap:9px;padding:9px 13px;border:none;background:none;border-radius:9px;
+    color:var(--ink-faint);font-size:13.5px;font-weight:600;white-space:nowrap;transition:.15s}
+  .step-btn .dot{width:22px;height:22px;border-radius:50%;background:var(--tint);color:var(--ink-faint);
+    display:grid;place-items:center;font-size:11.5px;font-weight:700;flex:none}
+  .step-btn .dot svg{width:12px;height:12px}
+  .step-btn:hover{background:var(--tint);color:var(--ink)}
+  .step-btn.done{color:var(--navy-700)}
+  .step-btn.done .dot{background:var(--ok-bg);color:var(--ok)}
+  .step-btn.current{background:var(--navy-900);color:#fff}
+  .step-btn.current .dot{background:var(--gold);color:#241902}
+  .step-btn:focus-visible{outline:2px solid var(--navy-700);outline-offset:2px}
+
+  .autosave{display:flex;gap:12px;background:var(--info-bg);border:1px solid var(--info-line);border-radius:var(--r);
+    padding:14px 18px;margin-bottom:22px;color:var(--info-ink);font-size:13.5px;line-height:1.55}
+  .autosave svg{width:18px;height:18px;flex:none;margin-top:2px}
+  .autosave a{color:var(--info-ink);font-weight:600}
+
+  /* ================= cards ================= */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-sm);padding:26px 28px;margin-bottom:20px}
+  .card > h2{font-size:21px;margin-bottom:4px}
+  .card > .sub{color:var(--ink-soft);font-size:14px;margin:0 0 18px}
+  .card-rule{height:1px;background:var(--line);margin:20px 0}
+
+  .flag{display:flex;gap:12px;border-radius:var(--r-sm);padding:12px 15px;font-size:13.5px;line-height:1.55;margin-bottom:18px}
+  .flag svg{width:17px;height:17px;flex:none;margin-top:2px}
+  .flag-warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink)}
+  .flag-warn a{color:var(--warn-ink);font-weight:600}
+  .flag-info{background:var(--info-bg);border:1px solid var(--info-line);color:var(--info-ink)}
+  .flag-ok{background:var(--ok-bg);border:1px solid var(--ok-line);color:var(--ok);font-weight:500}
+
+  .readgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px 28px}
+  .readgrid .k{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin-bottom:5px}
+  .readgrid .v{font-size:15px;color:var(--ink);line-height:1.5}
+
+  /* ================= form ================= */
+  .field{margin-bottom:18px}
+  .field:last-child{margin-bottom:0}
+  label.lb{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:6px;letter-spacing:.005em}
+  label.lb .opt{font-weight:400;color:var(--ink-faint);letter-spacing:0}
+  .req{color:var(--gold-600);margin-left:2px}
+  .input{width:100%;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:11px 13px;font-size:15px;
+    color:var(--ink);background:#fff;font-family:inherit;transition:.14s}
+  .input:focus{outline:none;border-color:var(--navy-700);box-shadow:0 0 0 3px rgba(31,49,81,.13)}
+  .input.err{border-color:var(--danger);box-shadow:0 0 0 3px rgba(176,58,58,.12)}
+  textarea.input{min-height:210px;resize:vertical;line-height:1.65;font-size:15px}
+  select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6879' stroke-width='2.4'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .money{position:relative}
+  .money span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-faint);pointer-events:none}
+  .money .input{padding-left:26px}
+  .helper{font-size:12.5px;color:var(--ink-faint);margin-top:6px}
+  .errmsg{font-size:12.5px;color:var(--danger);margin-top:6px;font-weight:500;display:none}
+  .errmsg.show{display:block}
+  .counter{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-faint);margin-top:8px}
+  .counter b{color:var(--ok)}
+
+  /* ================= buttons ================= */
+  .btn{display:inline-flex;align-items:center;gap:9px;border:none;border-radius:10px;padding:12px 19px;font-size:14px;font-weight:600;transition:.14s}
+  .btn svg{width:16px;height:16px}
+  .btn-navy{background:var(--navy-900);color:#fff}
+  .btn-navy:hover{background:var(--navy-700)}
+  .btn-gold{background:var(--gold);color:#241902;box-shadow:0 8px 18px -8px rgba(217,161,58,.8)}
+  .btn-gold:hover{background:#e6ae48;transform:translateY(-1px)}
+  .btn-ghost{background:#fff;border:1px solid var(--line-strong);color:var(--ink-soft)}
+  .btn-ghost:hover{background:var(--tint);color:var(--ink)}
+  .btn-quiet{background:var(--tint);color:var(--navy-700);border:1px solid var(--line)}
+  .btn-quiet:hover{background:#e5ebf4}
+  .btn-sm{padding:9px 14px;font-size:13px}
+  .btn:focus-visible{outline:2px solid var(--navy-700);outline-offset:2px}
+
+  .wizard-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:6px}
+  .wizard-nav .spacer{flex:1}
+
+  /* ================= table ================= */
+  .ledger-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    background:linear-gradient(120deg,var(--navy-900) 0%,var(--navy-800) 100%);color:#e6ecf6;
+    border-radius:var(--r) var(--r) 0 0;padding:20px 24px}
+  .ledger-top .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#93a6c4;margin-bottom:6px;font-weight:700}
+  .ledger-top .v{font-family:"Fraunces",serif;font-size:34px;line-height:1;color:#fff}
+  .ledger-top .v small{font-size:17px;color:#a6b8d4;font-family:"Inter",sans-serif;font-weight:500;margin-left:4px}
+  .ledger-top .m{font-size:12.5px;color:#a6b8d4;margin-top:7px}
+  .tablewrap{background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r) var(--r);overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{text-align:left;font-weight:700;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);
+    padding:13px 15px;border-bottom:1px solid var(--line);background:#fafbfd;white-space:nowrap}
+  th.num,td.num{text-align:right}
+  th.act{text-align:center;width:88px}
+  tbody td{padding:14px 15px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafbfd}
+  .member{display:flex;align-items:center;gap:11px}
+  .avatar{width:33px;height:33px;border-radius:9px;background:var(--tint);color:var(--navy-700);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+  .member .nm{font-weight:600}
+  .member .rl{font-size:12px;color:var(--ink-faint)}
+  td.num.zero{color:var(--ink-faint)}
+  td.total{font-weight:700}
+  .row-actions{display:flex;gap:6px;justify-content:center}
+  .icon-btn{width:31px;height:31px;border-radius:8px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;color:var(--ink-soft);transition:.14s}
+  .icon-btn svg{width:15px;height:15px}
+  .icon-btn:hover{border-color:var(--navy-700);color:var(--navy-700);background:var(--tint)}
+  .icon-btn.del:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-bg)}
+  .empty{padding:40px 20px;text-align:center;color:var(--ink-soft)}
+  .empty b{display:block;color:var(--ink);margin-bottom:4px;font-size:15px}
+
+  /* ================= choices ================= */
+  .choice{display:flex;gap:13px;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:10px;
+    cursor:pointer;transition:.14s;background:#fff}
+  .choice:hover{border-color:var(--line-strong);background:#fafbfd}
+  .choice.sel{border-color:var(--navy-700);background:var(--tint);box-shadow:0 0 0 1px var(--navy-700) inset}
+  .choice input{margin:3px 0 0;accent-color:var(--navy-800);width:16px;height:16px;flex:none}
+  .choice .t{font-weight:600;font-size:14.5px}
+  .choice .d{font-size:13px;color:var(--ink-soft);margin-top:3px;line-height:1.5}
+  .subpanel{margin:-2px 0 12px 42px;padding:14px 16px;border-left:2px solid var(--gold);background:var(--gold-100);border-radius:0 var(--r-sm) var(--r-sm) 0}
+  .subpanel .lb{margin-bottom:6px}
+  .subpanel p{margin:0 0 10px;font-size:13px;color:var(--warn-ink);line-height:1.55}
+
+  .drop{border:2px dashed var(--line-strong);border-radius:var(--r);padding:28px 20px;text-align:center;background:#fafbfd;transition:.15s}
+  .drop.over{border-color:var(--gold);background:var(--gold-100)}
+  .drop svg{width:30px;height:30px;color:var(--ink-faint);margin-bottom:8px}
+  .drop b{display:block;font-size:15px;margin-bottom:4px}
+  .drop p{margin:0 0 14px;font-size:13px;color:var(--ink-soft)}
+  .filelist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+  .filelist li{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:13.5px;background:#fff}
+  .filelist svg{width:16px;height:16px;color:var(--navy-700);flex:none}
+  .filelist .sz{color:var(--ink-faint);font-size:12.5px;margin-left:auto}
+  .filelist button{border:none;background:none;color:var(--ink-faint);padding:2px;display:grid;place-items:center;border-radius:6px}
+  .filelist button:hover{color:var(--danger);background:var(--danger-bg)}
+
+  /* ================= review ================= */
+  .review-block{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:16px;background:#fff}
+  .review-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 18px;background:#fafbfd;border-bottom:1px solid var(--line)}
+  .review-head h3{font-size:16px}
+  .rrow{display:grid;grid-template-columns:210px 1fr;gap:18px;padding:13px 18px;border-bottom:1px solid var(--line);font-size:14.5px}
+  .rrow:last-child{border-bottom:none}
+  .rrow .k{color:var(--ink-faint);font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;padding-top:2px}
+  .rrow .v{color:var(--ink)}
+  .rrow .v.narr{white-space:pre-wrap;line-height:1.65;color:var(--ink-soft)}
+  .rrow .v.miss{color:var(--danger);font-weight:600}
+  .rev-table{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+  .rev-table thead th{background:#fff}
+  .certify{display:flex;gap:13px;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--r);padding:18px 20px;margin-bottom:18px}
+  .certify input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--gold-600);flex:none}
+  .certify label{font-size:14px;color:var(--warn-ink);line-height:1.6}
+  .submitted{text-align:center;padding:56px 24px}
+  .submitted .seal{width:66px;height:66px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:grid;place-items:center;margin:0 auto 18px}
+  .submitted .seal svg{width:32px;height:32px}
+  .submitted h2{font-size:27px;margin-bottom:8px}
+  .submitted p{color:var(--ink-soft);max-width:46ch;margin:0 auto 22px}
+  .confirm-code{display:inline-block;font-family:"Fraunces",serif;font-size:19px;background:var(--tint);border:1px dashed var(--line-strong);
+    border-radius:9px;padding:8px 16px;margin-bottom:22px;letter-spacing:.06em}
+
+  /* ================= toast + modal ================= */
+  .toast{position:fixed;top:18px;left:50%;transform:translate(-50%,-24px);z-index:90;display:flex;align-items:center;gap:11px;
+    background:var(--ok-bg);border:1px solid var(--ok-line);color:var(--ok);padding:12px 18px;border-radius:12px;
+    box-shadow:var(--sh-md);font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:.25s}
+  .toast svg{width:18px;height:18px}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .overlay{position:fixed;inset:0;background:rgba(11,18,32,.5);backdrop-filter:blur(3px);display:none;
+    align-items:flex-start;justify-content:center;padding:5vh 16px;z-index:95;overflow:auto}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:18px;box-shadow:var(--sh-lg);width:100%;max-width:560px}
+  .modal-head{padding:22px 26px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+  .modal-head h3{font-size:21px}
+  .modal-head p{margin:5px 0 0;color:var(--ink-soft);font-size:13.5px}
+  .x{border:none;background:none;color:var(--ink-faint);width:33px;height:33px;border-radius:8px;display:grid;place-items:center;flex:none}
+  .x:hover{background:var(--tint);color:var(--ink)}
+  .x svg{width:18px;height:18px}
+  .modal-body{padding:22px 26px}
+  .cat{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:end;margin-bottom:14px}
+  .cat .lbl{font-size:12.5px;font-weight:700;margin-bottom:6px}
+  .cat .lbl small{display:block;font-weight:400;color:var(--ink-faint);font-size:11px;margin-top:1px}
+  .modal-foot{display:flex;align-items:center;gap:14px;padding:18px 26px 24px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .foot-total{font-size:13px;color:var(--ink-soft)}
+  .foot-total b{color:var(--navy-800);font-family:"Fraunces",serif;font-size:19px;margin-left:5px}
+  .foot-btns{display:flex;gap:10px;margin-left:auto}
+
+  .menu-toggle{display:none}
+  @media(max-width:900px){
+    .shell{grid-template-columns:1fr}
+    .side{display:none}
+    .side.open{display:block;position:fixed;inset:0 24% 0 0;z-index:99;overflow:auto}
+    .menu-toggle{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;
+      padding:9px 14px;font-weight:600;font-size:13px;color:var(--ink);margin-bottom:16px}
+    .menu-toggle svg{width:16px;height:16px}
+    .main{padding:20px 16px 60px}
+    .two{grid-template-columns:1fr}
+    .rrow{grid-template-columns:1fr;gap:4px}
+  }
+  @media(max-width:640px){
+    th.hide-sm,td.hide-sm{display:none}
+    .card{padding:20px 18px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+
+<div class="shell">
+<!-- ============ SIDEBAR ============ -->
+<aside class="side" id="side">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#241902" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 9.5L12 4.5 2 9.5l10 5 10-5z"/><path d="M6 11.6V17c0 1.1 2.7 2.6 6 2.6s6-1.5 6-2.6v-5.4"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">Arizona Christian Tuition</div>
+      <div class="brand-sub">Parent Portal</div>
+    </div>
+  </div>
+
+  <div class="nav-label">Applications</div>
+  <nav class="nav">
+    <button onclick="go('dashboard')" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
+    <button onclick="go('students')" data-view="students"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18.5 20a5.2 5.2 0 0 0-2.5-4.4"/></svg>Students</button>
+    <button onclick="go('apply')" data-view="apply" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Apply for a scholarship</button>
+    <button onclick="go('income')" data-view="income"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.5v19"/><path d="M17 6.5c0-2-2.2-3-5-3s-5 1.3-5 3.3S9 9.5 12 10s5 1 5 3.2-2.2 3.3-5 3.3-5-1.2-5-3"/></svg>Household income</button>
+  </nav>
+
+  <div class="nav-label">Fundraising</div>
+  <nav class="nav">
+    <button onclick="go('link')" data-view="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a4 4 0 0 0 5.6.4l2.8-2.8a4 4 0 1 0-5.6-5.6L11.3 6.4"/><path d="M14 11a4 4 0 0 0-5.6-.4L5.6 13.4a4 4 0 1 0 5.6 5.6l1.4-1.4"/></svg>Donation link</button>
+    <button onclick="go('page')" data-view="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5"/><path d="M6 3h8l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>Family page</button>
+  </nav>
+
+  <div class="side-foot">
+    <b>2026 tax credit maximums</b>
+    Single filers up to $1,571 · Married filing jointly up to $3,131.
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main class="main">
+  <button class="menu-toggle" onclick="document.getElementById('side').classList.toggle('open')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
+  </button>
+
+  <!-- ---------- APPLY VIEW ---------- -->
+  <section id="view-apply">
+    <header class="page-head">
+      <div>
+        <div class="eyebrow">Scholarship application</div>
+        <h1 id="applyTitle">Apply for the 2026/2027 year</h1>
+        <p>Six short sections. Your answers save as you go, so you can stop and come back whenever you need to.</p>
+      </div>
+    </header>
+
+    <nav class="stepper" id="stepper" aria-label="Application progress"></nav>
+
+    <div class="flag flag-warn hidden" id="importNotice" style="padding:16px 18px;margin-bottom:18px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+      <div><b>We've brought over your previous answers.</b> Your earlier application for this year was denied, so this is a new one. Review every section before submitting — especially anything our team asked you to fix.</div>
+    </div>
+    <div class="autosave">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+      <div>A draft is kept for you from the moment you start. Pick it back up any time from <a href="#" onclick="go('dashboard');return false;">your dashboard</a> under saved applications, or use <b>Save and finish later</b> at the bottom of any section.</div>
+    </div>
+
+    <!-- ===== STEP 1: FAMILY ===== -->
+    <div class="step-panel" data-step="0">
+      <section class="card">
+        <h2>Parent information</h2>
+        <p class="sub">Pulled from your account.</p>
+        <div class="flag flag-warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.6v5.2M12 16.3h.01"/></svg>
+          <div>Check that these details are right before you continue. To change them, edit your <a href="#">profile</a>.</div>
+        </div>
+        <div class="readgrid">
+          <div><div class="k">Parent name</div><div class="v" id="rpName">Renata Ellison</div></div>
+          <div><div class="k">Phone</div><div class="v" id="rpPhone">(602) 555-0148</div></div>
+          <div><div class="k">Mailing address</div><div class="v" id="rpAddr">1820 E Ravenswood Dr<br>Gilbert, AZ 85296</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Student information</h2>
+        <p class="sub">One application per student, per school year.</p>
+        <div class="field">
+          <label class="lb" for="fStudent">Student<span class="req">*</span></label>
+          <select class="input" id="fStudent" onchange="setF('student',this.value)">
+            <option>Sofia Ellison</option><option>Theo Ellison</option><option>Priya Ellison</option>
+          </select>
+          <div class="helper" style="display:flex;align-items:center;gap:10px;margin-top:10px">
+            Don't see your child? <button class="btn btn-quiet btn-sm" onclick="toast('Student profile form would open here')">Add a student</button>
+          </div>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label class="lb" for="fYear">School year<span class="req">*</span></label>
+            <select class="input" id="fYear" onchange="setF('year',this.value)">
+              <option>2026/2027</option><option>2027/2028</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="lb" for="fGrade">Grade for that year<span class="req">*</span></label>
+            <select class="input" id="fGrade" onchange="setF('grade',this.value)">
+              <option value="">Select a grade</option>
+              <option>Kindergarten</option><option>1st grade</option><option>2nd grade</option><option>3rd grade</option>
+              <option>4th grade</option><option>5th grade</option><option>6th grade</option><option>7th grade</option>
+              <option selected>8th grade</option><option>9th grade</option><option>10th grade</option><option>11th grade</option><option>12th grade</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lb" for="fSchool">School<span class="req">*</span></label>
+          <select class="input" id="fSchool" onchange="setF('school',this.value)">
+            <option>Valley Christian Schools — Chandler</option>
+            <option>Northwest Christian School — Phoenix</option>
+            <option>Grace Preparatory Academy — Gilbert</option>
+            <option>Desert Heights Academy — Mesa</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lb" for="fTuition">Tuition owed after every discount is applied<span class="req">*</span></label>
+          <div class="money"><span>$</span><input class="input" id="fTuition" type="number" min="0" step="1" inputmode="decimal" value="12457" oninput="setF('tuition',this.value)"></div>
+          <div class="helper">Enter the amount your family still owes for the full year, not the school's published rate.</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== STEP 2: NARRATIVE ===== -->
+    <div class="step-panel hidden" data-step="1">
+      <section class="card">
+        <h2>Tell us about your student</h2>
+        <p class="sub">Two or three paragraphs is the right length.</p>
+        <div class="flag flag-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.7h.01"/></svg>
+          <div>Write about who your student is: character and faith, how they show up for others, what they've worked hard at, what they're involved in at school or in the community. Leave money out of it — income belongs in the financial section, and readers are asked to weigh that separately.</div>
+        </div>
+        <div class="field">
+          <label class="lb" for="fNarr">Student narrative<span class="req">*</span></label>
+          <textarea class="input" id="fNarr" placeholder="Draft this somewhere you trust first, then paste it here." oninput="onNarr(this)"></textarea>
+          <div class="counter"><span id="narrWords">0 words</span><span id="narrHint">Aim for 150–400 words</span></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== STEP 3: FINANCIAL ===== -->
+    <div class="step-panel hidden" data-step="2">
+      <section class="card">
+        <h2>Financial information</h2>
+        <p class="sub">Required. Applications missing income can't be reviewed.</p>
+        <div class="flag flag-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.7h.01"/></svg>
+          <div>We use the USDA's definition of a household: people who live together and share income and expenses. Anyone financially independent from you — and their dependents — can be left off, even if you share an address. Everyone else belongs on the list, including children, students living away at school, and people earning nothing.</div>
+        </div>
+        <div class="field" style="max-width:280px">
+          <label class="lb" for="fCount">People living in your household<span class="req">*</span></label>
+          <input class="input" id="fCount" type="number" min="1" readonly value="5">
+          <div class="helper">Counted from the members you list below.</div>
+        </div>
+      </section>
+      <div id="incomeSlotApply"></div>
+      <div id="confirmSlot"></div>
+    </div>
+
+    <!-- ===== STEP 4: OVERFLOW ===== -->
+    <div class="step-panel hidden" data-step="3">
+      <section class="card">
+        <h2>Overflow qualification</h2>
+        <p class="sub">Which of these describes your student?</p>
+        <div class="flag flag-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.7h.01"/></svg>
+          <div>We award from two funds. Every student is considered for the Original scholarship automatically; the Overflow fund has extra requirements set by state law. Pick the one situation that fits, and upload proof if the option asks for it — we can't count an Overflow qualification without documentation on file.</div>
+        </div>
+        <div id="overflowChoices"></div>
+        <div class="field" style="margin-top:20px">
+          <label class="lb" for="fComments">Anything you'd like the review team to know <span class="opt">(optional)</span></label>
+          <textarea class="input" id="fComments" style="min-height:110px" placeholder="Context about your student's situation, documents that are on the way, and so on." oninput="setO('comments',this.value)"></textarea>
+        </div>
+        <div class="card-rule"></div>
+        <h3 style="font-size:16px;margin-bottom:4px">Supporting documents</h3>
+        <p class="sub" style="margin-bottom:14px">JPG, PNG, or PDF. Add as many as you need.</p>
+        <div class="drop" id="drop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5M12 4v12"/></svg>
+          <b>Drag files here</b>
+          <p>Or pick them from your device.</p>
+          <button class="btn btn-quiet btn-sm" onclick="document.getElementById('fileInput').click()">Choose files</button>
+          <input type="file" id="fileInput" multiple class="hidden" onchange="addFiles(this.files)">
+        </div>
+        <ul class="filelist" id="fileList"></ul>
+      </section>
+    </div>
+
+    <!-- ===== STEP 5: ESA ===== -->
+    <div class="step-panel hidden" data-step="4">
+      <section class="card">
+        <h2>Empowerment Scholarship Account status</h2>
+        <p class="sub">Two questions, both required.</p>
+        <p style="color:var(--ink-soft);font-size:14.5px;margin:0 0 12px">An ESA is a separate funding source from tax credit scholarships. ESAs are run by the Arizona Department of Education — not by us.</p>
+        <p style="color:var(--ink-soft);font-size:14.5px;margin:0 0 12px">State law bars us from sending tax credit money to a school while a signed ESA contract is in place for that student. Before funds can be released, we need documentation from the Department of Education showing the contract was closed or allowed to lapse.</p>
+        <p style="color:var(--ink-soft);font-size:14.5px;margin:0 0 12px">A student under contract can still be awarded. We hold the award in the student's name until that documentation arrives, as long as you reapply each school year and the student stays enrolled at a partner school without a break.</p>
+        <div class="flag flag-warn" style="margin:16px 0 22px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.6v5.2M12 16.3h.01"/></svg>
+          <div>If your student's ESA status changes at any point during the year, tell us right away.</div>
+        </div>
+        <div class="field">
+          <label class="lb" for="fEsaNow">For the year you're applying for, have you signed — or do you plan to sign — an ESA contract for this student?<span class="req">*</span></label>
+          <select class="input" id="fEsaNow" style="max-width:340px" onchange="setE('current',this.value)">
+            <option value="">Select an answer</option><option>Yes</option><option>No</option><option>Not sure yet</option>
+          </select>
+          <div class="errmsg" id="errEsaNow">Pick an answer to continue.</div>
+        </div>
+        <div class="field">
+          <label class="lb" for="fEsaPrior">For the school year just before it, was an ESA contract signed for this student at any point?<span class="req">*</span></label>
+          <select class="input" id="fEsaPrior" style="max-width:340px" onchange="setE('prior',this.value)">
+            <option value="">Select an answer</option><option>Yes</option><option>No</option>
+          </select>
+          <div class="errmsg" id="errEsaPrior">Pick an answer to continue.</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== STEP 6: REVIEW ===== -->
+    <div class="step-panel hidden" data-step="5">
+      <div id="reviewWrap"></div>
+    </div>
+
+    <div class="wizard-nav" id="wizardNav"></div>
+  </section>
+
+  <!-- ---------- INCOME VIEW ---------- -->
+  <section id="view-income" class="hidden">
+    <header class="page-head">
+      <div>
+        <div class="eyebrow">Financial details</div>
+        <h1>Update household income</h1>
+        <p>Keep the income on your active application current. List everyone in your household and what each person earns.</p>
+      </div>
+    </header>
+
+    <div class="flag flag-warn" style="padding:16px 18px;margin-bottom:20px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.6v5.2M12 16.3h.01"/></svg>
+      <div><b>Before you edit.</b> Use this page only if your family already has an application on file for this school year. If you haven't started one, choose <a href="#" onclick="go('apply');return false;">Apply for a scholarship</a> instead — every student needs a new application each year.</div>
+    </div>
+
+    <section class="card">
+      <h2>How to fill this out</h2>
+      <p class="sub">Reported income is required. Without it we can't review your students for any award.</p>
+      <p style="color:var(--ink-soft);font-size:14.5px;margin:0 0 12px">We use the USDA's definition of a household: people who live together and share income and expenses. You don't have to list anyone financially independent from you, or their dependents, even under the same roof.</p>
+      <div class="flag flag-info" style="margin:0 0 12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.7h.01"/></svg><div>Include everyone else: adults, children, students away at college, and anyone with no income at all. Incomplete rosters slow your review down.</div></div>
+      <div class="flag flag-warn" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.6v5.2M12 16.3h.01"/></svg>
+        <div>Changes here don't alter an application you've already submitted — that one keeps the figures you certified. If something needs correcting on a submitted application, contact our team.</div></div>
+    </section>
+
+    <div id="incomeSlotStandalone"></div>
+
+    <section style="margin-top:26px">
+      <h2 style="font-size:21px;margin-bottom:3px">Reporting income, explained</h2>
+      <p style="color:var(--ink-soft);margin:0 0 15px;font-size:14.5px">A quick reference for what goes where.</p>
+      <div class="card" style="padding:0;overflow:hidden" id="accordion"></div>
+    </section>
+  </section>
+
+  <!-- ---------- PLACEHOLDER VIEWS ---------- -->
+  <section id="view-other" class="hidden">
+    <header class="page-head"><div><div class="eyebrow" id="otherEyebrow">Portal</div><h1 id="otherTitle">Dashboard</h1><p id="otherDesc"></p></div></header>
+    <section class="card" style="text-align:center;padding:56px 24px">
+      <h2 style="font-size:20px;margin-bottom:8px">Not part of this prototype</h2>
+      <p style="color:var(--ink-soft);max-width:44ch;margin:0 auto 20px">This screen is a placeholder. The two built-out flows are the scholarship application and household income.</p>
+      <button class="btn btn-navy" onclick="go('apply')">Go to the application</button>
+    </section>
+  </section>
+</main>
+</div>
+
+<div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9.5"/><path d="M8.4 12.4l2.6 2.6 4.6-5.2"/></svg><span id="toastMsg">Saved</span></div>
+
+<!-- income modal -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <div><h3 id="modalTitle">Add a household member</h3><p>Enter each income source and how often it arrives. We convert everything to a yearly figure.</p></div>
+      <button class="x" onclick="closeModal()" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label class="lb" for="mName">Full name<span class="req">*</span></label>
+        <input class="input" id="mName" type="text" placeholder="e.g. Marcus Ellison" autocomplete="off"></div>
+      <div class="field"><label class="lb" for="mRole">Role in household <span class="opt">(optional)</span></label>
+        <input class="input" id="mRole" type="text" placeholder="e.g. Parent, Student, Child" autocomplete="off"></div>
+      <div style="height:1px;background:var(--line);margin:4px 0 18px"></div>
+      <div id="catGrid"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="foot-total">Yearly income for this member<b class="tnum" id="modalTotal">$0</b></div>
+      <div class="foot-btns">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-navy" id="saveBtn" onclick="saveMember()">Save member</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= config ================= */
+const STEPS = [
+  {id:'family',   label:'Family',    full:'Family information'},
+  {id:'narrative',label:'Narrative', full:'Student narrative'},
+  {id:'financial',label:'Financial', full:'Financial information'},
+  {id:'overflow', label:'Overflow',  full:'Overflow qualification'},
+  {id:'esa',      label:'ESA status',full:'ESA status'},
+  {id:'review',   label:'Review',    full:'Review and submit'},
+];
+const CATS = [
+  {key:'work',       label:'Employment', hint:'gross wages, salary, tips, commissions'},
+  {key:'support',    label:'Support',    hint:'child support, maintenance, cash assistance'},
+  {key:'retirement', label:'Retirement', hint:'pensions, Social Security, SSI, VA, disability'},
+  {key:'other',      label:'Other',      hint:'unemployment, rental, interest, dividends'},
+];
+const FREQS = [{v:'annually',l:'Annually',m:1},{v:'monthly',l:'Monthly',m:12},{v:'semimonthly',l:'Semimonthly',m:24},{v:'biweekly',l:'Biweekly',m:26},{v:'weekly',l:'Weekly',m:52}];
+const OVERFLOW = [
+  {v:'transfer',   t:'Moved from an Arizona district or charter school', d:'Attended a public school in Arizona for at least 90 days of the prior year, or the first 45 days of this one, before enrolling privately.'},
+  {v:'disability', t:'Student with a disability',                        d:'Has a MET, IEP, or 504 plan from an Arizona public school. Documentation required.', doc:true},
+  {v:'preschool',  t:'Preschooler with a disability',                    d:'Qualifies for preschool services through an Arizona public school. Documentation required.', doc:true},
+  {v:'kinder',     t:'Entering kindergarten',                            d:'First year of school, with no prior private enrollment.'},
+  {v:'military',   t:'Dependent of an active-duty service member',       d:'A parent is stationed in Arizona on active duty. Documentation required.', doc:true},
+  {v:'homeschool', t:'Homeschooled in Arizona last year',                d:'Registered as a homeschool student with the county, and not on an ESA. Documentation required.', doc:true},
+  {v:'outofstate', t:'Moved to Arizona from another state or country',   d:'New Arizona resident enrolling privately for the first time. Documentation required.', doc:true},
+  {v:'esa-prior',  t:'Previously held an ESA',                           d:'The contract has since been closed or allowed to lapse. Documentation required.', doc:true},
+  {v:'prior-award',t:'Received an Overflow or Corporate scholarship before', d:'Awarded by any certified tuition organization in a prior year while at a private school.', org:true},
+  {v:'none',       t:'None of these apply to my student',                    d:'Choose this if no qualifying event fits. Your student is still fully considered for the Original scholarship.', none:true},
+];
+const ORGS = ['Arizona Christian Tuition','Another certified tuition organization','I\'m not sure which one'];
+
+/* ================= state ================= */
+const S = {
+  view:'apply', step:0, submitted:false,
+  parent:{name:'Renata Ellison', phone:'(602) 555-0148', addr:'1820 E Ravenswood Dr, Gilbert, AZ 85296'},
+  family:{student:'Sofia Ellison', year:'2026/2027', grade:'8th grade', school:'Valley Christian Schools — Chandler', tuition:'12457'},
+  narrative:'',
+  overflow:{choice:'', org:'', comments:'', files:[]},
+  esa:{current:'', prior:''},
+  certified:false, confirmation:'',
+  attempt:1, priorDenialReason:'',
+  incomeConfirmed:false, incomeConfirmedAt:'',
+  incomeLastEdited:'March 2025',   // carried forward from last year's application
+  members:[
+    {id:1,name:'Marcus Ellison',role:'Parent',work:{a:136800,f:'annually'},support:{a:0,f:'annually'},retirement:{a:0,f:'annually'},other:{a:15400,f:'annually'}},
+    {id:2,name:'Renata Ellison',role:'Parent',work:{a:5150,f:'monthly'},support:{a:0,f:'annually'},retirement:{a:0,f:'annually'},other:{a:0,f:'annually'}},
+    {id:3,name:'Sofia Ellison',role:'Student · 8th grade',work:{a:0,f:'annually'},support:{a:0,f:'annually'},retirement:{a:0,f:'annually'},other:{a:0,f:'annually'}},
+    {id:4,name:'Theo Ellison',role:'Child',work:{a:0,f:'annually'},support:{a:0,f:'annually'},retirement:{a:0,f:'annually'},other:{a:0,f:'annually'}},
+    {id:5,name:'Priya Ellison',role:'Child',work:{a:0,f:'annually'},support:{a:0,f:'annually'},retirement:{a:0,f:'annually'},other:{a:0,f:'annually'}},
+  ],
+  incomeUpdated:'Just now',
+};
+let nextId = 6, editingId = null;
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => Number(n||0).toLocaleString('en-US');
+const mult = f => (FREQS.find(x=>x.v===f)||FREQS[0]).m;
+const yearly = c => Math.round((parseFloat(c.a)||0)*mult(c.f));
+const memberTotal = m => CATS.reduce((s,c)=>s+yearly(m[c.key]),0);
+const householdTotal = () => S.members.reduce((s,m)=>s+memberTotal(m),0);
+const initials = n => n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';
+const words = t => t.trim() ? t.trim().split(/\s+/).length : 0;
+
+let toastTimer;
+function toast(msg){ $('toastMsg').textContent=msg; const t=$('toast'); t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ================= navigation ================= */
+function go(view){
+  S.view = view;
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+  $('view-apply').classList.add('hidden'); $('view-income').classList.add('hidden'); $('view-other').classList.add('hidden');
+  $('side').classList.remove('open');
+  if(view==='apply'){ $('view-apply').classList.remove('hidden'); mountIncome('incomeSlotApply'); }
+  else if(view==='income'){ $('view-income').classList.remove('hidden'); mountIncome('incomeSlotStandalone'); }
+  else {
+    $('view-other').classList.remove('hidden');
+    const map={dashboard:['Overview','Dashboard'],students:['Family','Students'],link:['Fundraising','Donation link'],page:['Fundraising','Family page']};
+    $('otherEyebrow').textContent=(map[view]||['Portal','Page'])[0];
+    $('otherTitle').textContent=(map[view]||['Portal','Page'])[1];
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function goStep(i){
+  if(i>S.step && !validate(S.step)) return;
+  S.step = Math.max(0, Math.min(STEPS.length-1, i));
+  document.querySelectorAll('.step-panel').forEach(p=>p.classList.toggle('hidden', +p.dataset.step !== S.step));
+  if(S.step===2) mountIncome('incomeSlotApply');
+  if(S.step===5) renderReview();
+  renderStepper(); renderNav();
+  const imp=$('importNotice'); if(imp) imp.classList.toggle('hidden', S.attempt<2 || S.step===5);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function validate(step){
+  if(step===1 && words(S.narrative) < 25){
+    $('fNarr').classList.add('err'); $('fNarr').focus();
+    toast('Add a bit more to the narrative first'); return false;
+  }
+  if(step===2){
+    if(!S.members.length){ toast('Add at least one household member'); return false; }
+    if(!S.incomeConfirmed){
+      const e=$('errIncConfirm'); if(e){ e.classList.add('show'); e.scrollIntoView({block:'center',behavior:'smooth'}); }
+      toast('Confirm your income is current to continue'); return false;
+    }
+  }
+  if(step===3 && !S.overflow.choice){
+    toast('Choose an option — including "None of these apply"'); 
+    $('overflowChoices').scrollIntoView({block:'center',behavior:'smooth'});
+    return false;
+  }
+  if(step===4){
+    let ok = true;
+    [['current','fEsaNow','errEsaNow'],['prior','fEsaPrior','errEsaPrior']].forEach(([k,f,e])=>{
+      const bad = !S.esa[k]; $(e).classList.toggle('show',bad); $(f).classList.toggle('err',bad); if(bad) ok=false;
+    });
+    if(!ok) toast('Both ESA questions are required');
+    return ok;
+  }
+  return true;
+}
+
+/* ================= stepper + nav ================= */
+function renderStepper(){
+  $('stepper').innerHTML = STEPS.map((s,i)=>{
+    const cls = i===S.step ? 'current' : (i<S.step ? 'done' : '');
+    const dot = i<S.step
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12.5l5 5L19 7"/></svg>'
+      : (i+1);
+    return `<button class="step-btn ${cls}" onclick="goStep(${i})"><span class="dot">${dot}</span>${esc(s.label)}</button>`;
+  }).join('');
+  $('applyTitle').textContent = S.step===5 ? 'Review your application' : `Apply for the ${S.family.year} year`;
+}
+
+function renderNav(){
+  if(S.submitted){ $('wizardNav').innerHTML=''; return; }
+  const back = S.step>0
+    ? `<button class="btn btn-ghost" onclick="goStep(${S.step-1})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Back</button>` : '';
+  const save = `<button class="btn btn-quiet" onclick="toast('Draft saved — it\\'s on your dashboard')">Save and finish later</button>`;
+  const next = S.step < STEPS.length-1
+    ? `<button class="btn btn-gold" onclick="goStep(${S.step+1})">Next: ${esc(STEPS[S.step+1].label)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>` : '';
+  $('wizardNav').innerHTML = back + save + '<span class="spacer"></span>' + next;
+}
+
+/* ================= step 1 & 2 handlers ================= */
+function setF(k,v){ S.family[k]=v; if(k==='year') renderStepper(); }
+function onNarr(el){ S.narrative=el.value; el.classList.remove('err');
+  const w=words(el.value); $('narrWords').textContent = w===1?'1 word':`${w} words`;
+  $('narrHint').innerHTML = w>=150&&w<=400 ? '<b>Good length</b>' : 'Aim for 150–400 words'; }
+
+/* ================= step 4 ================= */
+function renderOverflow(){
+  $('overflowChoices').innerHTML = OVERFLOW.map(o=>{
+    const sel = S.overflow.choice===o.v;
+    let sub = '';
+    if(sel && o.org){
+      sub = `<div class="subpanel"><p>Tell us who awarded it. If more than one organization did, choose the most recent.</p>
+        <label class="lb" for="fOrg">Awarding organization</label>
+        <select class="input" id="fOrg" style="max-width:340px" onchange="setO('org',this.value)">
+          <option value="">Select an organization</option>
+          ${ORGS.map(x=>`<option ${S.overflow.org===x?'selected':''}>${esc(x)}</option>`).join('')}
+        </select></div>`;
+    } else if(sel && o.doc){
+      sub = `<div class="subpanel"><p><b>Documentation needed.</b> Attach proof below before you submit, or send it to us afterward — we can't count this qualification until it's on file.</p></div>`;
+    } else if(sel && o.none){
+      sub = `<div class="subpanel" style="border-left-color:var(--ok);background:var(--ok-bg)"><p style="color:var(--ok);margin:0">Nothing is lost by answering this way. Most families have no qualifying event, and your student is reviewed for the Original scholarship either way. If your situation changes during the year, let us know and we'll update it.</p></div>`;
+    }
+    return `<label class="choice ${sel?'sel':''}">
+      <input type="radio" name="ovf" value="${o.v}" ${sel?'checked':''} onchange="setO('choice',this.value)">
+      <span><span class="t">${esc(o.t)}</span><span class="d">${esc(o.d)}</span></span></label>${sub}`;
+  }).join('');
+}
+function setO(k,v){ S.overflow[k]=v; if(k==='choice'){ S.overflow.org=''; renderOverflow(); } }
+
+function addFiles(list){
+  [...list].forEach(f=>S.overflow.files.push({name:f.name, size:f.size}));
+  renderFiles(); if(list.length) toast(list.length===1?'File attached':`${list.length} files attached`);
+}
+function removeFile(i){ S.overflow.files.splice(i,1); renderFiles(); }
+function renderFiles(){
+  $('fileList').innerHTML = S.overflow.files.map((f,i)=>`<li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5"/><path d="M6 3h8l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
+    <span>${esc(f.name)}</span><span class="sz">${(f.size/1024).toFixed(0)} KB</span>
+    <button onclick="removeFile(${i})" aria-label="Remove ${esc(f.name)}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>`).join('');
+}
+(function dropSetup(){
+  const d=$('drop'); if(!d) return;
+  ['dragenter','dragover'].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.add('over')}));
+  ['dragleave','drop'].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.remove('over')}));
+  d.addEventListener('drop',ev=>addFiles(ev.dataTransfer.files));
+})();
+
+/* ================= step 5 ================= */
+function setE(k,v){ S.esa[k]=v;
+  const f = k==='current'?'fEsaNow':'fEsaPrior', e = k==='current'?'errEsaNow':'errEsaPrior';
+  if(v){ $(e).classList.remove('show'); $(f).classList.remove('err'); } }
+
+/* ================= income table (shared) ================= */
+function incomeMarkup(){
+  const rows = S.members.length ? S.members.map(m=>{
+    const cells = CATS.map((c,i)=>{ const a=yearly(m[c.key]);
+      return `<td class="num ${i>0?'hide-sm':''} ${a===0?'zero':''} tnum">$${fmt(a)}</td>`; }).join('');
+    return `<tr><td><div class="member"><div class="avatar">${esc(initials(m.name))}</div>
+      <div><div class="nm">${esc(m.name)}</div>${m.role?`<div class="rl">${esc(m.role)}</div>`:''}</div></div></td>
+      ${cells}<td class="num total tnum">$${fmt(memberTotal(m))}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" title="Edit" aria-label="Edit ${esc(m.name)}" onclick="openModal(${m.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+        <button class="icon-btn del" title="Remove" aria-label="Remove ${esc(m.name)}" onclick="removeMember(${m.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg></button>
+      </div></td></tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="empty"><b>No household members yet</b>Add everyone who lives with you, including those earning nothing.</div></td></tr>`;
+
+  return `<section style="margin-bottom:20px">
+    <div class="ledger-top">
+      <div><div class="k">Reported household income</div>
+        <div class="v tnum">$${fmt(householdTotal())}<small>/ year</small></div>
+        <div class="m">${S.members.length} household member${S.members.length===1?'':'s'} · every amount converted to a yearly figure</div></div>
+      <button class="btn btn-gold" onclick="openModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"/></svg>Add a member</button>
+    </div>
+    <div class="tablewrap"><table><thead><tr>
+      <th>Member</th><th class="num">Employment</th><th class="num hide-sm">Support</th>
+      <th class="num hide-sm">Retirement</th><th class="num hide-sm">Other</th><th class="num">Yearly total</th><th class="act">Manage</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="flag flag-ok" style="margin:12px 0 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9.5"/><path d="M8.4 12.4l2.6 2.6 4.6-5.2"/></svg>
+      <div>Household income last updated — ${esc(S.incomeUpdated)}</div></div>
+  </section>`;
+}
+function mountIncome(slotId){
+  ['incomeSlotApply','incomeSlotStandalone'].forEach(id=>{ const el=$(id); if(el && id!==slotId) el.innerHTML=''; });
+  const el=$(slotId); if(el) el.innerHTML = incomeMarkup();
+  if($('fCount')) $('fCount').value = S.members.length;
+  renderConfirm();
+}
+
+/* annual re-confirmation — required once per application year */
+function renderConfirm(){
+  const el = $('confirmSlot'); if(!el) return;
+  const stale = S.incomeLastEdited && !S.incomeConfirmed;
+  el.innerHTML = `<section class="card" style="margin-bottom:20px">
+    <h2 style="font-size:18px;margin-bottom:4px">Confirm this income is current</h2>
+    <p class="sub" style="margin-bottom:14px">Required each year, even when nothing has changed.</p>
+    ${stale ? `<div class="flag flag-warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.6v5.2M12 16.3h.01"/></svg>
+      <div>These figures carried over from your last application and were last updated in ${esc(S.incomeLastEdited)}. Check every row before confirming.</div></div>` : ''}
+    <div class="certify" style="margin-bottom:0;${S.incomeConfirmed?'background:var(--ok-bg);border-color:var(--ok-line)':''}">
+      <input type="checkbox" id="incConfirm" ${S.incomeConfirmed?'checked':''} onchange="setIncomeConfirmed(this.checked)">
+      <label for="incConfirm" style="${S.incomeConfirmed?'color:var(--ok)':''}">
+        I confirm this income is accurate for the ${esc(S.family.year)} school year.
+        ${S.incomeConfirmed?`<br><span style="font-size:12.5px">Confirmed ${esc(S.incomeConfirmedAt)}</span>`:''}
+      </label>
+    </div>
+    <div class="errmsg" id="errIncConfirm" style="margin-top:10px">Confirm your income is current to continue.</div>
+  </section>`;
+}
+function setIncomeConfirmed(v){
+  S.incomeConfirmed = v;
+  S.incomeConfirmedAt = v ? new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+  if(v) $('errIncConfirm').classList.remove('show');
+  renderConfirm();
+}
+/* any edit to the household invalidates a prior confirmation */
+function clearConfirmation(){
+  if(S.incomeConfirmed){
+    S.incomeConfirmed=false; S.incomeConfirmedAt='';
+    toast('Income changed — please confirm it again');
+  }
+}
+function refreshIncome(){ mountIncome(S.view==='income' ? 'incomeSlotStandalone' : 'incomeSlotApply'); if(S.step===5) renderReview(); }
+
+/* ================= income modal ================= */
+function openModal(id){
+  editingId = id ?? null;
+  $('catGrid').innerHTML = CATS.map(c=>`<div class="cat">
+    <div><div class="lbl">${c.label}<small>${c.hint}</small></div>
+      <div class="money"><span>$</span><input class="input" type="number" min="0" step="1" inputmode="decimal" id="amt_${c.key}" placeholder="0" oninput="modalTotal()"></div></div>
+    <div><div class="lbl">&nbsp;</div><select class="input" id="freq_${c.key}" onchange="modalTotal()">${FREQS.map(f=>`<option value="${f.v}">${f.l}</option>`).join('')}</select></div>
+  </div>`).join('');
+  const m = editingId!=null ? S.members.find(x=>x.id===editingId) : null;
+  $('modalTitle').textContent = m ? 'Edit household member' : 'Add a household member';
+  $('saveBtn').textContent = m ? 'Save changes' : 'Save member';
+  $('mName').value = m ? m.name : ''; $('mName').classList.remove('err');
+  $('mRole').value = m ? (m.role||'') : '';
+  CATS.forEach(c=>{ $('amt_'+c.key).value = m && m[c.key].a ? m[c.key].a : ''; $('freq_'+c.key).value = m ? m[c.key].f : 'annually'; });
+  modalTotal();
+  $('overlay').classList.add('show'); document.body.style.overflow='hidden';
+  setTimeout(()=>$('mName').focus(),60);
+}
+function closeModal(){ $('overlay').classList.remove('show'); document.body.style.overflow=''; editingId=null; }
+function modalTotal(){
+  let t=0; CATS.forEach(c=>{ t += Math.round((parseFloat($('amt_'+c.key).value)||0)*mult($('freq_'+c.key).value)); });
+  $('modalTotal').textContent = '$'+fmt(t);
+}
+function saveMember(){
+  const name = $('mName').value.trim();
+  if(!name){ $('mName').classList.add('err'); $('mName').focus(); return; }
+  const rec = {id: editingId!=null?editingId:nextId++, name, role:$('mRole').value.trim()};
+  CATS.forEach(c=>{ rec[c.key] = {a: parseFloat($('amt_'+c.key).value)||0, f: $('freq_'+c.key).value}; });
+  if(editingId!=null){ S.members = S.members.map(m=>m.id===editingId?rec:m); toast('Member updated'); }
+  else { S.members.push(rec); toast('Member added'); }
+  S.incomeUpdated='Just now'; S.incomeLastEdited=''; clearConfirmation(); refreshIncome(); closeModal();
+}
+function removeMember(id){
+  const m = S.members.find(x=>x.id===id);
+  if(m && confirm(`Remove ${m.name} from your household? Their income will stop counting toward the total.`)){
+    S.members = S.members.filter(x=>x.id!==id); S.incomeUpdated='Just now'; S.incomeLastEdited='';
+    clearConfirmation(); refreshIncome(); toast('Member removed');
+  }
+}
+
+/* ================= review ================= */
+function val(v, missing){ return v ? esc(v) : `<span class="miss">${missing}</span>`; }
+function reviewIncomeTable(){
+  return `<div class="rev-table"><table><thead><tr>
+    <th>Name</th><th class="num">Work</th><th class="num hide-sm">Support</th><th class="num hide-sm">Retirement</th><th class="num hide-sm">Other</th><th class="num">Total</th>
+  </tr></thead><tbody>
+    ${S.members.map(m=>`<tr><td>${esc(m.name)}</td>
+      ${CATS.map((c,i)=>`<td class="num ${i>0?'hide-sm':''} ${yearly(m[c.key])===0?'zero':''} tnum">$${fmt(yearly(m[c.key]))}</td>`).join('')}
+      <td class="num total tnum">$${fmt(memberTotal(m))}</td></tr>`).join('')}
+    <tr style="background:#fafbfd"><td style="font-weight:700">Household total</td>
+      <td class="num hide-sm"></td><td class="num hide-sm"></td><td class="num hide-sm"></td><td class="num"></td>
+      <td class="num total tnum" style="font-weight:700">$${fmt(householdTotal())}</td></tr>
+  </tbody></table></div>`;
+}
+function renderReview(){
+  if(S.submitted){ renderSubmitted(); return; }
+  const o = OVERFLOW.find(x=>x.v===S.overflow.choice);
+  const files = S.overflow.files.length ? S.overflow.files.map(f=>esc(f.name)).join(', ') : 'None attached';
+  const nWords = words(S.narrative);
+
+  $('reviewWrap').innerHTML = `
+    ${S.attempt>1 ? `<div class="flag flag-warn" style="padding:16px 18px;margin-bottom:18px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.6v5.2M12 16.3h.01"/></svg>
+      <div><b>Attempt ${S.attempt} for ${esc(S.family.year)}.</b> Your earlier application was denied${S.priorDenialReason?`: ${esc(S.priorDenialReason)}`:''}. Make sure that's addressed before you submit — this goes to review as a new application.</div></div>` : ''}
+    <section class="card" style="margin-bottom:18px">
+      <h2>Check everything over</h2>
+      <p class="sub" style="margin-bottom:0">This is exactly what the review team will see. Use the steps above, or the edit links, to fix anything.</p>
+    </section>
+
+    <div class="review-block">
+      <div class="review-head"><h3>Family and student</h3><button class="btn btn-quiet btn-sm" onclick="goStep(0)">Edit</button></div>
+      <div class="rrow"><div class="k">Parent</div><div class="v">${esc(S.parent.name)}</div></div>
+      <div class="rrow"><div class="k">Phone</div><div class="v">${esc(S.parent.phone)}</div></div>
+      <div class="rrow"><div class="k">Address</div><div class="v">${esc(S.parent.addr)}</div></div>
+      <div class="rrow"><div class="k">Student</div><div class="v">${esc(S.family.student)}</div></div>
+      <div class="rrow"><div class="k">Application year</div><div class="v">${esc(S.family.year)}</div></div>
+      <div class="rrow"><div class="k">School</div><div class="v">${esc(S.family.school)}</div></div>
+      <div class="rrow"><div class="k">Grade</div><div class="v">${val(S.family.grade,'No grade selected')}</div></div>
+      <div class="rrow"><div class="k">Tuition owed</div><div class="v tnum">$${fmt(S.family.tuition)}</div></div>
+    </div>
+
+    <div class="review-block">
+      <div class="review-head"><h3>Narrative <span style="font-family:Inter;font-size:12px;font-weight:600;color:var(--ink-faint)">${nWords} words</span></h3><button class="btn btn-quiet btn-sm" onclick="goStep(1)">Edit</button></div>
+      <div class="rrow"><div class="k">Student narrative</div><div class="v narr">${S.narrative.trim() ? esc(S.narrative.trim()) : '<span class="miss">Nothing written yet</span>'}</div></div>
+    </div>
+
+    <div class="review-block">
+      <div class="review-head"><h3>Household income</h3><button class="btn btn-quiet btn-sm" onclick="goStep(2)">Edit</button></div>
+      <div class="rrow"><div class="k">People in household</div><div class="v">${S.members.length}</div></div>
+      <div class="rrow"><div class="k">Confirmed current</div><div class="v">${S.incomeConfirmed
+        ? `Yes — confirmed for ${esc(S.family.year)} on ${esc(S.incomeConfirmedAt)}`
+        : '<span class="miss">Not confirmed for this year</span>'}</div></div>
+      <div class="rrow"><div class="k">Reported income</div><div class="v">${reviewIncomeTable()}</div></div>
+    </div>
+
+    <div class="review-block">
+      <div class="review-head"><h3>Overflow qualification</h3><button class="btn btn-quiet btn-sm" onclick="goStep(3)">Edit</button></div>
+      <div class="rrow"><div class="k">Qualification</div><div class="v">${
+        !o ? '<span class="miss">Not answered</span>'
+        : o.v==='none' ? 'None apply — considered for the Original scholarship'
+        : esc(o.t)}</div></div>
+      ${o && o.org ? `<div class="rrow"><div class="k">Awarded by</div><div class="v">${val(S.overflow.org,'Not specified')}</div></div>` : ''}
+      <div class="rrow"><div class="k">Documents</div><div class="v">${files}</div></div>
+      <div class="rrow"><div class="k">Comments</div><div class="v">${S.overflow.comments.trim()?esc(S.overflow.comments.trim()):'<span style="color:var(--ink-faint)">None</span>'}</div></div>
+    </div>
+
+    <div class="review-block">
+      <div class="review-head"><h3>ESA status</h3><button class="btn btn-quiet btn-sm" onclick="goStep(4)">Edit</button></div>
+      <div class="rrow"><div class="k">ESA this year</div><div class="v">${val(S.esa.current,'Not answered')}</div></div>
+      <div class="rrow"><div class="k">ESA prior year</div><div class="v">${val(S.esa.prior,'Not answered')}</div></div>
+    </div>
+
+    <div class="certify">
+      <input type="checkbox" id="cert" ${S.certified?'checked':''} onchange="S.certified=this.checked;renderSubmitBtn()">
+      <label for="cert">I certify that everything in this application is true and complete to the best of my knowledge, and I understand that an award may be withdrawn if it isn't.</label>
+    </div>
+    <div class="wizard-nav" id="submitRow"></div>`;
+  renderSubmitBtn();
+}
+function renderSubmitBtn(){
+  const row = $('submitRow'); if(!row) return;
+  row.innerHTML = `<button class="btn btn-ghost" onclick="goStep(4)">Back</button>
+    <button class="btn btn-quiet" onclick="toast('Draft saved — it\\'s on your dashboard')">Save and finish later</button>
+    <span class="spacer"></span>
+    <button class="btn btn-gold" ${S.certified?'':'disabled style="opacity:.45;cursor:not-allowed;box-shadow:none"'} onclick="submitApp()">
+      Submit application<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>`;
+}
+function submitApp(){
+  if(!S.certified){ toast('Tick the certification box first'); return; }
+  if(!S.incomeConfirmed){ toast('Income needs confirming for this year'); goStep(2); return; }
+  if(!S.overflow.choice){ toast('Answer the Overflow question'); goStep(3); return; }
+  S.submitted = true;
+  S.confirmation = 'ACT-' + S.family.year.slice(2,4) + S.family.year.slice(-2) + '-' + Math.floor(1000+Math.random()*9000);
+  renderSubmitted(); renderNav(); toast('Application submitted');
+}
+function renderSubmitted(){
+  $('reviewWrap').innerHTML = `<section class="card submitted">
+    <div class="seal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9.5"/><path d="M8.2 12.4l2.7 2.7 4.9-5.5"/></svg></div>
+    <h2>Application submitted</h2>
+    <p>We've received the ${esc(S.family.year)} application for ${esc(S.family.student)}${S.attempt>1?` — this is your resubmission for the year`:''}. A confirmation email is on its way, and we'll be in touch if anything is missing.</p>
+    <div class="confirm-code">${esc(S.confirmation)}</div>
+    <div class="flag flag-info" style="text-align:left;max-width:560px;margin:0 auto 22px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.7h.01"/></svg>
+      <div><b>What happens next.</b> Your application is now locked and can't be edited here — contact our team with your confirmation code if something needs changing. Review decides whether the application is complete and your family qualifies; award amounts are decided separately, and we'll write to you about those later.</div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-navy" onclick="go('dashboard')">Back to dashboard</button>
+      <button class="btn btn-ghost" onclick="reopen()">View what you submitted</button>
+    </div>
+  </section>`;
+}
+function reopen(){ S.submitted=false; renderReview(); renderNav(); }
+
+/* ================= FAQ accordion ================= */
+const FAQ = [
+  ['Whose names belong on the list?','Everyone living in your household — adults and children alike. A person with no income still needs a row; leave their amounts at zero.'],
+  ['What does "gross income" mean?','The <b>Employment</b> field is for gross pay: wages, salary, tips, and commissions <b>before</b> taxes and deductions, the figure on the pay stub. If you\'re self-employed, report income after business expenses.'],
+  ['Where do child support and welfare go?','Use <b>Support</b> for child support, spousal maintenance, and cash assistance such as TANF or general relief. Food assistance benefits are <b>not</b> counted as income.'],
+  ['What about retirement and disability?','Put pensions, Social Security, Supplemental Security Income, veterans\' benefits, and disability payments in <b>Retirement</b>.'],
+  ['What counts as "other" income?','<b>Other</b> covers unemployment, workers\' compensation, net rental income, interest, dividends, royalties, and regular gifts from people outside your household. Active-duty families can leave out combat pay.'],
+];
+function renderFaq(){
+  $('accordion').innerHTML = FAQ.map(([q,a],i)=>`
+    <div class="qa" style="border-bottom:${i<FAQ.length-1?'1px solid var(--line)':'none'}">
+      <button aria-expanded="false" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;background:none;border:none;padding:16px 20px;text-align:left;font-size:15px;font-weight:600;color:var(--ink)">
+        <span>${q}</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="var(--gold-600)" stroke-width="2.2" style="width:18px;height:18px;flex:none;transition:transform .22s"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div class="ans" style="max-height:0;overflow:hidden;transition:max-height .28s ease">
+        <div class="ans-inner" style="padding:0 20px 17px;color:var(--ink-soft);font-size:14.5px;line-height:1.62">${a}</div>
+      </div>
+    </div>`).join('');
+}
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('#accordion .qa button'); if(!btn) return;
+  const qa = btn.parentElement, ans = qa.querySelector('.ans'), open = ans.style.maxHeight && ans.style.maxHeight!=='0px';
+  ans.style.maxHeight = open ? '0px' : qa.querySelector('.ans-inner').scrollHeight + 'px';
+  btn.setAttribute('aria-expanded', !open);
+  qa.querySelector('.chev').style.transform = open ? 'none' : 'rotate(90deg)';
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+/* ================= boot ================= */
+renderStepper(); renderNav(); renderOverflow(); renderFiles(); renderFaq(); mountIncome('incomeSlotApply');
+</script>

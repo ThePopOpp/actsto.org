@@ -6,11 +6,13 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   BookUser,
+  CalendarClock,
   ChevronDown,
   ClipboardList,
   Contact,
   CreditCard,
   FileText,
+  GraduationCap,
   Images,
   KeyRound,
   LayoutDashboard,
@@ -70,6 +72,14 @@ const nav: NavEntry[] = [
     children: [
       { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/dashboard/admin/backers", label: "Donors", icon: UserRoundCheck },
+    ],
+  },
+  {
+    label: "Scholarships",
+    icon: GraduationCap,
+    children: [
+      { href: "/dashboard/admin/scholarships", label: "Review queue", icon: GraduationCap },
+      { href: "/dashboard/admin/scholarships/windows", label: "Application windows", icon: CalendarClock },
     ],
   },
   {
