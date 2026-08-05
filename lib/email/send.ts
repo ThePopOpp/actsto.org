@@ -33,6 +33,20 @@ async function logEmail(args: SendEmailArgs, provider: string, messageId: string
     .catch(() => {});
 }
 
+/**
+ * Split a `to` value into individual addresses.
+ *
+ * A single address returns a one-element array, so this is a no-op for every
+ * existing caller. It only matters where a setting names more than one
+ * recipient — ADMIN_EMAIL, for instance.
+ */
+function recipientList(to: string): string[] {
+  return to
+    .split(",")
+    .map((address) => address.trim())
+    .filter(Boolean);
+}
+
 async function sendViaResend(
   cfg: NonNullable<ReturnType<typeof getResendConfig>>,
   args: SendEmailArgs,
@@ -42,7 +56,9 @@ async function sendViaResend(
     headers: { Authorization: `Bearer ${cfg.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: `${cfg.fromName} <${cfg.fromEmail}>`,
-      to: [args.to],
+      // Resend needs an array; SMTP splits a comma list itself. Going through
+      // recipientList means a multi-recipient setting behaves the same on both.
+      to: recipientList(args.to),
       subject: args.subject,
       text: args.text,
       html: args.html,
