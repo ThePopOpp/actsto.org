@@ -16,6 +16,7 @@ import {
 } from "@/lib/campaigns";
 import { getCampaignDetailRecords } from "@/lib/campaign-detail-records";
 import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
+import { cn, FACE_SAFE_CROP } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export default async function CampaignDetailPage({ params }: Props) {
                 src={c.image}
                 alt=""
                 fill
-                className="object-cover"
+                className={cn("object-cover", FACE_SAFE_CROP)}
                 priority
                 sizes="(max-width:1024px) 100vw, 66vw"
               />

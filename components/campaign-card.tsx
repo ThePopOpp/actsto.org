@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { buttonVariants } from "@/lib/button-variants";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, FACE_SAFE_CROP } from "@/lib/utils";
 import type { Campaign } from "@/lib/campaigns";
 
 export function CampaignCard({
@@ -26,7 +26,7 @@ export function CampaignCard({
           src={campaign.image}
           alt=""
           fill
-          className="object-cover"
+          className={cn("object-cover", FACE_SAFE_CROP)}
           sizes="(max-width:768px) 100vw, 33vw"
         />
         <div className="absolute top-3 right-3 flex size-14 items-center justify-center rounded-full bg-background/95 text-sm font-bold text-primary shadow ring-1 ring-border">

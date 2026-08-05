@@ -10,7 +10,7 @@ import type {
   CampaignFaqItem,
   CampaignUpdateItem,
 } from "@/lib/campaign-detail-record-types";
-import { cn } from "@/lib/utils";
+import { cn, FACE_SAFE_CROP } from "@/lib/utils";
 
 type TabId = "story" | "updates" | "donors" | "faq";
 
@@ -93,7 +93,7 @@ export function CampaignDetailTabs({
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {gallery.map((src) => (
                     <div key={src} className="relative aspect-video overflow-hidden rounded-lg">
-                      <Image src={src} alt="" fill className="object-cover" sizes="200px" />
+                      <Image src={src} alt="" fill className={cn("object-cover", FACE_SAFE_CROP)} sizes="200px" />
                     </div>
                   ))}
                 </div>
