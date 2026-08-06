@@ -86,6 +86,7 @@ type ApplicationPatch = {
   studentId?: string;
   schoolYear?: string;
   schoolId?: string | null;
+  schoolNameOther?: string | null;
   grade?: string | null;
   tuitionAfterDiscounts?: number | null;
   narrative?: string;
@@ -101,6 +102,7 @@ const FIELD_SECTION: Record<keyof ApplicationPatch, ApplicationStepId> = {
   studentId: "family",
   schoolYear: "family",
   schoolId: "family",
+  schoolNameOther: "family",
   grade: "family",
   tuitionAfterDiscounts: "family",
   narrative: "narrative",
@@ -132,6 +134,12 @@ export function parseApplicationPatch(
   }
   if ("schoolId" in raw) {
     patch.schoolId = typeof raw.schoolId === "string" && raw.schoolId ? raw.schoolId : null;
+  }
+  if ("schoolNameOther" in raw) {
+    patch.schoolNameOther =
+      typeof raw.schoolNameOther === "string" && raw.schoolNameOther.trim()
+        ? raw.schoolNameOther.trim().slice(0, 160)
+        : null;
   }
   if ("grade" in raw) {
     patch.grade = typeof raw.grade === "string" && raw.grade ? raw.grade.slice(0, 40) : null;
@@ -223,7 +231,11 @@ export async function patchApplication(
   if (patch.schoolYear !== undefined) data.schoolYear = patch.schoolYear;
   if (patch.schoolId !== undefined) {
     data.school = patch.schoolId ? { connect: { id: patch.schoolId } } : { disconnect: true };
+    // Picking a listed school clears any previously typed "Other" name, so the
+    // two can never disagree about which school this is.
+    if (patch.schoolId) data.schoolNameOther = null;
   }
+  if (patch.schoolNameOther !== undefined) data.schoolNameOther = patch.schoolNameOther;
   if (patch.grade !== undefined) data.grade = patch.grade;
   if (patch.tuitionAfterDiscounts !== undefined) {
     data.tuitionAfterDiscounts = patch.tuitionAfterDiscounts;
@@ -305,6 +317,7 @@ function validatable(application: {
   studentId: string | null;
   schoolYear: string | null;
   schoolId: string | null;
+  schoolNameOther: string | null;
   grade: string | null;
   tuitionAfterDiscounts: Prisma.Decimal | number | null;
   narrative: string | null;

@@ -27,6 +27,7 @@ export type ValidatableApplication = {
   studentId: string | null;
   schoolYear: string | null;
   schoolId: string | null;
+  schoolNameOther: string | null;
   grade: string | null;
   tuitionAfterDiscounts: number | null;
   narrative: string | null;
@@ -54,8 +55,13 @@ export function validateApplication(
   if (!application.grade) {
     issues.push({ section: "family", field: "grade", message: "No grade selected." });
   }
-  if (!application.schoolId) {
-    issues.push({ section: "family", field: "schoolId", message: "Choose a school." });
+  // Either a listed school, or a name typed under "Other" — one of the two.
+  if (!application.schoolId && !application.schoolNameOther?.trim()) {
+    issues.push({
+      section: "family",
+      field: "schoolId",
+      message: "Choose a school, or pick “Other” and type its name.",
+    });
   }
   const tuition = application.tuitionAfterDiscounts;
   if (tuition === null || !Number.isFinite(tuition) || tuition < 0) {

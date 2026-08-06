@@ -47,6 +47,7 @@ export type WizardValues = {
   studentId: string;
   schoolYear: string;
   schoolId: string;
+  schoolNameOther: string;
   grade: string;
   tuitionAfterDiscounts: string;
   narrative: string;
@@ -73,6 +74,7 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
     studentId: data.application.studentId,
     schoolYear: data.application.schoolYear ?? "",
     schoolId: data.application.schoolId ?? "",
+    schoolNameOther: data.application.schoolNameOther ?? "",
     grade: data.application.grade ?? "",
     tuitionAfterDiscounts:
       data.application.tuitionAfterDiscounts === null
@@ -142,7 +144,7 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
       for (const [key, value] of Object.entries(patch)) {
         if (key === "tuitionAfterDiscounts") {
           payload[key] = value === "" ? null : value;
-        } else if (key === "schoolId" || key === "grade") {
+        } else if (key === "schoolId" || key === "grade" || key === "schoolNameOther") {
           payload[key] = value === "" ? null : value;
         } else {
           payload[key] = value;
@@ -213,6 +215,7 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           studentId: values.studentId || null,
           schoolYear: values.schoolYear || null,
           schoolId: values.schoolId || null,
+          schoolNameOther: values.schoolNameOther || null,
           grade: values.grade || null,
           tuitionAfterDiscounts: values.tuitionAfterDiscounts === "" ? null : Number(values.tuitionAfterDiscounts),
           narrative: values.narrative,

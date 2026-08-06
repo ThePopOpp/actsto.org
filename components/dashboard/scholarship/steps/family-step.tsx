@@ -22,6 +22,9 @@ import { COPY, GRADE_OPTIONS } from "@/lib/scholarship/constants";
 import type { ValidationIssue } from "@/lib/scholarship/validation";
 import { cn } from "@/lib/utils";
 
+/** Sentinel for the "my school isn't listed" choice — never a real school id. */
+const OTHER_SCHOOL = "__other__";
+
 export function FamilyStep({
   data,
   values,
@@ -36,6 +39,9 @@ export function FamilyStep({
   readOnly: boolean;
 }) {
   const issueFor = useFieldIssue(issues);
+  // No listed school, but a typed name (even a placeholder space) means the
+  // family chose "Other" and the text field should stay open.
+  const usingOther = !values.schoolId && values.schoolNameOther !== "";
 
   return (
     <div className="space-y-5">
@@ -196,8 +202,17 @@ export function FamilyStep({
               School <span className="text-destructive">*</span>
             </Label>
             <Select
-              value={values.schoolId}
-              onValueChange={(v) => onPatch({ schoolId: v ?? "" })}
+              // "other" is a sentinel, not a school id. Selecting it clears
+              // schoolId and reveals the free-text field below.
+              value={values.schoolId ? values.schoolId : usingOther ? OTHER_SCHOOL : ""}
+              onValueChange={(v) => {
+                const next = v ?? "";
+                if (next === OTHER_SCHOOL) {
+                  onPatch({ schoolId: "", schoolNameOther: values.schoolNameOther || " " });
+                } else {
+                  onPatch({ schoolId: next, schoolNameOther: "" });
+                }
+              }}
               disabled={readOnly}
             >
               <SelectTrigger
@@ -215,8 +230,31 @@ export function FamilyStep({
                     {school.city ? `${school.name} — ${school.city}` : school.name}
                   </SelectItem>
                 ))}
+                <SelectItem value={OTHER_SCHOOL}>Other — my school isn&apos;t listed</SelectItem>
               </SelectContent>
             </Select>
+
+            {usingOther ? (
+              <div className="mt-3">
+                <Label htmlFor="f-school-other">
+                  School name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="f-school-other"
+                  className="mt-1.5"
+                  placeholder="Valley Christian Schools — Chandler"
+                  value={values.schoolNameOther.trim()}
+                  onChange={(e) => onPatch({ schoolNameOther: e.target.value })}
+                  disabled={readOnly}
+                  aria-describedby="help-school-other"
+                />
+                <p id="help-school-other" className="mt-1.5 text-sm text-muted-foreground">
+                  Type the full name and the campus or city. Our team will match it to the school
+                  during review.
+                </p>
+              </div>
+            ) : null}
+
             <FieldError id="err-schoolId" issue={issueFor("schoolId")} />
           </div>
 

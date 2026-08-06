@@ -17,6 +17,7 @@ export type WizardApplication = {
   studentId: string;
   schoolYear: string | null;
   schoolId: string | null;
+  schoolNameOther: string | null;
   grade: string | null;
   tuitionAfterDiscounts: number | null;
   narrative: string;

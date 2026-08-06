@@ -882,6 +882,9 @@ model ScholarshipApplication {
   /// The owning parent/guardian profile. Every scoped query filters on this.
   guardianUserId String? @map("guardian_user_id") @db.Uuid
   schoolId       String? @map("school_id") @db.Uuid
+  /// Free-typed school name when the family picks "Other". Staff reconcile it
+  /// against the schools table during review; until then it's what they told us.
+  schoolNameOther String? @map("school_name_other")
   schoolYear     String? @map("school_year")
 
   // ── Step 1: family and student ──────────────────────────────────────────

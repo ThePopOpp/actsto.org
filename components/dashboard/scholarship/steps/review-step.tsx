@@ -100,6 +100,7 @@ export function ApplicationReviewStep({
         studentId: values.studentId || null,
         schoolYear: values.schoolYear || null,
         schoolId: values.schoolId || null,
+        schoolNameOther: values.schoolNameOther || null,
         grade: values.grade || null,
         tuitionAfterDiscounts: values.tuitionAfterDiscounts === "" ? null : Number(values.tuitionAfterDiscounts),
         narrative: values.narrative,
@@ -197,7 +198,13 @@ export function ApplicationReviewStep({
           value={GRADE_OPTIONS.includes(values.grade) ? values.grade : values.grade}
           missing="No grade selected"
         />
-        <ReviewRow label="School" value={school?.name} missing="No school selected" />
+        <ReviewRow
+          label="School"
+          // A typed "Other" name is a real answer — show it rather than claiming
+          // nothing was selected.
+          value={school?.name ?? (values.schoolNameOther.trim() || undefined)}
+          missing="No school selected"
+        />
         <ReviewRow
           label="Tuition owed after discounts"
           value={

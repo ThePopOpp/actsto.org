@@ -172,7 +172,11 @@ export default async function AdminScholarshipDetailPage({
                 value={
                   application.school
                     ? [application.school.name, application.school.city].filter(Boolean).join(" — ")
-                    : null
+                    // Typed under "Other" — flagged so a reviewer knows it hasn't
+                    // been matched to a school record yet.
+                    : application.schoolNameOther
+                      ? `${application.schoolNameOther} (typed — not yet matched)`
+                      : null
                 }
               />
               <Row

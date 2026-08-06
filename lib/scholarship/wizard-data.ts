@@ -54,7 +54,10 @@ export async function loadWizardData(
       select: { id: true, firstName: true, lastName: true, grade: true, schoolId: true },
     }),
     prisma.school.findMany({
-      where: { status: "active" },
+      // Not `status: "active"`. Schools created through the campaign flow land
+      // as "pending" and are only promoted later, so filtering to active gave
+      // parents an empty dropdown and no way to continue.
+      where: { status: { notIn: ["archived", "inactive", "rejected"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, city: true },
     }),
@@ -122,6 +125,7 @@ export async function loadWizardData(
     studentId: application.studentId,
     schoolYear: application.schoolYear,
     schoolId: application.schoolId,
+    schoolNameOther: application.schoolNameOther,
     grade: application.grade,
     tuitionAfterDiscounts:
       application.tuitionAfterDiscounts === null
