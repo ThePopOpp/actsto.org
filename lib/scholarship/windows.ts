@@ -36,6 +36,11 @@ export type WindowState = {
   daysUntilClose: number | null;
   /** Show the closing date in the header once inside 30 days. */
   showClosingDate: boolean;
+  /**
+   * What decided this state. Staff need to see *why* applications are shut —
+   * "the dates say so" and "someone turned it off" call for different actions.
+   */
+  reason: "no_window" | "unpublished" | "forced_open" | "forced_closed" | "schedule";
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -56,10 +61,39 @@ export function resolveWindowState(
       canSubmit: false,
       daysUntilClose: null,
       showClosingDate: false,
+      reason: window ? "unpublished" : "no_window",
     };
   }
 
   const daysUntilClose = daysBetween(now, window.closesAt);
+
+  // The manual switch wins over the schedule, in both directions. Staff need to
+  // be able to shut applications mid-window, and to let a family in outside the
+  // dates, without editing the dates themselves and losing the real ones.
+  if (window.manualOverride === "closed") {
+    return {
+      window,
+      phase: "closed",
+      canStart: false,
+      canSubmit: false,
+      daysUntilClose,
+      showClosingDate: false,
+      reason: "forced_closed",
+    };
+  }
+
+  if (window.manualOverride === "open") {
+    return {
+      window,
+      phase: "open",
+      canStart: true,
+      canSubmit: true,
+      daysUntilClose,
+      // Don't advertise a closing date the override is currently ignoring.
+      showClosingDate: false,
+      reason: "forced_open",
+    };
+  }
 
   if (now < window.opensAt) {
     return {
@@ -69,6 +103,7 @@ export function resolveWindowState(
       canSubmit: false,
       daysUntilClose,
       showClosingDate: false,
+      reason: "schedule",
     };
   }
 
@@ -81,6 +116,7 @@ export function resolveWindowState(
       daysUntilClose,
       // A scholarship application, not a flash sale — a date, no countdown.
       showClosingDate: daysUntilClose <= 30,
+      reason: "schedule",
     };
   }
 
@@ -93,6 +129,7 @@ export function resolveWindowState(
       canSubmit: true,
       daysUntilClose,
       showClosingDate: true,
+      reason: "schedule",
     };
   }
 
@@ -103,6 +140,7 @@ export function resolveWindowState(
     canSubmit: false,
     daysUntilClose,
     showClosingDate: false,
+    reason: "schedule",
   };
 }
 
@@ -163,6 +201,14 @@ export async function assertWindowOpenForSubmit(schoolYear: string | null): Prom
   const state = resolveWindowState(window);
 
   if (!state.canSubmit) {
+    // A manual close is not a deadline. Quoting the scheduled date at a family
+    // whose application was shut off by hand would be misleading.
+    if (state.reason === "forced_closed") {
+      throw new ScopeError(
+        `Applications for ${schoolYear} are paused right now. Your draft is saved — contact our team and we'll help.`,
+        409,
+      );
+    }
     if (state.phase === "upcoming" && window) {
       throw new ScopeError(
         `Applications for ${schoolYear} open on ${formatWindowDate(window.opensAt)}.`,

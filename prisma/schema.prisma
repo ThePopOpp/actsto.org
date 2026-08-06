@@ -64,6 +64,21 @@ enum ReviewAction {
   @@map("review_action")
 }
 
+/// Manual control over an application window, sitting on top of its dates.
+///
+/// `auto` follows opensAt/closesAt. `open` and `closed` override the schedule
+/// entirely — for slamming the door mid-window, or opening early for a family
+/// who called in. Three states rather than a boolean because "off" and
+/// "following the schedule" are genuinely different intentions, and a boolean
+/// makes them impossible to tell apart.
+enum WindowOverride {
+  auto
+  open
+  closed
+
+  @@map("window_override")
+}
+
 /// Staff tiers. Gate on a capability (see lib/scholarship/capabilities.ts),
 /// never on this string directly, so new tiers drop in without an audit.
 enum StaffRole {
@@ -1050,6 +1065,14 @@ model ApplicationWindow {
   /// Drafts already started may still submit until this moment.
   lateGraceUntil DateTime? @map("late_grace_until")
   isPublished    Boolean   @default(false) @map("is_published")
+
+  /// Manual switch on top of the dates. See WindowOverride.
+  manualOverride WindowOverride @default(auto) @map("manual_override")
+  /// Why it was forced open or closed — shown to staff, never to parents.
+  overrideNote   String?        @map("override_note")
+  overrideBy     String?        @map("override_by") @db.Uuid
+  overrideAt     DateTime?      @map("override_at")
+
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 

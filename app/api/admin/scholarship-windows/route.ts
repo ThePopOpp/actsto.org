@@ -16,7 +16,12 @@ type WindowBody = {
   closesAt?: string;
   lateGraceUntil?: string | null;
   isPublished?: boolean;
+  manualOverride?: string;
+  overrideNote?: string | null;
 };
+
+const OVERRIDES = ["auto", "open", "closed"] as const;
+type Override = (typeof OVERRIDES)[number];
 
 function parse(body: WindowBody | null) {
   if (!body?.schoolYear || !/^\d{4}\/\d{4}$/.test(body.schoolYear)) {
@@ -42,25 +47,52 @@ function parse(body: WindowBody | null) {
     throw new ScopeError("The grace date has to be on or after the closing date.", 400);
   }
 
+  const manualOverride: Override =
+    body.manualOverride && (OVERRIDES as readonly string[]).includes(body.manualOverride)
+      ? (body.manualOverride as Override)
+      : "auto";
+
   return {
     schoolYear: body.schoolYear,
     opensAt,
     closesAt,
     lateGraceUntil,
     isPublished: body.isPublished === true,
+    manualOverride,
+    overrideNote: body.overrideNote?.trim() || null,
   };
 }
 
 export async function POST(request: Request) {
   try {
-    await requireCapability("windows.manage");
+    const actor = await requireCapability("windows.manage");
+    // Confirmed requirement: opening and closing applications is a Super Admin
+    // decision. The capability check above is the general gate; this narrows it
+    // further, so a future staff tier holding `windows.manage` still can't flip
+    // the switch that decides whether families can apply at all.
+    if (!actor.isSuperAdmin) {
+      throw new ScopeError("Only a Super Admin can change application windows.", 403);
+    }
+
     const body = (await request.json().catch(() => null)) as WindowBody | null;
     const data = parse(body);
 
+    const existing = await prisma.applicationWindow.findUnique({
+      where: { schoolYear: data.schoolYear },
+      select: { manualOverride: true },
+    });
+
+    // Stamp who flipped the switch and when, but only when it actually changes
+    // — otherwise every unrelated date edit would rewrite the audit trail.
+    const overrideChanged = existing?.manualOverride !== data.manualOverride;
+    const overrideAudit = overrideChanged
+      ? { overrideBy: actor.profileId, overrideAt: new Date() }
+      : {};
+
     const window = await prisma.applicationWindow.upsert({
       where: { schoolYear: data.schoolYear },
-      create: data,
-      update: data,
+      create: { ...data, ...(data.manualOverride !== "auto" ? overrideAudit : {}) },
+      update: { ...data, ...overrideAudit },
     });
 
     return NextResponse.json({ window });
