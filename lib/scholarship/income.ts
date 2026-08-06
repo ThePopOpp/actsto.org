@@ -123,13 +123,13 @@ export function formatCurrency(value: number, opts?: { cents?: boolean }): strin
   return opts?.cents ? CURRENCY_CENTS.format(value) : CURRENCY.format(value);
 }
 
-/** Initials for the ledger avatar. "Marcus Ellison" → "ME". */
-export function initialsOf(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+/**
+ * Initials for the ledger avatar. "Marcus Ellison" → "ME".
+ *
+ * Re-exported from lib/utils so the ledger and the admin tables can't drift
+ * into two different ideas of what an initial is.
+ */
+export { initialsOf } from "@/lib/utils";
 
 // ── Income snapshot ──────────────────────────────────────────────────────────
 

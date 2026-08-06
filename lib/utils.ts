@@ -6,6 +6,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Initials for an avatar fallback. "Jeremy Waters" → "JW".
+ *
+ * One name gives its first two letters; nothing usable gives "?". Used wherever
+ * a person has no photo yet.
+ */
+export function initialsOf(fullName: string | null | undefined): string {
+  const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+/**
  * Where to anchor a cropped photo of people.
  *
  * Campaign photos are family and student portraits, but the cards and hero

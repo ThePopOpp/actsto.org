@@ -8,9 +8,18 @@ import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 /**
+ * Value → label map for the select currently being rendered.
+ *
+ * `SelectValue` reads this and renders the label itself. Passing `items` to
+ * Base UI is *supposed* to do the same job, but relying on it left database ids
+ * on screen, so the resolution is ours and behaves the same regardless.
+ */
+const SelectItemsContext = React.createContext<Record<string, string> | null>(null)
+
+/**
  * Base UI renders the **raw value** in `<Select.Value>` unless `items` is
  * supplied — so a select whose value is a database id displayed the id itself.
- * A student picker showed a UUID instead of a name.
+ * The student and school pickers showed UUIDs.
  *
  * Rather than making twenty call sites remember to pass `items`, derive the map
  * from the `<SelectItem>`s already being rendered. An explicit `items` prop
@@ -28,9 +37,11 @@ function Select<Value, Multiple extends boolean | undefined = false>({
   }, [items, children])
 
   return (
-    <SelectPrimitive.Root items={derived} {...props}>
-      {children}
-    </SelectPrimitive.Root>
+    <SelectItemsContext.Provider value={derived ?? null}>
+      <SelectPrimitive.Root items={derived} {...props}>
+        {children}
+      </SelectPrimitive.Root>
+    </SelectItemsContext.Provider>
   )
 }
 
@@ -44,13 +55,60 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+/**
+ * Renders the selected item's label, resolved from the map above.
+ *
+ * Doing the lookup here rather than trusting Base UI's `items` handling means a
+ * select bound to a database id shows the name deterministically. A caller can
+ * still pass its own `children` (a node or a render function) to override.
+ *
+ * `placeholder` is handled here too: Base UI's Value has no such prop, so
+ * passing one previously just leaked onto the underlying span.
+ */
+function SelectValue({
+  className,
+  children,
+  placeholder,
+  ...props
+}: Omit<SelectPrimitive.Value.Props, "children"> & {
+  children?: React.ReactNode | ((value: unknown) => React.ReactNode)
+  placeholder?: React.ReactNode
+}) {
+  const labels = React.useContext(SelectItemsContext)
+
+  const render = React.useCallback(
+    (value: unknown) => {
+      const empty =
+        value === null ||
+        value === undefined ||
+        value === "" ||
+        (Array.isArray(value) && value.length === 0)
+
+      if (empty) {
+        return placeholder ? (
+          <span className="text-muted-foreground">{placeholder}</span>
+        ) : null
+      }
+
+      if (Array.isArray(value)) {
+        return value.map((v) => labels?.[String(v)] ?? String(v)).join(", ")
+      }
+
+      // Fall back to the raw value only when we genuinely have no label for it —
+      // better than rendering nothing at all.
+      return labels?.[String(value)] ?? String(value)
+    },
+    [labels, placeholder],
+  )
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
-      className={cn("flex flex-1 text-left", className)}
       {...props}
-    />
+      className={cn("flex flex-1 text-left", className)}
+    >
+      {children === undefined ? render : (children as never)}
+    </SelectPrimitive.Value>
   )
 }
 

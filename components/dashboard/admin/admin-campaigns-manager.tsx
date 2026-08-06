@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import type { AdminCampaign } from "@/app/api/admin/campaigns/route";
-import { cn } from "@/lib/utils";
+import { cn, FACE_SAFE_CROP, initialsOf } from "@/lib/utils";
 
 type ViewMode = "card" | "list" | "table" | "kanban" | "calendar" | "map";
 
@@ -229,15 +229,47 @@ function IconBtn({ children, label, onClick, active, disabled }: { children: Rea
 function Thumb({ c, className }: { c: AdminCampaign; className?: string }) {
   if (c.featuredImageUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={c.featuredImageUrl} alt="" className={cn("object-cover", className)} />;
+    return <img src={c.featuredImageUrl} alt="" className={cn("object-cover", FACE_SAFE_CROP, className)} />;
   }
   return <div className={cn("flex items-center justify-center bg-muted text-muted-foreground", className)}><LayoutGrid className="size-5" /></div>;
+}
+
+/**
+ * Round avatar for dense rows: the campaign photo when there is one, otherwise
+ * the owner's initials. An empty grey circle tells you nothing; "JW" at least
+ * identifies the row at a glance.
+ */
+function RowAvatar({ c }: { c: AdminCampaign }) {
+  const owner = c.ownerName ?? c.ownerEmail ?? "";
+
+  if (c.featuredImageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={c.featuredImageUrl}
+        alt=""
+        className={cn("size-9 shrink-0 rounded-full object-cover", FACE_SAFE_CROP)}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      title={owner || undefined}
+      className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-semibold text-primary"
+    >
+      {initialsOf(owner)}
+    </span>
+  );
 }
 
 // ── Card view ────────────────────────────────────────────────────────────────
 function CardView({ campaigns, controls }: { campaigns: AdminCampaign[]; controls: Controls }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    // Up to five across on a wide admin screen. Three left each card wider than
+    // its own thumbnail needed, which made the grid look sparse.
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {campaigns.map((c) => (
         <Card key={c.id} className="overflow-hidden">
           <div className="relative">
@@ -312,11 +344,16 @@ function TableView({ campaigns, controls }: { campaigns: AdminCampaign[]; contro
           {campaigns.map((c) => (
             <tr key={c.id} className="hover:bg-muted/20">
               <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  {c.isFeatured ? <Star className="size-3.5 shrink-0 fill-amber-500 text-amber-500" /> : null}
-                  <span className="font-medium text-foreground">{c.title}</span>
+                <div className="flex items-center gap-3">
+                  <RowAvatar c={c} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      {c.isFeatured ? <Star className="size-3.5 shrink-0 fill-amber-500 text-amber-500" /> : null}
+                      <span className="font-medium text-foreground">{c.title}</span>
+                    </div>
+                    <span className="font-mono text-[10px] text-muted-foreground">/{c.slug}</span>
+                  </div>
                 </div>
-                <span className="font-mono text-[10px] text-muted-foreground">/{c.slug}</span>
               </td>
               <td className="px-3 py-2 text-muted-foreground">{c.ownerName ?? c.ownerEmail ?? "—"}</td>
               <td className="px-3 py-2"><Badge className={cn("border-0", statusChip(c.status))}>{statusLabel(c.status)}</Badge></td>
@@ -379,50 +416,232 @@ function KanbanView({ campaigns, controls }: { campaigns: AdminCampaign[]; contr
 function CalendarView({ campaigns, controls }: { campaigns: AdminCampaign[]; controls: Controls }) {
   const dated = campaigns.filter((c) => c.endsAt);
   const base = dated.length ? new Date(dated[0].endsAt as string) : new Date();
-  const [month, setMonth] = useState({ y: base.getFullYear(), m: base.getMonth() });
-  const first = new Date(month.y, month.m, 1);
-  const startDay = first.getDay();
-  const days = new Date(month.y, month.m + 1, 0).getDate();
-  const label = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(first);
-  const byDay = new Map<number, AdminCampaign[]>();
-  for (const c of dated) {
+
+  const [scale, setScale] = useState<CalendarScale>("month");
+  const [anchor, setAnchor] = useState<Date>(() => new Date(base));
+
+  const range = calendarRange(anchor, scale);
+  const inRange = dated.filter((c) => {
     const d = new Date(c.endsAt as string);
-    if (d.getFullYear() === month.y && d.getMonth() === month.m) byDay.set(d.getDate(), [...(byDay.get(d.getDate()) ?? []), c]);
+    return d >= range.start && d <= range.end;
+  });
+
+  const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const byDay = new Map<string, AdminCampaign[]>();
+  for (const c of inRange) {
+    const key = dayKey(new Date(c.endsAt as string));
+    byDay.set(key, [...(byDay.get(key) ?? []), c]);
   }
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < startDay; i += 1) cells.push(null);
-  for (let d = 1; d <= days; d += 1) cells.push(d);
+
+  const entry = (c: AdminCampaign) => (
+    <button
+      key={c.id}
+      type="button"
+      onClick={() => controls.onManage(c.id)}
+      className={cn(
+        "block w-full truncate rounded px-1 py-0.5 text-left text-[11px] font-medium",
+        statusChip(c.status),
+      )}
+      title={c.title}
+    >
+      {c.title}
+    </button>
+  );
 
   return (
     <div className="rounded-lg border border-border/80 p-3">
-      <div className="mb-3 flex items-center justify-between">
-        <button type="button" onClick={() => setMonth((m) => ({ y: m.m === 0 ? m.y - 1 : m.y, m: m.m === 0 ? 11 : m.m - 1 }))} className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><ChevronLeft className="size-4" /></button>
-        <span className="font-heading text-sm font-semibold text-primary">{label} · campaign deadlines</span>
-        <button type="button" onClick={() => setMonth((m) => ({ y: m.m === 11 ? m.y + 1 : m.y, m: m.m === 11 ? 0 : m.m + 1 }))} className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><ChevronRight className="size-4" /></button>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setAnchor((d) => shiftCalendar(d, scale, -1))}
+            aria-label="Previous"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnchor(new Date())}
+            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnchor((d) => shiftCalendar(d, scale, 1))}
+            aria-label="Next"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+
+        <span className="font-heading text-sm font-semibold text-primary">
+          {range.label} · campaign deadlines
+        </span>
+
+        {/* Day / Week / Month / Year */}
+        <div className="flex gap-1 rounded-md border border-border p-0.5">
+          {CALENDAR_SCALES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setScale(s)}
+              aria-pressed={scale === s}
+              className={cn(
+                "rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                scale === s
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="py-1">{d}</div>)}
-      </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
-        {cells.map((day, i) => (
-          <div key={i} className={cn("min-h-[76px] rounded-md border p-1", day ? "border-border/60 bg-background" : "border-transparent")}>
-            {day ? (
-              <>
-                <span className="text-xs text-muted-foreground">{day}</span>
-                <div className="mt-0.5 space-y-0.5">
-                  {(byDay.get(day) ?? []).map((c) => (
-                    <button key={c.id} type="button" onClick={() => controls.onManage(c.id)} className={cn("block w-full truncate rounded px-1 py-0.5 text-left text-[11px] font-medium", statusChip(c.status))} title={c.title}>
-                      {c.title}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : null}
+
+      {scale === "year" ? (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 12 }, (_, m) => {
+            const monthDate = new Date(anchor.getFullYear(), m, 1);
+            const items = inRange.filter((c) => new Date(c.endsAt as string).getMonth() === m);
+            return (
+              <div key={m} className="rounded-md border border-border/60 p-2">
+                <p className="mb-1 text-xs font-semibold text-foreground">
+                  {new Intl.DateTimeFormat("en-US", { month: "long" }).format(monthDate)}
+                </p>
+                {items.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">—</p>
+                ) : (
+                  <div className="space-y-0.5">{items.map(entry)}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : scale === "day" ? (
+        <div className="rounded-md border border-border/60 p-3">
+          {(byDay.get(dayKey(anchor)) ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No campaign deadlines on this day.</p>
+          ) : (
+            <div className="space-y-1">{(byDay.get(dayKey(anchor)) ?? []).map(entry)}</div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d} className="py-1">{d}</div>
+            ))}
           </div>
-        ))}
-      </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {calendarCells(anchor, scale).map((cell, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "min-h-[76px] rounded-md border p-1",
+                  cell ? "border-border/60 bg-background" : "border-transparent",
+                )}
+              >
+                {cell ? (
+                  <>
+                    <span className="text-xs text-muted-foreground">{cell.getDate()}</span>
+                    <div className="mt-0.5 space-y-0.5">
+                      {(byDay.get(dayKey(cell)) ?? []).map(entry)}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
+}
+
+// ── Calendar helpers ─────────────────────────────────────────────────────────
+
+const CALENDAR_SCALES = ["day", "week", "month", "year"] as const;
+type CalendarScale = (typeof CALENDAR_SCALES)[number];
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function startOfWeek(d: Date) {
+  const s = startOfDay(d);
+  s.setDate(s.getDate() - s.getDay());
+  return s;
+}
+
+/** Inclusive start/end plus a heading for the current scale. */
+function calendarRange(anchor: Date, scale: CalendarScale) {
+  const fmt = (opts: Intl.DateTimeFormatOptions, d: Date) =>
+    new Intl.DateTimeFormat("en-US", opts).format(d);
+
+  if (scale === "day") {
+    const start = startOfDay(anchor);
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+    return { start, end, label: fmt({ dateStyle: "full" }, start) };
+  }
+
+  if (scale === "week") {
+    const start = startOfWeek(anchor);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    const sameMonth = start.getMonth() === end.getMonth();
+    return {
+      start,
+      end,
+      label: sameMonth
+        ? `${fmt({ month: "long", day: "numeric" }, start)} – ${fmt({ day: "numeric", year: "numeric" }, end)}`
+        : `${fmt({ month: "short", day: "numeric" }, start)} – ${fmt({ month: "short", day: "numeric", year: "numeric" }, end)}`,
+    };
+  }
+
+  if (scale === "year") {
+    const start = new Date(anchor.getFullYear(), 0, 1);
+    const end = new Date(anchor.getFullYear(), 11, 31, 23, 59, 59, 999);
+    return { start, end, label: String(anchor.getFullYear()) };
+  }
+
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start, end, label: fmt({ month: "long", year: "numeric" }, start) };
+}
+
+function shiftCalendar(anchor: Date, scale: CalendarScale, direction: 1 | -1): Date {
+  const d = new Date(anchor);
+  if (scale === "day") d.setDate(d.getDate() + direction);
+  else if (scale === "week") d.setDate(d.getDate() + 7 * direction);
+  else if (scale === "year") d.setFullYear(d.getFullYear() + direction);
+  else d.setMonth(d.getMonth() + direction);
+  return d;
+}
+
+/** Grid cells for the week and month scales; null pads the leading blanks. */
+function calendarCells(anchor: Date, scale: CalendarScale): (Date | null)[] {
+  if (scale === "week") {
+    const start = startOfWeek(anchor);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }
+
+  const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const days = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+  const cells: (Date | null)[] = Array.from({ length: first.getDay() }, () => null);
+  for (let d = 1; d <= days; d += 1) {
+    cells.push(new Date(anchor.getFullYear(), anchor.getMonth(), d));
+  }
+  return cells;
 }
 
 // ── Map view (free OpenStreetMap) ────────────────────────────────────────────
@@ -443,7 +662,10 @@ function MapView({ campaigns, controls }: { campaigns: AdminCampaign[]; controls
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Locations · {located.length}</p>
         {located.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">No campaigns have a city/state yet.</p>
+          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+            No campaign has a city or state on it yet, so there is nothing to pin. Add those on a
+            campaign — Manage → location — and it will appear here.
+          </p>
         ) : (
           located.map((c) => (
             <div key={c.id} className="rounded-lg border border-border/70 p-2.5">
