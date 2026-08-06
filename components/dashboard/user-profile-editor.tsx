@@ -27,6 +27,7 @@ type ProfileResponse = {
     city?: string | null;
     state?: string | null;
     zip?: string | null;
+    relationship?: string | null;
     bio?: string | null;
     timezone?: string | null;
   };
@@ -34,6 +35,7 @@ type ProfileResponse = {
 };
 
 export function UserProfileEditor({
+  role,
   defaultName,
   defaultEmail,
   defaultPhone = "",
@@ -42,6 +44,8 @@ export function UserProfileEditor({
   defaultState = "AZ",
   defaultZip = "",
 }: {
+  /** Drives role-specific fields; "parent" adds the relationship question. */
+  role?: string;
   defaultName: string;
   defaultEmail: string;
   defaultPhone?: string;
@@ -50,6 +54,7 @@ export function UserProfileEditor({
   defaultState?: string;
   defaultZip?: string;
 }) {
+  const showRelationship = role === "parent";
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -60,6 +65,7 @@ export function UserProfileEditor({
   const [state, setState] = useState(defaultState);
   const [zip, setZip] = useState(defaultZip);
   const [timezone, setTimezone] = useState("America/Phoenix");
+  const [relationship, setRelationship] = useState("");
   const [bio, setBio] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -87,6 +93,7 @@ export function UserProfileEditor({
         setAvatarUrl(data.profile.avatarUrl || null);
         setPhotoPreview(data.profile.avatarUrl || null);
         setBio(data.profile.bio || "");
+        setRelationship(data.profile.relationship || "");
         setTimezone(data.profile.timezone || "America/Phoenix");
         setStatus("idle");
       } catch {
@@ -145,6 +152,7 @@ export function UserProfileEditor({
           avatarUrl,
           bio,
           timezone,
+          ...(showRelationship ? { relationship } : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as ProfileResponse;
@@ -262,6 +270,27 @@ export function UserProfileEditor({
                 onChange={(e) => setPhone(formatUsPhone(e.target.value))}
               />
             </div>
+            {showRelationship ? (
+              <div>
+                <Label htmlFor="dp-relationship">Relationship to student</Label>
+                <Select value={relationship} onValueChange={(v) => setRelationship(v ?? "")}>
+                  <SelectTrigger id="dp-relationship" className="mt-1.5 h-10 w-full">
+                    <SelectValue placeholder="Select a relationship" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mother">Mother</SelectItem>
+                    <SelectItem value="Father">Father</SelectItem>
+                    <SelectItem value="Guardian">Legal guardian</SelectItem>
+                    <SelectItem value="Grandparent">Grandparent</SelectItem>
+                    <SelectItem value="Other">Other relative or caregiver</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  How you&apos;re related to the students on your account. Required before your parent
+                  profile counts as complete.
+                </p>
+              </div>
+            ) : null}
             <div>
               <Label htmlFor="dp-tz">Timezone</Label>
               <Select value={timezone} onValueChange={(v) => setTimezone(v ?? "America/Phoenix")}>

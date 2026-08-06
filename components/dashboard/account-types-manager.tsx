@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, CircleDashed, Plus, UserCog } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, CircleDashed, Plus, UserCog } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ type AccountTypeSummary = {
   requiredFields: string[];
   completedFields: string[];
   missingFields: string[];
+  missing: { field: string; label: string; href: string }[];
   dashboardHref: string;
 };
 
@@ -171,11 +172,22 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
                           <AlertCircle className="size-4 text-amber-600" />
                           Finish these fields before using every live feature:
                         </p>
+                        {/* Each chip links to the screen that resolves it, so a
+                            parent missing a linked student lands on Students
+                            rather than a profile page with nothing to do. */}
                         <div className="flex flex-wrap gap-2">
-                          {account.missingFields.map((field) => (
-                            <Badge key={field} variant="outline">
-                              {field}
-                            </Badge>
+                          {account.missing.map((item) => (
+                            <Link
+                              key={item.field}
+                              href={item.href}
+                              className={cn(
+                                buttonVariants({ variant: "outline", size: "sm" }),
+                                "h-auto rounded-full px-3 py-1 text-xs font-medium",
+                              )}
+                            >
+                              {item.label}
+                              <ArrowRight className="ml-1 size-3" aria-hidden />
+                            </Link>
                           ))}
                         </div>
                       </>
@@ -216,7 +228,10 @@ export function AccountTypesManager({ activeRole }: { activeRole: PortalRole }) 
                         Open dashboard
                       </Link>
                       <Link
-                        href={setupHref(account.role)}
+                        // Straight to the first outstanding item rather than a
+                        // generic profile page, which is what made this button
+                        // feel like it did nothing.
+                        href={account.missing[0]?.href ?? setupHref(account.role)}
                         className={cn(buttonVariants({ variant: "outline" }))}
                       >
                         {account.isComplete ? "Review profile" : "Continue setup"}

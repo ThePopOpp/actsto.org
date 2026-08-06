@@ -100,6 +100,7 @@ export async function GET() {
         city: parent?.city ?? "",
         state: parent?.state ?? "AZ",
         zip: parent?.zip ?? "",
+        relationship: parent?.relationshipToStudent ?? "",
       },
     });
   }
@@ -174,6 +175,7 @@ export async function PUT(request: Request) {
   const state = text(body.state).trim() || "AZ";
   const zip = text(body.zip).trim();
   const bio = text(body.bio).trim();
+  const relationship = text(body.relationship).trim();
   const timezone = text(body.timezone).trim();
 
   const profile = await prisma.profile.update({
@@ -200,6 +202,7 @@ export async function PUT(request: Request) {
         city,
         state,
         zip,
+        relationshipToStudent: relationship || null,
         profileStatus: address && city && state && zip ? "complete" : "incomplete",
       },
       update: {
@@ -207,6 +210,7 @@ export async function PUT(request: Request) {
         city,
         state,
         zip,
+        ...("relationship" in body ? { relationshipToStudent: relationship || null } : {}),
         profileStatus: address && city && state && zip ? "complete" : "incomplete",
       },
     });

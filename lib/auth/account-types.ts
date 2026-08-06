@@ -20,6 +20,8 @@ export type AccountTypeSummary = {
   requiredFields: string[];
   completedFields: string[];
   missingFields: string[];
+  /** Same outstanding items as `missingFields`, with the key needed to route. */
+  missing: { field: SetupField; label: string; href: string }[];
   dashboardHref: string;
 };
 
@@ -69,6 +71,35 @@ const FIELD_LABELS = {
   ein: "EIN / Tax ID",
 } as const;
 
+export type SetupField = keyof typeof FIELD_LABELS;
+
+/**
+ * Where each outstanding field is actually completed, relative to the role's
+ * dashboard.
+ *
+ * "Continue setup" used to drop everyone on the profile page regardless, which
+ * for a parent missing a linked student meant landing somewhere with nothing to
+ * do. Every field now names its own destination, so the chips can link straight
+ * to the thing that fixes them.
+ */
+const FIELD_DESTINATIONS: Partial<Record<SetupField, string>> = {
+  student: "/students",
+  school: "/profile",
+  grade: "/profile",
+  billing: "/profile",
+  business: "/company",
+  authorized: "/company",
+  ein: "/company",
+};
+
+/** Absolute path that resolves the given outstanding field for this role. */
+export function setupDestination(role: PortalRole, field: SetupField, basePath: string): string {
+  const base = basePath.replace(/\/$/, "");
+  const suffix =
+    FIELD_DESTINATIONS[field] ?? (role === "donor_business" ? "/company" : "/profile");
+  return `${base}${suffix}`;
+}
+
 const REQUIRED_FIELDS: Record<PortalRole, (keyof typeof FIELD_LABELS)[]> = {
   parent: ["name", "email", "phone", "address", "relationship", "student"],
   student: ["name", "email", "school", "grade"],
@@ -104,7 +135,8 @@ function fieldIsComplete(
   profile: ProfileForCompletion,
   role: PortalRole,
   field: keyof typeof FIELD_LABELS,
-  selfStudent?: SelfManagedStudent
+  selfStudent?: SelfManagedStudent,
+  linkedStudentCount = 0
 ): boolean {
   const parent = profile.parentGuardianProfile;
   const individual = profile.individualDonorProfile;
@@ -125,7 +157,10 @@ function fieldIsComplete(
     case "relationship":
       return hasText(parent?.relationshipToStudent);
     case "student":
-      return false;
+      // Was hardcoded to false, which capped every parent below 100% no matter
+      // how many children they added — and made "Continue setup" point at a
+      // requirement nothing could satisfy.
+      return linkedStudentCount > 0;
     case "school":
       return !!selfStudent?.schoolId;
     case "grade":
@@ -150,10 +185,13 @@ function fieldIsComplete(
 export function calculateAccountTypeProgress(
   profile: ProfileForCompletion,
   role: PortalRole,
-  selfStudent?: SelfManagedStudent
+  selfStudent?: SelfManagedStudent,
+  linkedStudentCount = 0
 ) {
   const required = REQUIRED_FIELDS[role];
-  const completed = required.filter((field) => fieldIsComplete(profile, role, field, selfStudent));
+  const completed = required.filter((field) =>
+    fieldIsComplete(profile, role, field, selfStudent, linkedStudentCount),
+  );
   const missing = required.filter((field) => !completed.includes(field));
   const completionPercent = required.length === 0 ? 0 : Math.round((completed.length / required.length) * 100);
 
@@ -163,6 +201,11 @@ export function calculateAccountTypeProgress(
     requiredFields: required.map((field) => FIELD_LABELS[field]),
     completedFields: completed.map((field) => FIELD_LABELS[field]),
     missingFields: missing.map((field) => FIELD_LABELS[field]),
+    missing: missing.map((field) => ({
+      field,
+      label: FIELD_LABELS[field],
+      href: setupDestination(role, field, dashboardPathForRole(role)),
+    })),
   };
 }
 
@@ -317,7 +360,18 @@ export async function syncAccountSetupProgress(userId: string, role: PortalRole)
         })
       : null;
 
-  const progress = calculateAccountTypeProgress(profile, role, selfStudent);
+  // A parent counts as linked when they own a student record or are named as a
+  // guardian on one — either route means a child is attached to this account.
+  const linkedStudentCount =
+    role === "parent"
+      ? await prisma.student.count({
+          where: {
+            OR: [{ parentUserId: userId }, { guardians: { some: { guardianUserId: userId } } }],
+          },
+        })
+      : 0;
+
+  const progress = calculateAccountTypeProgress(profile, role, selfStudent, linkedStudentCount);
 
   await prisma.accountSetupProgress.upsert({
     where: { userId_role: { userId, role } },
@@ -367,6 +421,11 @@ export async function getAccountTypeSummaries(userId: string): Promise<AccountTy
   const assigned = new Set(profile.userRoles.map((row) => row.role).filter((role): role is PortalRole => {
     return (PORTAL_ROLES as readonly string[]).includes(role);
   }));
+  const linkedStudentCount = await prisma.student.count({
+    where: {
+      OR: [{ parentUserId: userId }, { guardians: { some: { guardianUserId: userId } } }],
+    },
+  });
   const selfStudent = await prisma.student.findUnique({
     where: { studentUserId: userId },
     select: {
@@ -383,11 +442,19 @@ export async function getAccountTypeSummaries(userId: string): Promise<AccountTy
     const fresh = calculateAccountTypeProgress(
       profile,
       role,
-      role === "student" ? selfStudent : null
+      role === "student" ? selfStudent : null,
+      role === "parent" ? linkedStudentCount : 0
     );
     const isActive = assigned.has(role);
     const completionPercent = isActive ? fresh.completionPercent : 0;
     const missingFields = isActive ? fresh.missingFields : fresh.requiredFields;
+    const missing = isActive
+      ? fresh.missing
+      : REQUIRED_FIELDS[role].map((field) => ({
+          field,
+          label: FIELD_LABELS[field],
+          href: setupDestination(role, field, dashboardPathForRole(role)),
+        }));
 
     return {
       role,
@@ -399,6 +466,7 @@ export async function getAccountTypeSummaries(userId: string): Promise<AccountTy
       requiredFields: fresh.requiredFields,
       completedFields: isActive ? fresh.completedFields : [],
       missingFields,
+      missing,
       dashboardHref: dashboardPathForRole(role),
     };
   });

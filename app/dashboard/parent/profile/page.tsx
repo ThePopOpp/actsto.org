@@ -10,6 +10,7 @@ export default async function ParentProfilePage() {
   }
   return (
     <UserProfileEditor
+      role="parent"
       defaultName={s.name}
       defaultEmail={s.email}
     />
