@@ -242,16 +242,19 @@ export function HouseholdIncomeLedger({
         />
       ) : null}
 
-      {dialogFor ? (
-        <HouseholdMemberDialog
-          member={dialogFor === "new" ? null : dialogFor}
-          onClose={() => setDialogFor(null)}
-          onSaved={(next) => {
-            applyChange(next);
-            setDialogFor(null);
-          }}
-        />
-      ) : null}
+      {/* Kept mounted and driven by `open` — see HouseholdMemberDialog. The key
+          resets the form when switching between members, and only changes while
+          the dialog is closed, so it never remounts mid-close. */}
+      <HouseholdMemberDialog
+        key={dialogFor === "new" ? "new" : (dialogFor?.id ?? "none")}
+        open={dialogFor !== null}
+        member={dialogFor === "new" ? null : dialogFor}
+        onClose={() => setDialogFor(null)}
+        onSaved={(next) => {
+          applyChange(next);
+          setDialogFor(null);
+        }}
+      />
     </div>
   );
 }

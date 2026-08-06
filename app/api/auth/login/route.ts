@@ -62,13 +62,27 @@ export async function POST(req: Request) {
   const tempOk = isTempSuperAdminCredentials(emailInput, passwordRaw);
 
   if (!tempOk && roleRaw === "super_admin" && !isSuperAdminEmail(emailLower)) {
-    return NextResponse.json(
-      {
-        error:
-          "Super Admin is locked down: add your exact sign-in email to ADMIN_EMAILS in .env (comma-separated), or set TEMP_SUPER_ADMIN_EMAIL and TEMP_SUPER_ADMIN_PASSWORD. Restart dev after changing .env.",
-      },
-      { status: 403 }
-    );
+    // This pre-flight gate used to consult ADMIN_EMAILS alone, which locked out
+    // anyone granted Super Admin through the Users screen — their profile
+    // carries is_super_admin, but they were refused here before the password
+    // was even checked, and before the identical check further down could see
+    // the flag. Granting via the admin UI and via the env allowlist are both
+    // legitimate, so honour either. The password is still verified below.
+    const flagged = await prisma.profile
+      .findFirst({
+        where: { email: { equals: emailLower, mode: "insensitive" }, isSuperAdmin: true },
+        select: { id: true },
+      })
+      .catch(() => null);
+
+    if (!flagged) {
+      // Deliberately vague, and free of env-var names: this message renders on
+      // the public sign-in page.
+      return NextResponse.json(
+        { error: "Super Admin access isn't enabled for this account." },
+        { status: 403 }
+      );
+    }
   }
 
   if (!tempOk && isReservedTempSuperAdminEmail(emailInput)) {

@@ -67,9 +67,29 @@ export async function PATCH(
     if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower!)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
     }
+    // The person being edited, by their *current* email.
+    //
+    // The legacy `admin_users` table has its own cuid primary keys, unrelated to
+    // the Supabase auth UUID used by `profiles`. So excluding by id never
+    // matched the legacy row belonging to this same person, and their own row
+    // came back as a duplicate — making it impossible to save any edit to a user
+    // who exists in both tables. Match on email as well as id to identify "this
+    // is the same person", which is the only thing linking the two tables.
+    const currentEmail = (profileRow?.email ?? legacyRow?.email ?? "").toLowerCase();
+
     const [duplicateProfile, duplicateLegacy] = await Promise.all([
-      prisma.profile.findFirst({ where: { email: emailLower!, NOT: { id } } }),
-      prisma.user.findFirst({ where: { email: emailLower!, NOT: { id } } }),
+      prisma.profile.findFirst({
+        where: {
+          email: emailLower!,
+          NOT: currentEmail ? { OR: [{ id }, { email: currentEmail }] } : { id },
+        },
+      }),
+      prisma.user.findFirst({
+        where: {
+          email: emailLower!,
+          NOT: currentEmail ? { OR: [{ id }, { email: currentEmail }] } : { id },
+        },
+      }),
     ]);
     if (duplicateProfile || duplicateLegacy) {
       return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
@@ -107,6 +127,11 @@ export async function PATCH(
     if (emailLower !== undefined) authUpdates.email = emailLower;
     if (name !== undefined) authUpdates.user_metadata = { full_name: name, name };
     if (newPassword !== undefined && newPassword !== "") authUpdates.password = newPassword;
+    // Marking someone Active has to mean they can actually sign in. Supabase
+    // refuses a password sign-in while the address is unconfirmed, so an
+    // invited user flipped to Active in this screen would otherwise still be
+    // locked out with no indication why.
+    if (accountStatus === "active") authUpdates.email_confirm = true;
     if (Object.keys(authUpdates).length > 0) {
       const { error } = await service.auth.admin.updateUserById(profileRow.id, authUpdates);
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });

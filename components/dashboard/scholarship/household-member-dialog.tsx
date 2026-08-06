@@ -73,11 +73,21 @@ const numeric = (value: string) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
+/**
+ * Add or edit one household member.
+ *
+ * `open` is a prop and the component stays mounted, deliberately. Rendering it
+ * as `{editing ? <Dialog/> : null}` unmounts it mid-close, so the scroll lock it
+ * put on `<body>` is never lifted — which on iOS Safari leaves the page unable
+ * to scroll and looking frozen.
+ */
 export function HouseholdMemberDialog({
+  open,
   member,
   onClose,
   onSaved,
 }: {
+  open: boolean;
   member: HouseholdMemberView | null;
   onClose: () => void;
   onSaved: (members: HouseholdMemberView[]) => void;
@@ -152,7 +162,7 @@ export function HouseholdMemberDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
+    <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent showCloseButton className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-primary">
