@@ -63,6 +63,10 @@ function profilePayload(profile: NonNullable<Awaited<ReturnType<typeof getProfil
     name: profile?.displayName ?? profile?.fullName ?? "",
     phone: profile?.phone ?? "",
     avatarUrl: profile?.avatarUrl ?? "",
+    // Both live on `profiles` and apply to every role, so they belong in the
+    // shared payload rather than the per-role branches below.
+    bio: profile?.bio ?? "",
+    timezone: profile?.timezone ?? "",
   };
 }
 
@@ -169,6 +173,8 @@ export async function PUT(request: Request) {
   const city = text(body.city).trim();
   const state = text(body.state).trim() || "AZ";
   const zip = text(body.zip).trim();
+  const bio = text(body.bio).trim();
+  const timezone = text(body.timezone).trim();
 
   const profile = await prisma.profile.update({
     where: { id: identity.profile.id },
@@ -178,6 +184,10 @@ export async function PUT(request: Request) {
       phone,
       phoneNormalized,
       avatarUrl,
+      // Only overwrite when the client actually sent the key, so a caller that
+      // omits these doesn't silently wipe them.
+      ...("bio" in body ? { bio: bio || null } : {}),
+      ...("timezone" in body ? { timezone: timezone || null } : {}),
     },
   });
 

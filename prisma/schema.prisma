@@ -222,6 +222,10 @@ model Profile {
   avatarUrl          String?  @map("avatar_url")
   phone              String?
   phoneNormalized    String?  @map("phone_normalized")
+  /// Short bio shown on campaign pages when the user features their story.
+  bio                String?
+  /// IANA zone, e.g. "America/Phoenix". Used when scheduling and formatting.
+  timezone           String?
   primaryAccountType String?  @map("primary_account_type")
   activeAccountType  String?  @map("active_account_type")
   status             String   @default("active")

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatUsPhone } from "@/lib/utils";
 
 type ProfileResponse = {
   profile?: {
@@ -26,6 +27,8 @@ type ProfileResponse = {
     city?: string | null;
     state?: string | null;
     zip?: string | null;
+    bio?: string | null;
+    timezone?: string | null;
   };
   error?: string;
 };
@@ -83,6 +86,8 @@ export function UserProfileEditor({
         setZip(data.profile.zip || defaultZip);
         setAvatarUrl(data.profile.avatarUrl || null);
         setPhotoPreview(data.profile.avatarUrl || null);
+        setBio(data.profile.bio || "");
+        setTimezone(data.profile.timezone || "America/Phoenix");
         setStatus("idle");
       } catch {
         if (mounted) setStatus("idle");
@@ -138,6 +143,8 @@ export function UserProfileEditor({
           state,
           zip,
           avatarUrl,
+          bio,
+          timezone,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as ProfileResponse;
@@ -244,7 +251,16 @@ export function UserProfileEditor({
             </div>
             <div>
               <Label htmlFor="dp-phone">Mobile phone</Label>
-              <Input id="dp-phone" className="mt-1.5" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input
+                id="dp-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="(480) 555-0148"
+                className="mt-1.5"
+                value={formatUsPhone(phone)}
+                onChange={(e) => setPhone(formatUsPhone(e.target.value))}
+              />
             </div>
             <div>
               <Label htmlFor="dp-tz">Timezone</Label>
