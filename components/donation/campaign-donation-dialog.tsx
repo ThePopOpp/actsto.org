@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { CampaignGivingLevel } from "@/lib/campaigns";
 import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
-import { cn } from "@/lib/utils";
+import { cn, parseDateValue } from "@/lib/utils";
 
 const QUICK_CHOOSE_PILLS = [250, 1500, 3750] as const;
 
@@ -185,13 +185,11 @@ export function CampaignDonationDialog({
 
   function estimateLabel(level: CampaignGivingLevel) {
     if (level.estimateLabel) return level.estimateLabel;
-    try {
-      const d = new Date(endDate);
-      if (!Number.isNaN(d.getTime())) {
-        return `Est. ${d.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`;
-      }
-    } catch {
-      /* ignore */
+    // parseDateValue, not `new Date(...)`: a bare YYYY-MM-DD parses as UTC, so a
+    // 1 January deadline would render as "Dec" for anyone west of Greenwich.
+    const d = parseDateValue(endDate);
+    if (d) {
+      return `Est. ${d.toLocaleDateString("en-US", { month: "short", year: "numeric" })}`;
     }
     return "Est. soon";
   }

@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import { Check, Clock, Heart, Share2, Users } from "lucide-react";
 
+import { CampaignCountdown } from "@/components/campaign/campaign-countdown";
 import { CampaignDonationDialog } from "@/components/donation/campaign-donation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -199,10 +200,7 @@ export function CampaignDetailSidebar({
             Secure checkout · Tax-credit eligible · Receipts emailed automatically
           </p>
 
-          <div className="flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-            <Clock className="size-3.5 shrink-0" />
-            Campaign ends {endDate} · {daysLeft} days left
-          </div>
+          <CampaignCountdown endDate={endDate} daysLeft={daysLeft} />
         </CardContent>
       </Card>
 

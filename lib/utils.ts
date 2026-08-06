@@ -6,6 +6,50 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Parse a date value without shifting the day.
+ *
+ * `new Date("2026-12-31")` is parsed as **UTC midnight**, which in Arizona is
+ * 5pm on the 30th — so a campaign ending on the 31st renders as the 30th. A
+ * bare YYYY-MM-DD is therefore built from explicit local parts. Anything with a
+ * time in it is already unambiguous and passes through.
+ */
+export function parseDateValue(value: string | Date | null | undefined): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+
+  const bareDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (bareDate) {
+    const [, y, m, d] = bareDate
+    return new Date(Number(y), Number(m) - 1, Number(d))
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+/** "December 31, 2026". Falls back to an em dash rather than "Invalid Date". */
+export function formatLongDate(value: string | Date | null | undefined): string {
+  const date = parseDateValue(value)
+  if (!date) return "—"
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(date)
+}
+
+/** "Dec 31, 2026" — for tables and other tight spots. */
+export function formatShortDate(value: string | Date | null | undefined): string {
+  const date = parseDateValue(value)
+  if (!date) return "—"
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date)
+}
+
+/**
  * Format a US phone number for display as it is typed.
  *
  * "4803527598" → "(480) 352-7598". Formats progressively so the field reads
