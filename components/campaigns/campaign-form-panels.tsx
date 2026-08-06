@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImageUp, Plus, Trash2 } from "lucide-react";
+import { ImageUp, Plus, Trash2, X } from "lucide-react";
 
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { emptyCampaignFormStudent, getCampaignFormStudents } from "@/lib/dashboard/campaign-editor";
@@ -10,21 +10,43 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn, FACE_SAFE_CROP, formatUsPhone, initialsOf } from "@/lib/utils";
 
 type OnPatch = (patch: Partial<CampaignFormValues>) => void;
 
+/**
+ * Image upload with a preview of what's actually on the record.
+ *
+ * It previously reported "Uploaded 1 image." and showed nothing, so there was no
+ * way to tell whether the right file had landed — or whether an image was on the
+ * campaign at all. `value` is the URL currently saved; pass it and you see it.
+ */
 function CampaignImageUpload({
   label = "Click or drop files to upload",
   multiple = false,
+  value,
+  values,
   onUploaded,
+  onClear,
+  round = false,
+  fallbackName,
 }: {
   label?: string;
   multiple?: boolean;
+  /** The single image currently on the record. */
+  value?: string | null;
+  /** Several images currently on the record, for gallery-style fields. */
+  values?: string[];
   onUploaded: (urls: string[]) => void;
+  onClear?: (url: string) => void;
+  round?: boolean;
+  /** Shown as initials when there's no image yet — e.g. the parent's name. */
+  fallbackName?: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const current = values ?? (value ? [value] : []);
 
   async function uploadFiles(files: FileList | File[]) {
     const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
@@ -60,6 +82,48 @@ function CampaignImageUpload({
 
   return (
     <div>
+      {current.length > 0 ? (
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          {current.map((url) => (
+            <figure key={url} className="group relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt=""
+                className={cn(
+                  "border border-border object-cover",
+                  FACE_SAFE_CROP,
+                  round ? "size-20 rounded-full" : "h-24 w-36 rounded-md",
+                )}
+              />
+              {onClear ? (
+                <button
+                  type="button"
+                  onClick={() => onClear(url)}
+                  aria-label="Remove this image"
+                  className="absolute -right-1.5 -top-1.5 grid size-6 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:text-destructive"
+                >
+                  <X className="size-3.5" aria-hidden />
+                </button>
+              ) : null}
+            </figure>
+          ))}
+        </div>
+      ) : fallbackName ? (
+        // No photo yet — initials still identify who this is.
+        <div className="mt-1.5 flex items-center gap-3">
+          <span
+            aria-hidden
+            className="grid size-20 place-items-center rounded-full bg-secondary text-lg font-semibold text-primary"
+          >
+            {initialsOf(fallbackName)}
+          </span>
+          <p className="text-xs text-muted-foreground">
+            No photo yet — initials are shown until one is added.
+          </p>
+        </div>
+      ) : null}
+
       <button
         type="button"
         className="mt-1.5 flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground transition-colors hover:border-primary/60 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-wait disabled:opacity-70"
@@ -168,7 +232,11 @@ export function CampaignFormPanelCampaign({
         <p className="mt-1 text-xs text-muted-foreground">
           Or use upload when storage is connected — same layout as campaign creation.
         </p>
-        <CampaignImageUpload onUploaded={([image]) => image && onPatch({ image })} />
+        <CampaignImageUpload
+          value={values.image}
+          onClear={() => onPatch({ image: "" })}
+          onUploaded={([image]) => image && onPatch({ image })}
+        />
       </div>
       <div>
         <Label htmlFor="cf-gallery">Photo gallery (one URL per line)</Label>
@@ -224,14 +292,25 @@ export function CampaignFormPanelParent({
         <Label htmlFor="cf-parent-phone">Phone</Label>
         <Input
           id="cf-parent-phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="(480) 555-0148"
           className="mt-1.5"
-          value={values.parentPhone}
-          onChange={(e) => onPatch({ parentPhone: e.target.value })}
+          value={formatUsPhone(values.parentPhone)}
+          onChange={(e) => onPatch({ parentPhone: formatUsPhone(e.target.value) })}
         />
       </div>
       <div>
         <Label>Parent photo</Label>
-        <CampaignImageUpload label="Click or drop parent photo to upload" onUploaded={([parentPhoto]) => parentPhoto && onPatch({ parentPhoto })} />
+        <CampaignImageUpload
+          label="Click or drop parent photo to upload"
+          value={values.parentPhoto}
+          fallbackName={values.parentName}
+          round
+          onClear={() => onPatch({ parentPhoto: "" })}
+          onUploaded={([parentPhoto]) => parentPhoto && onPatch({ parentPhoto })}
+        />
       </div>
     </div>
   );
@@ -422,6 +501,10 @@ export function CampaignFormPanelStudent({
             <Label>Student photo</Label>
             <CampaignImageUpload
               label="Click or drop student photo to upload"
+              value={student.photo}
+              fallbackName={[student.firstName, student.lastName].filter(Boolean).join(" ")}
+              round
+              onClear={() => patchStudent(index, { photo: "" })}
               onUploaded={([photo]) => photo && patchStudent(index, { photo })}
             />
           </div>
@@ -476,7 +559,12 @@ export function CampaignFormPanelSchool({
           value={values.schoolLogo}
           onChange={(e) => onPatch({ schoolLogo: e.target.value })}
         />
-        <CampaignImageUpload label="Click or drop school logo to upload" onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })} />
+        <CampaignImageUpload
+          label="Click or drop school logo to upload"
+          value={values.schoolLogo}
+          onClear={() => onPatch({ schoolLogo: "" })}
+          onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })}
+        />
       </div>
     </div>
   );

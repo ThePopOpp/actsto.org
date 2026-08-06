@@ -6,6 +6,26 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Format a US phone number for display as it is typed.
+ *
+ * "4803527598" → "(480) 352-7598". Formats progressively so the field reads
+ * correctly mid-entry rather than only once complete, and leaves anything that
+ * isn't a plain 10-digit US number alone — an extension or a country code
+ * should survive being typed.
+ */
+export function formatUsPhone(input: string): string {
+  const digits = input.replace(/\D/g, "")
+
+  // Tolerate a leading country code without mangling it.
+  const national = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits
+  if (national.length > 10) return input
+
+  if (national.length <= 3) return national
+  if (national.length <= 6) return `(${national.slice(0, 3)}) ${national.slice(3)}`
+  return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`
+}
+
+/**
  * Initials for an avatar fallback. "Jeremy Waters" → "JW".
  *
  * One name gives its first two letters; nothing usable gives "?". Used wherever
