@@ -6,7 +6,70 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/**
+ * Pull the plain-text label out of a `<SelectItem>`'s children.
+ *
+ * Strings and numbers only, and fragments/arrays of them. Anything richer (an
+ * icon, nested markup) returns null and that item is simply left out of the
+ * lookup, which lands us back on the old behaviour for that one item rather
+ * than rendering something broken.
+ */
+function textOf(node: React.ReactNode): string | null {
+  if (typeof node === "string") return node
+  if (typeof node === "number") return String(node)
+  if (Array.isArray(node)) {
+    const parts = node.map(textOf)
+    return parts.every((p) => p !== null) ? parts.join("") : null
+  }
+  return null
+}
+
+/** Walk the tree for `<SelectItem>`s and build a value → label map. */
+function collectItems(node: React.ReactNode, acc: Record<string, string>): void {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+
+    if (child.type === SelectItem) {
+      const { value, children } = child.props as { value?: unknown; children?: React.ReactNode }
+      const label = textOf(children)
+      if (label !== null && value !== undefined && value !== null) {
+        acc[String(value)] = label
+      }
+      return
+    }
+
+    const nested = (child.props as { children?: React.ReactNode })?.children
+    if (nested) collectItems(nested, acc)
+  })
+}
+
+/**
+ * Base UI renders the **raw value** in `<Select.Value>` unless `items` is
+ * supplied — so a select whose value is a database id displayed the id itself.
+ * A student picker showed a UUID instead of a name.
+ *
+ * Rather than making twenty call sites remember to pass `items`, derive the map
+ * from the `<SelectItem>`s already being rendered. An explicit `items` prop
+ * still wins if a caller wants one.
+ */
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple> & { items?: Record<string, string> }) {
+  const derived = React.useMemo(() => {
+    if (items) return items
+    const acc: Record<string, string> = {}
+    collectItems(children, acc)
+    return Object.keys(acc).length > 0 ? acc : undefined
+  }, [items, children])
+
+  return (
+    <SelectPrimitive.Root items={derived} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
