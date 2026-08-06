@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -45,48 +43,36 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <Card className="w-full max-w-md border-border/80 shadow-md">
-      <CardHeader>
-        <CardTitle className="font-heading text-2xl text-primary">Reset password</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
-          {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-          {message ? (
-            <Alert>
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              className="mt-1.5"
-              autoComplete="email"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Sending..." : "Send reset link"}
-          </Button>
-          <p className="text-center text-sm">
-            <Link href="/login" className="text-primary hover:underline">
-              Back to sign in
-            </Link>
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={onSubmit} className="space-y-5">
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          className="mt-1.5 h-11"
+          autoComplete="email"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+      </div>
+      <Button type="submit" className="h-11 w-full" disabled={loading}>
+        {loading ? "Sending…" : "Send reset link"}
+      </Button>
+    </form>
   );
 }
 

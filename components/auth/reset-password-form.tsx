@@ -6,7 +6,6 @@ import { Eye, EyeOff } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -61,91 +60,91 @@ export function ResetPasswordForm({ token }: { token: string }) {
   }
 
   return (
-    <Card className="w-full max-w-md border-border/80 shadow-md">
-      <CardHeader>
-        <CardTitle className="font-heading text-2xl text-primary">Choose a new password</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
-          {!token ? (
-            <Alert variant="destructive">
-              <AlertDescription>Reset link is missing. Request a new password reset email.</AlertDescription>
-            </Alert>
-          ) : null}
-          {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-          {message ? (
-            <Alert>
-              <AlertDescription>
-                {message}{" "}
-                <Link href="/login" className="font-medium text-primary hover:underline">
-                  Sign in
-                </Link>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <div>
-            <Label htmlFor="new-password">New password</Label>
-            <div className="relative mt-1.5">
-              <Input
-                id="new-password"
-                type={showPassword ? "text" : "password"}
-                className="pr-10"
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </Button>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="confirm-password">Confirm new password</Label>
-            <div className="relative mt-1.5">
-              <Input
-                id="confirm-password"
-                type={showConfirm ? "text" : "password"}
-                className="pr-10"
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                required
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowConfirm((value) => !value)}
-                aria-label={showConfirm ? "Hide password" : "Show password"}
-              >
-                {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </Button>
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={loading || !token || Boolean(message)}>
-            {loading ? "Updating..." : "Update password"}
-          </Button>
-          <p className="text-center text-sm">
-            <Link href="/forgot-password" className="text-primary hover:underline">
-              Request a new link
+    <form onSubmit={onSubmit} className="space-y-5">
+      {!token ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Reset link is missing. Request a new password reset email.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert>
+          <AlertDescription>
+            {message}{" "}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Sign in
             </Link>
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div>
+        <Label htmlFor="new-password">New password</Label>
+        <div className="relative mt-1.5">
+          <Input
+            id="new-password"
+            type={showPassword ? "text" : "password"}
+            className="h-11 pr-10"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowPassword((value) => !value)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </Button>
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">At least 8 characters.</p>
+      </div>
+
+      <div>
+        <Label htmlFor="confirm-password">Confirm new password</Label>
+        <div className="relative mt-1.5">
+          <Input
+            id="confirm-password"
+            type={showConfirm ? "text" : "password"}
+            className="h-11 pr-10"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(event) => setConfirm(event.target.value)}
+            required
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowConfirm((value) => !value)}
+            aria-label={showConfirm ? "Hide password" : "Show password"}
+          >
+            {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <Button type="submit" className="h-11 w-full" disabled={loading || !token || Boolean(message)}>
+        {loading ? "Updating…" : "Update password"}
+      </Button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        <Link href="/forgot-password" className="hover:underline">
+          Request a new link
+        </Link>
+      </p>
+    </form>
   );
 }
 

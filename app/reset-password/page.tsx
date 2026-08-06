@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
+import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
 export const metadata: Metadata = { title: "Reset password" };
@@ -12,9 +14,18 @@ export default async function ResetPasswordPage({
   const { token = "" } = await searchParams;
 
   return (
-    <div className="flex min-h-[70vh] items-center justify-center bg-muted/40 px-4 py-16">
+    <AuthSplitLayout
+      title="Choose a new password"
+      subtitle="Pick something you don't use anywhere else."
+      footer={
+        <p className="text-center text-sm text-muted-foreground">
+          <Link href="/login" className="font-medium text-act-red hover:underline">
+            Back to sign in
+          </Link>
+        </p>
+      }
+    >
       <ResetPasswordForm token={token} />
-    </div>
+    </AuthSplitLayout>
   );
 }
-
