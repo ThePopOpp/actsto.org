@@ -11,7 +11,9 @@
     "lint": "eslint",
     "test:income": "tsx scripts/test-scholarship-income.mts",
     "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:select": "tsx scripts/test-select-items.mts",
+    "test": "npm run test:income && npm run test:select"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
