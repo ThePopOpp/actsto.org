@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
         pathname: "/wp-content/**",
       },
       {
+        // Partner school logos and photos are hosted on the schools' own sites.
+        // Without this, next/image refuses them and the logo renders broken.
+        protocol: "https",
+        hostname: "valleychristianaz.org",
+        pathname: "/wp-content/**",
+      },
+      {
         protocol: "https",
         hostname: "images.unsplash.com",
         pathname: "/**",
