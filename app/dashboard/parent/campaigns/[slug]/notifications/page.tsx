@@ -27,15 +27,19 @@ export default async function ParentCampaignNotificationsPage({
   const profile = await getProfileForEmail(session.email);
 
   const notifications = profile
-    ? await prisma.dashboardNotification.findMany({
-        where: {
-          userId: profile.id,
-          // The feed is per-user, so narrow to items that mention this campaign.
-          OR: [{ actionUrl: { contains: decoded } }, { message: { contains: decoded } }],
-        },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      })
+    ? await prisma.dashboardNotification
+        .findMany({
+          where: {
+            userId: profile.id,
+            // The feed is per-user, so narrow to items that mention this campaign.
+            OR: [{ actionUrl: { contains: decoded } }, { message: { contains: decoded } }],
+          },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        })
+        // Degrade to the empty state rather than taking the page down. A feed of
+        // activity is not worth a 500.
+        .catch(() => [])
     : [];
 
   return (
