@@ -10,15 +10,19 @@ import type {
   CampaignFaqItem,
   CampaignUpdateItem,
 } from "@/lib/campaign-detail-record-types";
-import { cn, FACE_SAFE_CROP } from "@/lib/utils";
+import { Stars } from "@/components/dashboard/campaign-reviews-manager";
+import type { PublicReview } from "@/lib/dashboard/campaign-reviews";
+import { cn, FACE_SAFE_CROP, formatLongDate, initialsOf } from "@/lib/utils";
 
-type TabId = "story" | "updates" | "donors" | "faq";
+type TabId = "story" | "updates" | "donors" | "reviews" | "faq";
 
 export function CampaignDetailTabs({
   storySections,
   description,
   updateCount,
   donorCount,
+  reviews,
+  reviewsEnabled,
   gallery,
   updates,
   donors,
@@ -28,6 +32,9 @@ export function CampaignDetailTabs({
   description: string;
   updateCount: number;
   donorCount: number;
+  reviews: PublicReview[];
+  /** Families can turn reviews off; the tab disappears entirely when they do. */
+  reviewsEnabled: boolean;
   gallery: string[];
   updates: CampaignUpdateItem[];
   donors: CampaignDonorItem[];
@@ -52,6 +59,7 @@ export function CampaignDetailTabs({
             { id: "story" as const, label: "Story" },
             { id: "updates" as const, label: "Updates" },
             { id: "donors" as const, label: "Donors" },
+            ...(reviewsEnabled ? [{ id: "reviews" as const, label: "Reviews" }] : []),
             { id: "faq" as const, label: "FAQ" },
           ] as const
         ).map(({ id, label }) => (
@@ -69,6 +77,11 @@ export function CampaignDetailTabs({
             onClick={() => setTab(id)}
           >
             <span>{label}</span>
+            {id === "reviews" && reviews.length > 0 ? (
+              <Badge className="h-5 min-w-5 justify-center rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                {reviews.length}
+              </Badge>
+            ) : null}
             {id === "updates" && updateCount > 0 ? (
               <Badge className="h-5 min-w-5 justify-center rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
                 {updateCount}
@@ -157,6 +170,57 @@ export function CampaignDetailTabs({
               <p className="text-sm text-muted-foreground">
                 Donor names and messages will appear here when paid campaign gifts are marked visible.
               </p>
+            )}
+          </div>
+        )}
+
+        {tab === "reviews" && (
+          <div className="space-y-4">
+            {reviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No reviews yet. Supporters can leave one from the campaign manager card above.
+              </p>
+            ) : (
+              reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="rounded-lg border border-border/70 bg-muted/20 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    {review.authorPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={review.authorPhoto}
+                        alt=""
+                        className="size-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+                      >
+                        {initialsOf(review.authorName)}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground">{review.authorName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatLongDate(review.createdAt)} ·{" "}
+                        {new Date(review.createdAt).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <Stars rating={review.rating} />
+                  </div>
+                  {review.comment ? (
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                      {review.comment}
+                    </p>
+                  ) : null}
+                </div>
+              ))
             )}
           </div>
         )}

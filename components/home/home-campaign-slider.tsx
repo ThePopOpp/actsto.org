@@ -56,7 +56,9 @@ export function HomeCampaignSlider({
     <div className="relative">
       <div
         ref={scrollerRef}
-        className="-mx-4 flex snap-x snap-mandatory gap-6 overflow-x-auto px-4 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:gap-8 sm:px-0 [&::-webkit-scrollbar]:hidden"
+        // items-stretch so every slide is as tall as the tallest in view; the
+        // card fills it and pins its CTA to the bottom.
+        className="-mx-4 flex snap-x snap-mandatory items-stretch gap-6 overflow-x-auto px-4 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:gap-8 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >
         {list.map((c) => (
           <div

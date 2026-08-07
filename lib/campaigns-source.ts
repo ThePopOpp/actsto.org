@@ -45,6 +45,7 @@ function daysLeft(endDate: Date | null) {
 
 /** Name, contact details and photo for the person who owns a campaign. */
 type OwnerProfile = {
+  id: string;
   displayName: string | null;
   fullName: string | null;
   email: string;
@@ -131,6 +132,7 @@ function prismaCampaignToSiteCampaign(
       logo: campaign.school?.logoUrl ?? undefined,
     },
     parent: {
+      id: owner?.id,
       name: owner?.displayName ?? owner?.fullName ?? "Campaign manager",
       email: owner?.email ?? "",
       phone: owner?.phone ?? "",
@@ -214,6 +216,7 @@ export async function getDashboardCampaignsForSession(session: ActSession): Prom
   const converted = prismaCampaigns.map((campaign) => ({
     ...prismaCampaignToSiteCampaign(campaign),
     parent: {
+      id: profile.id,
       name: profile.displayName ?? profile.fullName ?? session.name,
       email: profile.email,
       phone: profile.phone ?? "",
@@ -241,6 +244,7 @@ export async function getEditableCampaignBySlugForSession(slug: string, session:
   return {
     ...prismaCampaignToSiteCampaign(campaign),
     parent: {
+      id: profile.id,
       name: profile.displayName ?? profile.fullName ?? session.name,
       email: profile.email,
       phone: profile.phone ?? "",

@@ -20,7 +20,7 @@ export function CampaignCard({
   const toGo = Math.max(0, campaign.goal - campaign.raised);
 
   return (
-    <Card className="overflow-hidden border-border/80 py-0 shadow-sm transition-shadow hover:shadow-md">
+    <Card className="flex h-full flex-col overflow-hidden border-border/80 py-0 shadow-sm transition-shadow hover:shadow-md">
       <div className="relative aspect-[16/10] w-full">
         <Image
           src={campaign.image}
@@ -33,14 +33,14 @@ export function CampaignCard({
           {pct}%
         </div>
       </div>
-      <CardContent className="space-y-4 p-5">
+      <CardContent className="flex flex-1 flex-col space-y-4 p-5">
         <div>
           <h2 className="font-heading text-xl font-semibold text-primary">
             <Link href={`/campaigns/${campaign.slug}`} className="hover:underline">
               {campaign.title}
             </Link>
           </h2>
-          <p className="mt-1 text-sm font-medium text-act-red italic">{campaign.tagline}</p>
+          <p className="mt-1 line-clamp-2 text-sm font-medium text-act-red italic">{campaign.tagline}</p>
           <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
             {campaign.excerpt}{" "}
             <Link
@@ -102,9 +102,14 @@ export function CampaignCard({
             To go
           </div>
         </div>
+        {/* mt-auto pins the CTA to the bottom, so buttons line up across a row
+            whatever length the tagline and excerpt happen to be. */}
         <Link
           href={`/campaigns/${campaign.slug}`}
-          className={cn(buttonVariants({ variant: "cta" }), "flex h-10 w-full items-center justify-center")}
+          className={cn(
+            buttonVariants({ variant: "cta" }),
+            "mt-auto flex h-10 w-full items-center justify-center",
+          )}
         >
           Donate to This Campaign
         </Link>

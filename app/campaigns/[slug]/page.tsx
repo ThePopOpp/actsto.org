@@ -15,6 +15,8 @@ import {
   MOCK_CAMPAIGNS,
 } from "@/lib/campaigns";
 import { getCampaignDetailRecords } from "@/lib/campaign-detail-records";
+import { listPublicReviews } from "@/lib/dashboard/campaign-reviews";
+import { prisma } from "@/lib/prisma";
 import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
 import { cn, FACE_SAFE_CROP } from "@/lib/utils";
 
@@ -40,6 +42,14 @@ export default async function CampaignDetailPage({ params }: Props) {
     getCampaignDetailRecords(slug),
   ]);
   if (!c) notFound();
+
+  // Reviews live on the Prisma campaign, which the site campaign type doesn't
+  // carry. Mock/seed campaigns have no row, so they simply get no reviews.
+  const reviewSource = await prisma.campaign
+    .findUnique({ where: { slug: c.slug }, select: { id: true, reviewsEnabled: true } })
+    .catch(() => null);
+  const reviewsEnabled = reviewSource?.reviewsEnabled ?? false;
+  const reviews = reviewSource && reviewsEnabled ? await listPublicReviews(reviewSource.id) : [];
 
   const pct =
     c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
@@ -130,13 +140,20 @@ export default async function CampaignDetailPage({ params }: Props) {
               </CardContent>
             </Card>
 
-            <CampaignPeopleSection parent={c.parent} students={c.students} />
+            <CampaignPeopleSection
+              parent={c.parent}
+              students={c.students}
+              campaignSlug={c.slug}
+              reviewsEnabled={reviewsEnabled}
+            />
 
             <CampaignDetailTabs
               storySections={storySections}
               description={c.description}
               updateCount={updateCount}
               donorCount={c.donorCount}
+              reviews={reviews}
+              reviewsEnabled={reviewsEnabled}
               gallery={c.gallery}
               updates={detailRecords.updates}
               donors={detailRecords.donors}

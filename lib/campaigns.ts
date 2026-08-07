@@ -102,6 +102,8 @@ export type Campaign = {
     logo?: string;
   };
   parent: {
+    /** Profile id of the campaign owner — needed to start a direct message. */
+    id?: string;
     name: string;
     email: string;
     phone: string;

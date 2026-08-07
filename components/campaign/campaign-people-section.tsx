@@ -1,10 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
-import { Eye, Mail, Phone } from "lucide-react";
-
 import { StudentFundingCard } from "@/components/student-funding-card";
 import { Card, CardContent } from "@/components/ui/card";
-import { buttonVariants } from "@/lib/button-variants";
+import { CampaignManagerActions } from "@/components/campaign/campaign-manager-actions";
 import type { CampaignStudent } from "@/lib/campaigns";
 import { cn } from "@/lib/utils";
 
@@ -29,12 +26,16 @@ const cardShell =
 export function CampaignPeopleSection({
   parent,
   students,
+  campaignSlug,
+  reviewsEnabled,
 }: {
-  parent: { name: string; email: string; phone: string; photo?: string };
+  parent: { id?: string; name: string; email: string; phone: string; photo?: string };
   students: CampaignStudent[];
+  campaignSlug: string;
+  reviewsEnabled: boolean;
 }) {
   const studentCount = students.length;
-  const phoneLink = telHref(parent.phone);
+  const phoneLink = telHref(parent.phone) ?? null;
 
   return (
     <div
@@ -69,50 +70,13 @@ export function CampaignPeopleSection({
             </div>
           </div>
 
-          <div className="mt-auto space-y-2 pt-1">
-            {phoneLink ? (
-              <a
-                href={phoneLink}
-                className={cn(
-                  buttonVariants({ variant: "cta", size: "lg" }),
-                  "flex h-10 w-full items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold"
-                )}
-              >
-                <Phone className="size-4 shrink-0" aria-hidden />
-                Call Parent
-              </a>
-            ) : (
-              <span
-                className={cn(
-                  buttonVariants({ variant: "cta", size: "lg" }),
-                  "flex h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold opacity-60"
-                )}
-              >
-                <Phone className="size-4 shrink-0" aria-hidden />
-                Call Parent
-              </span>
-            )}
-            <a
-              href={`mailto:${encodeURIComponent(parent.email)}`}
-              className={cn(
-                buttonVariants({ variant: "secondary", size: "lg" }),
-                "flex h-10 w-full items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-primary hover:text-primary"
-              )}
-            >
-              <Mail className="size-4 shrink-0" aria-hidden />
-              Send Email
-            </a>
-            <Link
-              href="/campaigns"
-              className={cn(
-                buttonVariants({ variant: "default", size: "lg" }),
-                "flex h-10 w-full items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold"
-              )}
-            >
-              <Eye className="size-4 shrink-0" aria-hidden />
-              View Campaigns
-            </Link>
-          </div>
+          <CampaignManagerActions
+            campaignSlug={campaignSlug}
+            parentId={parent.id}
+            parentName={parent.name}
+            phoneLink={phoneLink}
+            reviewsEnabled={reviewsEnabled}
+          />
         </CardContent>
       </Card>
 
