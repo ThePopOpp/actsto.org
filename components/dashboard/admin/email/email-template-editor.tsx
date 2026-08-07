@@ -26,7 +26,8 @@ import {
   X,
 } from "lucide-react";
 
-import { BlockFields, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
+import { BlockFields, MediaUpload, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
+import { renderEmailLayout } from "@/lib/email/templates/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,9 +54,41 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   MousePointerClick, Columns2, Columns3, Columns4, Code, Minus, MoveVertical,
 };
 
-function previewShell(inner: string) {
-  return `<div style="background:#f5fbff;padding:24px 12px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#fff;border-radius:14px;padding:28px;font-family:Arial,Helvetica,sans-serif;"><tr><td>${inner}</td></tr></table></td></tr></table></div>`;
+/**
+ * The live preview renders the real branded shell, not an approximation.
+ *
+ * `renderEmailLayout` is pure string building with no server dependencies, so
+ * importing it here is safe — and it's the only way the preview can be trusted:
+ * a plain white box told you nothing about the masthead, hero, featured photo,
+ * signature or footer the recipient actually sees.
+ */
+function previewShell(inner: string, hero: HeroFields) {
+  return renderEmailLayout({
+    preheader: hero.preheader || hero.subject,
+    eyebrow: hero.eyebrow || undefined,
+    title: hero.heroTitle || hero.subject || hero.title,
+    subtitle: hero.heroSubtitle || undefined,
+    featuredImageUrl: hero.featuredImageUrl || null,
+    featuredImageAlt: hero.heroTitle || hero.title,
+    // A stand-in, so the greeting reads as a greeting rather than as a token.
+    firstName: "Jeremy",
+    bodyHtml: inner,
+    cta: hero.ctaLabel && hero.ctaUrl ? { label: hero.ctaLabel, url: hero.ctaUrl } : undefined,
+    showUnsubscribe: true,
+  });
 }
+
+type HeroFields = {
+  title: string;
+  subject: string;
+  preheader: string;
+  eyebrow: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  featuredImageUrl: string;
+  ctaLabel: string;
+  ctaUrl: string;
+};
 
 function uid() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -71,6 +104,12 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
   const [subject, setSubject] = useState("");
   const [preheader, setPreheader] = useState("");
   const [status, setStatus] = useState("draft");
+  const [eyebrow, setEyebrow] = useState("");
+  const [heroTitle, setHeroTitle] = useState("");
+  const [heroSubtitle, setHeroSubtitle] = useState("");
+  const [featuredImageUrl, setFeaturedImageUrl] = useState("");
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
   const [mode, setMode] = useState<Mode>("visual");
   const [blocks, setBlocks] = useState<BlogBlock[]>([]);
   const [html, setHtml] = useState("");
@@ -88,13 +127,19 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
     let active = true;
     (async () => {
       const res = await fetch(`/api/admin/email-templates/${editId}`, { cache: "no-store" });
-      const data = (await res.json().catch(() => null)) as { template?: { title: string; subject: string | null; preheader: string | null; status: string; blocks: unknown; content: string | null } } | null;
+      const data = (await res.json().catch(() => null)) as { template?: { title: string; subject: string | null; preheader: string | null; status: string; blocks: unknown; content: string | null; eyebrow: string | null; heroTitle: string | null; heroSubtitle: string | null; featuredImageUrl: string | null; ctaLabel: string | null; ctaUrl: string | null } } | null;
       if (!active || !res.ok || !data?.template) return;
       const t = data.template;
       setTitle(t.title);
       setSubject(t.subject ?? "");
       setPreheader(t.preheader ?? "");
       setStatus(t.status);
+      setEyebrow(t.eyebrow ?? "");
+      setHeroTitle(t.heroTitle ?? "");
+      setHeroSubtitle(t.heroSubtitle ?? "");
+      setFeaturedImageUrl(t.featuredImageUrl ?? "");
+      setCtaLabel(t.ctaLabel ?? "");
+      setCtaUrl(t.ctaUrl ?? "");
       const b = coerceBlocks(t.blocks);
       if (b.length) { setBlocks(b); setMode("visual"); setSelectedId(b[0].id); } else { setHtml(t.content ?? ""); setMode("html"); }
     })();
@@ -102,7 +147,22 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
   }, [editId]);
 
   const selected = useMemo(() => blocks.find((b) => b.id === selectedId) ?? null, [blocks, selectedId]);
-  const previewHtml = useMemo(() => previewShell(mode === "visual" ? blocksToHtml(blocks) : html), [mode, blocks, html]);
+  const hero: HeroFields = {
+    title,
+    subject,
+    preheader,
+    eyebrow,
+    heroTitle,
+    heroSubtitle,
+    featuredImageUrl,
+    ctaLabel,
+    ctaUrl,
+  };
+  const previewHtml = useMemo(
+    () => previewShell(mode === "visual" ? blocksToHtml(blocks) : html, hero),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `hero` is rebuilt each render; depend on its fields
+    [mode, blocks, html, title, subject, preheader, eyebrow, heroTitle, heroSubtitle, featuredImageUrl, ctaLabel, ctaUrl],
+  );
 
   function add(type: BlogBlockType) {
     const block = makeBlock(type);
@@ -178,9 +238,10 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
     if (!title.trim()) { setNotice("A title is required."); return; }
     setBusy(true);
     setNotice(null);
+    const meta = { title, subject, preheader, status, eyebrow, heroTitle, heroSubtitle, featuredImageUrl, ctaLabel, ctaUrl };
     const payload = mode === "visual"
-      ? { title, subject, preheader, status, blocks }
-      : { title, subject, preheader, status, blocks: [], content: html };
+      ? { ...meta, blocks }
+      : { ...meta, blocks: [], content: html };
     const res = await fetch(editId ? `/api/admin/email-templates/${editId}` : "/api/admin/email-templates", {
       method: editId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -191,7 +252,23 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
     if (!res.ok || !data?.template) { setNotice(data?.error ?? "Could not save."); return; }
     router.push(`/dashboard/admin/email?tab=editor&id=${data.template.id}`);
     setNotice("Template saved.");
-  }, [title, subject, preheader, status, mode, blocks, html, editId, router]);
+  }, [
+    title,
+    subject,
+    preheader,
+    status,
+    mode,
+    blocks,
+    html,
+    editId,
+    router,
+    eyebrow,
+    heroTitle,
+    heroSubtitle,
+    featuredImageUrl,
+    ctaLabel,
+    ctaUrl,
+  ]);
 
   function copyField(token: string) {
     void navigator.clipboard?.writeText(token);
@@ -217,6 +294,34 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
       </div>
 
       {notice ? <p className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">{notice}</p> : null}
+
+      {/* Hero — the branded shell above the body. Every email renders masthead →
+          hero → featured photo → greeting → body → CTA → signature → footer, and
+          these are the parts of that a template controls. */}
+      <Card className="border-border/80">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <p className="font-heading text-sm font-semibold text-primary">Hero</p>
+            <p className="text-xs text-muted-foreground">Shown on the navy panel under the logo.</p>
+          </div>
+          <div><Label className="text-xs text-muted-foreground">Eyebrow</Label><Input value={eyebrow} onChange={(e) => setEyebrow(e.target.value)} placeholder="Welcome" className="mt-1" /></div>
+          <div><Label className="text-xs text-muted-foreground">Hero title</Label><Input value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} placeholder="Falls back to the subject line" className="mt-1" /></div>
+          <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Hero subtitle</Label><Input value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} className="mt-1" /></div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs text-muted-foreground">Featured photo URL</Label>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <Input value={featuredImageUrl} onChange={(e) => setFeaturedImageUrl(e.target.value)} placeholder="https://…" className="min-w-0 flex-1" />
+              <MediaUpload accept="image/*" label="Upload" onUploaded={setFeaturedImageUrl} />
+              {featuredImageUrl ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setFeaturedImageUrl("")}>Remove</Button>
+              ) : null}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Sits between the hero and the greeting. Left out entirely when empty, rather than leaving a gap.</p>
+          </div>
+          <div><Label className="text-xs text-muted-foreground">Button label</Label><Input value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} placeholder="Open your dashboard" className="mt-1" /></div>
+          <div><Label className="text-xs text-muted-foreground">Button URL</Label><Input value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder="https://actsto.org/dashboard" className="mt-1" /></div>
+        </CardContent>
+      </Card>
 
       {/* Meta */}
       <Card className="border-border/80">

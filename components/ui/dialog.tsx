@@ -39,6 +39,19 @@ function DialogOverlay({
   )
 }
 
+/**
+ * Does this className set a max-width at any breakpoint?
+ *
+ * Matches `max-w-lg`, `sm:max-w-2xl`, `md:max-w-none`, `max-w-[40rem]` — but not
+ * `max-h-`, and not a bare `w-`.
+ */
+function hasMaxWidth(className: DialogPrimitive.Popup.Props["className"]): boolean {
+  // Base UI also allows a state-derived function here. We can't inspect one, so
+  // fall back to applying the default — the same behaviour as before.
+  if (typeof className !== "string") return false;
+  return /(?:^|\s)(?:[a-z]+:)*max-w-/.test(className);
+}
+
 function DialogContent({
   className,
   children,
@@ -53,7 +66,13 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // The default desktop width, applied only when the caller hasn't set
+          // one. It can't live in the string above: `sm:max-w-sm` and a caller's
+          // unprefixed `max-w-3xl` are different breakpoints, so tailwind-merge
+          // keeps both and the media query wins — every dialog passing a plain
+          // `max-w-*` was silently pinned to 384px on desktop.
+          !hasMaxWidth(className) && "sm:max-w-sm",
           className
         )}
         {...props}

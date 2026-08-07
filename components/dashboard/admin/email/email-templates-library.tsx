@@ -232,19 +232,30 @@ export function EmailTemplatesLibrary() {
 
       {/* Preview modal */}
       <Dialog open={Boolean(preview)} onOpenChange={(o) => !o && setPreview(null)}>
-        <DialogContent className="max-h-[90vh] w-[95vw] max-w-3xl overflow-hidden">
-          <DialogHeader>
+        {/* Wide enough for a 600px email plus its paper margin — anything
+            narrower reflows the email and shows a layout nobody will receive. */}
+        <DialogContent className="flex h-[92vh] w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-4xl">
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pr-12">
             <DialogTitle className="font-heading text-primary">{preview?.title}</DialogTitle>
             <DialogDescription>{preview?.subject || "No subject"}</DialogDescription>
           </DialogHeader>
-          {preview?.content ? (
-            <iframe title="Template preview" srcDoc={preview.content} className="h-[60vh] w-full rounded-lg border border-border bg-white" />
-          ) : (
-            <p className="p-6 text-sm text-muted-foreground">This template has no content yet.</p>
-          )}
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="min-h-0 flex-1 bg-muted/30 p-3">
+            {preview ? (
+              <iframe
+                title="Template preview"
+                // Rendered server-side through the branded shell, so this is the
+                // email as it sends rather than the bare body blocks.
+                src={`/api/admin/email-templates/${preview.id}/preview`}
+                className="size-full rounded-lg border border-border bg-white"
+              />
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2 border-t border-border px-5 py-3">
             <Button type="button" variant="outline" onClick={() => preview && edit(preview)}><Pencil className="mr-2 size-4" /> Edit</Button>
             <Button type="button" onClick={() => preview && use(preview)}><Send className="mr-2 size-4" /> Use in Send Email</Button>
+            <Button type="button" variant="ghost" className="ml-auto" onClick={() => preview && window.open(`/api/admin/email-templates/${preview.id}/preview`, "_blank")}>
+              Open in a new tab
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

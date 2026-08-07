@@ -1,9 +1,9 @@
 import "server-only";
 
+import { createEmailTemplate } from "@/lib/admin/email-templates";
 import { prisma } from "@/lib/prisma";
 import { EMAIL_CATALOG, type EmailCatalogEntry } from "@/lib/email/catalog";
 import type { BlogBlock, BlogBlockProps, BlogBlockType } from "@/lib/blog/blocks";
-import { blocksToHtml } from "@/lib/blog/blocks";
 
 /**
  * Installs the catalogue as editable template rows.
@@ -28,6 +28,8 @@ type SeedBody = {
   heroSubtitle: string;
   ctaLabel: string;
   ctaUrl: string;
+  /** Absolute URL. Skipped when absent rather than leaving a gap in the hero. */
+  featuredImageUrl?: string;
   /** Body paragraphs. Merge fields are fine — they're substituted at send time. */
   paragraphs: string[];
 };
@@ -186,21 +188,11 @@ const SEED_COPY: Record<string, SeedBody> = {
 
 /** Turns seed copy into a block document the editor can open. */
 function toBlocks(catalogKey: string, seed: SeedBody): BlogBlock[] {
-  const parts: [BlogBlockType, BlogBlockProps][] = [
-    ...seed.paragraphs.map(
-      (text) => ["paragraph", { content: text, align: "left" }] as [BlogBlockType, BlogBlockProps],
-    ),
-    [
-      "button",
-      {
-        buttonText: seed.ctaLabel,
-        buttonUrl: seed.ctaUrl,
-        buttonBgColor: "#001138",
-        buttonColor: "#ffffff",
-        align: "left",
-      },
-    ],
-  ];
+  // Body paragraphs only — the shell draws the call to action, so a button
+  // block here would render a second one under the first.
+  const parts: [BlogBlockType, BlogBlockProps][] = seed.paragraphs.map(
+    (text) => ["paragraph", { content: text, align: "left" }] as [BlogBlockType, BlogBlockProps],
+  );
   return parts.map(([type, props], i) => ({ id: `${catalogKey}-${i}`, type, props }));
 }
 
@@ -244,8 +236,10 @@ export async function seedEmailTemplates(createdByEmail: string | null): Promise
     const seed = SEED_COPY[entry.key] ?? stubFor(entry);
     const blocks = toBlocks(entry.key, seed);
 
-    await prisma.emailTemplate.create({
-      data: {
+    // Through the same renderer the editor saves with, so a seeded template and
+    // a hand-edited one are the same kind of object.
+    await createEmailTemplate(
+      {
         catalogKey: entry.key,
         title: entry.name,
         subject: seed.subject,
@@ -255,16 +249,16 @@ export async function seedEmailTemplates(createdByEmail: string | null): Promise
         eyebrow: seed.eyebrow,
         heroTitle: seed.heroTitle,
         heroSubtitle: seed.heroSubtitle,
+        featuredImageUrl: seed.featuredImageUrl ?? null,
         ctaLabel: seed.ctaLabel,
         ctaUrl: seed.ctaUrl,
-        blocks: blocks as unknown as object,
-        content: blocksToHtml(blocks),
+        blocks,
         // Written copy is ready to use; auto-generated stubs are not, and
         // shouldn't be presented as though someone approved them.
         status: SEED_COPY[entry.key] ? "ready" : "draft",
-        createdByEmail,
       },
-    });
+      createdByEmail ?? "system",
+    );
     created += 1;
   }
 

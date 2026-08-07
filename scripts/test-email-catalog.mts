@@ -245,6 +245,52 @@ test("optional emails tell the reader why they got it", () => {
   );
 });
 
+// ── The shell ────────────────────────────────────────────────────────────────
+
+console.log("layout shell");
+
+const { renderEmailLayout } = await import("@/lib/email/templates/layout");
+
+test("the shell renders every section of the agreed layout", () => {
+  const html = renderEmailLayout({
+    preheader: "Preview line",
+    eyebrow: "Welcome",
+    title: "Hero title",
+    subtitle: "Hero subtitle",
+    featuredImageUrl: "https://example.com/photo.jpg",
+    featuredImageAlt: "A photo",
+    firstName: "Sarah",
+    bodyHtml: "<p>Body content.</p>",
+    cta: { label: "Open your dashboard", url: "https://actsto.org/dashboard" },
+    reason: "You're receiving this because you have an account.",
+    showUnsubscribe: true,
+  });
+
+  // Nav bar with logo → hero (eyebrow, title, subtitle) → featured photo →
+  // greeting → body → CTA → signature → footer → sub-footer.
+  assert.ok(html.includes("act-favicon.png"), "no logo in the masthead");
+  assert.ok(html.includes("Welcome"), "no eyebrow");
+  assert.ok(html.includes("Hero title"), "no hero title");
+  assert.ok(html.includes("Hero subtitle"), "no hero subtitle");
+  assert.ok(html.includes("https://example.com/photo.jpg"), "no featured photo");
+  assert.ok(html.includes("Hello Sarah,"), "no personalised greeting");
+  assert.ok(html.includes("Body content."), "no body");
+  assert.ok(html.includes("Open your dashboard"), "no call to action");
+  assert.ok(html.includes("Arizona Christian Tuition"), "no signature");
+  assert.ok(html.includes("Preview line"), "no preheader");
+});
+
+test("the featured photo is omitted rather than left broken", () => {
+  const html = renderEmailLayout({
+    preheader: "x",
+    title: "Hero",
+    firstName: "Sarah",
+    bodyHtml: "<p>Body.</p>",
+    featuredImageUrl: null,
+  });
+  assert.ok(!html.includes('src=""'), "rendered an image with an empty src");
+});
+
 console.log("");
 console.log(`${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
