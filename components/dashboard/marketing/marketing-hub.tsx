@@ -38,17 +38,20 @@ export function MarketingHub({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-muted/20 p-1 sm:inline-flex sm:flex-wrap">
+      {/* Sticky so the channel you're working in stays visible down a long
+          builder. top-14 clears the mobile dashboard header; there is no such
+          bar from lg up, so it sits at the top there. */}
+      <div className="sticky top-14 z-20 -mx-1 flex flex-wrap gap-1 rounded-xl border border-border bg-background/95 p-1 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:top-0">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              "w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors sm:w-auto sm:text-center",
+              "flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-colors sm:flex-none",
               tab === t.id
-                ? "bg-background text-primary shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             {t.label}

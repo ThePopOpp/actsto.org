@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { getMessagingUser, getParticipantIdentities } from "@/lib/messaging/server";
 import { messageableRoles, studentMeetsAgeGate, type MessagingRole } from "@/lib/messaging/permissions";
@@ -23,20 +25,37 @@ export async function GET(request: Request) {
   const granular = targetRoles.flatMap((r) => GRANULAR[r]);
   if (granular.length === 0) return NextResponse.json({ recipients: [] });
 
+  // Super Admin is a flag on the profile, not a `user_roles` row — so matching
+  // on user_roles alone found no admins at all, and admins couldn't see each
+  // other in the picker even though the role matrix allows admin↔admin.
+  // `resolveRole` already treats these flags as "admin"; this makes the query
+  // agree with it.
+  const roleMatch: Prisma.ProfileWhereInput[] = [
+    { userRoles: { some: { status: "active", role: { in: granular } } } },
+  ];
+  if (targetRoles.includes("admin")) {
+    roleMatch.push({ isSuperAdmin: true }, { isAdmin: true });
+  }
+
+  const search: Prisma.ProfileWhereInput[] = q
+    ? [
+        {
+          OR: [
+            { displayName: { contains: q, mode: "insensitive" } },
+            { fullName: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+          ],
+        },
+      ]
+    : [];
+
   const profiles = await prisma.profile.findMany({
     where: {
       id: { not: me.userId },
       status: "active",
-      userRoles: { some: { status: "active", role: { in: granular } } },
-      ...(q
-        ? {
-            OR: [
-              { displayName: { contains: q, mode: "insensitive" } },
-              { fullName: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
+      // AND-wrapped so the role match and the search term can't collapse into
+      // one OR and widen the results.
+      AND: [{ OR: roleMatch }, ...search],
     },
     include: { userRoles: { where: { status: "active" } } },
     take: 25,
