@@ -5,10 +5,12 @@ import {
   Eye,
   Heart,
   Mail,
+  Megaphone,
   MessageSquare,
   Pencil,
   PlusCircle,
   Send,
+  Star,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -44,12 +46,61 @@ function studentName(student: CampaignStudent) {
   return [student.firstName, student.lastName].filter(Boolean).join(" ") || student.nickname || "Student";
 }
 
+/**
+ * One overview metric. Links to wherever the number is actionable, so a count
+ * of unread messages is a way in rather than just a number.
+ */
+function StatCard({
+  icon: Icon,
+  value,
+  label,
+  href,
+  highlight = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  value: number;
+  label: string;
+  href: string;
+  highlight?: boolean;
+}) {
+  return (
+    <Link href={href} className="block transition-shadow hover:shadow-md">
+      <Card className={cn("h-full border-border/80", highlight && "border-amber-400/60 bg-amber-50/40 dark:bg-amber-950/10")}>
+        <CardContent className="flex items-center gap-3 p-5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="size-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-2xl font-semibold tabular-nums text-primary">{value}</p>
+            <p className="truncate text-xs text-muted-foreground">{label}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+export type ParentDashboardStats = {
+  /** Unread direct messages. */
+  messages: number;
+  /** Reviews waiting for this parent to approve. */
+  pendingReviews: number;
+  approvedReviews: number;
+  /** Published campaign updates. */
+  updates: number;
+  /** Unique visitors to their campaign pages. */
+  visitors7: number;
+  visitorsToday: number;
+};
+
 export function ParentDashboardContent({
   campaigns = [],
   basePath = "/dashboard/parent",
+  stats,
 }: {
   campaigns?: Campaign[];
   basePath?: string;
+  stats?: ParentDashboardStats;
 }) {
   const familyCampaigns = campaigns;
   const activeCampaigns = familyCampaigns.filter((campaign) => campaign.status !== "draft");
@@ -145,6 +196,40 @@ export function ParentDashboardContent({
           </CardContent>
         </Card>
       </div>
+
+      {stats ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            icon={MessageSquare}
+            value={stats.messages}
+            label={stats.messages === 1 ? "Unread message" : "Unread messages"}
+            href={`${basePath}/messages`}
+          />
+          <StatCard
+            icon={Star}
+            value={stats.approvedReviews}
+            label={
+              stats.pendingReviews > 0
+                ? `Published · ${stats.pendingReviews} waiting for you`
+                : "Published reviews"
+            }
+            highlight={stats.pendingReviews > 0}
+            href={`${basePath}/campaigns`}
+          />
+          <StatCard
+            icon={Megaphone}
+            value={stats.updates}
+            label={stats.updates === 1 ? "Published update" : "Published updates"}
+            href={`${basePath}/campaigns`}
+          />
+          <StatCard
+            icon={Eye}
+            value={stats.visitors7}
+            label={`Visitors this week · ${stats.visitorsToday} today`}
+            href={`${basePath}/campaigns`}
+          />
+        </div>
+      ) : null}
 
       <Card className="border-border/80">
         <CardContent className="p-5">

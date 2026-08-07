@@ -36,8 +36,12 @@ export function CampaignCountdown({
 
   const [now, setNow] = useState<number | null>(null);
 
+  // A primitive dependency: `deadline` is a fresh Date on every render, so
+  // depending on the object would restart the interval each second.
+  const deadlineMs = deadline?.getTime() ?? null;
+
   useEffect(() => {
-    if (!deadline) return;
+    if (deadlineMs === null) return;
     const tick = () => setNow(Date.now());
     const id = window.setInterval(tick, 1000);
     // First tick on the next frame rather than synchronously, so this stays out
@@ -47,7 +51,7 @@ export function CampaignCountdown({
       window.clearInterval(id);
       window.cancelAnimationFrame(raf);
     };
-  }, [deadline?.getTime()]);
+  }, [deadlineMs]);
 
   if (!deadline) return null;
 

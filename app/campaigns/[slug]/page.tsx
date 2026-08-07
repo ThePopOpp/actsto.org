@@ -8,6 +8,7 @@ import { CampaignBreadcrumbs } from "@/components/campaign/campaign-breadcrumbs"
 import { CampaignDetailSidebar } from "@/components/campaign/campaign-detail-sidebar";
 import { CampaignDetailTabs } from "@/components/campaign/campaign-detail-tabs";
 import { CampaignPeopleSection } from "@/components/campaign/campaign-people-section";
+import { CampaignViewTracker } from "@/components/campaign/campaign-view-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -68,6 +69,7 @@ export default async function CampaignDetailPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-muted/25">
+      <CampaignViewTracker slug={c.slug} />
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <CampaignBreadcrumbs category={c.breadcrumbCategory} title={c.title} />
 
