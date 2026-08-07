@@ -504,6 +504,8 @@ model Campaign {
   state                    String?
   isFeatured               Boolean   @default(false) @map("is_featured")
   isPublic                 Boolean   @default(true) @map("is_public")
+  /// Families choose whether supporters may review their campaign.
+  reviewsEnabled           Boolean   @default(true) @map("reviews_enabled")
   completionPercent        Int       @default(0) @map("completion_percent")
   missingFields            Json      @default("[]") @map("missing_fields")
   lastCompletionReminderAt DateTime? @map("last_completion_reminder_at")
@@ -522,6 +524,8 @@ model Campaign {
   campaignMedia        CampaignMedia[]
   givingLevels         GivingLevel[]
   campaignUpdates      CampaignUpdate[]
+  reviews              Review[]
+  pageViews            CampaignPageView[]
   campaignFaqs         CampaignFaq[]
   campaignBackers      CampaignBacker[]
   campaignComments     CampaignComment[]
@@ -1733,17 +1737,45 @@ model IntegrationLog {
 // ============================================================
 
 /// Simple review/rating on a campaign (existing table — subset of campaign_reviews concept)
+/// One unique visitor to a campaign page, on one day.
+///
+/// `visitorHash` is a salted digest of IP + user agent + the date — it can't be
+/// reversed to a person and rotates every midnight, so this counts distinct
+/// visitors without storing anything identifying. The unique index does the
+/// de-duplication: a second visit the same day is a no-op.
+model CampaignPageView {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId  String   @map("campaign_id") @db.Uuid
+  viewedOn    DateTime @map("viewed_on") @db.Date
+  visitorHash String   @map("visitor_hash")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, viewedOn, visitorHash])
+  @@index([campaignId, viewedOn])
+  @@map("campaign_page_views")
+}
+
+/// A supporter's review of a campaign. One per person per campaign.
 model Review {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   campaignId String   @map("campaign_id") @db.Uuid
+  /// The profile that wrote it — a donor, backer, or anyone signed in.
   donorId    String   @map("donor_id") @db.Uuid
   rating     Int
   comment    String?
-  /// pending | approved | rejected
-  status     String   @default("approved")
+  /// pending | approved | rejected. Moderated by default, per CLAUDE.md.
+  status     String   @default("pending")
+  /// Staff or the campaign owner hiding a review records why, for the audit.
+  moderationNote String? @map("moderation_note")
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, donorId])
+  @@index([campaignId, status])
   @@map("reviews")
 }
 
