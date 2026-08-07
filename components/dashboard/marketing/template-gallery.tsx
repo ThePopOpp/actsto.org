@@ -1,220 +1,299 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Eye } from "lucide-react";
+import { Check, ChevronDown, Eye, Mail, Printer, Share2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarketingPreviewDialog } from "@/components/dashboard/marketing/marketing-preview-dialog";
+import { VariantPicker } from "@/components/dashboard/marketing/variant-picker";
 import {
   EmailMockup,
   PostcardMockup,
   SocialMockup,
 } from "@/components/dashboard/marketing/variant-mockups";
 import type { Campaign } from "@/lib/campaigns";
-import { buildMarketingContent } from "@/lib/marketing/campaign-content";
+import { blocksToHtml, type BlogBlock } from "@/lib/blog/blocks";
+import { buildMarketingContent, type MarketingContent } from "@/lib/marketing/campaign-content";
 import {
-  MARKETING_VARIANTS,
+  getVariant,
   type MarketingVariant,
   type MarketingVariantId,
 } from "@/lib/marketing/design-variants";
-import { renderMarketingEmail, wrapEmailDocument } from "@/lib/marketing/email-templates";
+import { templatesFor, type MediaTemplate } from "@/lib/marketing/media-templates";
+import { MEDIA_TYPES, type MediaTypeId } from "@/lib/marketing/media-types";
 import { cn } from "@/lib/utils";
 
 const NO_CAMPAIGN = "__none__";
 
+const CATEGORY_ICONS: Record<MediaTypeId, LucideIcon> = {
+  postcard: Printer,
+  email: Mail,
+  social: Share2,
+};
+
 /**
- * Three designs, shown across all three channels, with your campaign in them.
+ * Templates, grouped by what they're for.
  *
- * The point of this tab is a decision, not a builder: pick the look once and
- * every other tab follows. So each card shows the same campaign three ways
- * rather than offering knobs — the knobs live in the channel tabs.
+ * One category open at a time — postcards with postcards, emails with emails.
+ * Opening a second closes the first, so the page never becomes three stacked
+ * galleries you have to scroll past to reach the one you wanted.
  */
 export function TemplateGallery({
   campaigns = [],
   variantId,
   onVariantChange,
+  onOpenBuilder,
 }: {
   campaigns?: Campaign[];
   variantId: MarketingVariantId;
   onVariantChange: (id: MarketingVariantId) => void;
+  /** Jumps to the builder for a media type with a template pre-applied. */
+  onOpenBuilder?: (mediaType: MediaTypeId, templateId: string) => void;
 }) {
   const [slug, setSlug] = useState<string>(campaigns[0]?.slug ?? NO_CAMPAIGN);
-  const [previewing, setPreviewing] = useState<MarketingVariant | null>(null);
+  const [openCategory, setOpenCategory] = useState<MediaTypeId>("postcard");
+  const [previewing, setPreviewing] = useState<MediaTemplate | null>(null);
 
   const campaign = campaigns.find((c) => c.slug === slug) ?? null;
-  // A placeholder campaign keeps the gallery useful before the first campaign
-  // exists — an empty grid teaches nothing about the designs.
   const content = campaign ? buildMarketingContent(campaign) : SAMPLE_CONTENT;
-
-  const previewEmail = previewing
-    ? renderMarketingEmail("announcement", content, previewing)
-    : null;
+  const variant = getVariant(variantId);
+  const previewBlocks: BlogBlock[] = previewing ? previewing.build(content, variant) : [];
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:max-w-md">
-        <Label htmlFor="template-campaign">Preview with campaign</Label>
-        <Select
-          value={slug}
-          onValueChange={(value) => setSlug(String(value))}
-          items={{
-            [NO_CAMPAIGN]: "Sample campaign",
-            ...Object.fromEntries(campaigns.map((c) => [c.slug, c.title])),
-          }}
-        >
-          <SelectTrigger id="template-campaign" className="mt-1.5 w-full">
-            <SelectValue placeholder="Choose a campaign" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_CAMPAIGN}>Sample campaign</SelectItem>
-            {campaigns.map((c) => (
-              <SelectItem key={c.slug} value={c.slug}>
-                {c.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {campaign
-            ? "Your campaign's headline, photo and totals are shown in each design below."
-            : "Showing sample content. Pick one of your campaigns to see the real thing."}
-        </p>
+    <div className="space-y-5">
+      {/* The two things that change what every template below renders as. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <Label htmlFor="template-campaign">Preview with campaign</Label>
+          <Select
+            value={slug}
+            onValueChange={(value) => setSlug(String(value))}
+            items={{
+              [NO_CAMPAIGN]: "Sample campaign",
+              ...Object.fromEntries(campaigns.map((c) => [c.slug, c.title])),
+            }}
+          >
+            <SelectTrigger id="template-campaign" className="mt-1.5 w-full">
+              <SelectValue placeholder="Choose a campaign" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_CAMPAIGN}>Sample campaign</SelectItem>
+              {campaigns.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>
+                  {c.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {campaign
+              ? "Templates fill themselves in from this campaign."
+              : "Showing sample content. Pick one of your campaigns to see the real thing."}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <p className="font-heading text-sm font-semibold text-primary">Design</p>
+          <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
+            Applies to every template, in every category.
+          </p>
+          <VariantPicker value={variantId} onChange={onVariantChange} />
+        </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        {MARKETING_VARIANTS.map((variant) => {
-          const selected = variant.id === variantId;
+      {/* Categories — one open at a time. */}
+      <div className="space-y-3">
+        {MEDIA_TYPES.map((mediaType) => {
+          const open = openCategory === mediaType.id;
+          const Icon = CATEGORY_ICONS[mediaType.id];
+          const templates = templatesFor(mediaType.id);
           return (
-            <div
-              key={variant.id}
+            <section
+              key={mediaType.id}
               className={cn(
-                "flex flex-col rounded-xl border bg-card shadow-sm transition-colors",
-                selected ? "border-primary ring-1 ring-primary" : "border-border",
+                "overflow-hidden rounded-xl border bg-card shadow-sm transition-colors",
+                open ? "border-primary/40" : "border-border",
               )}
             >
-              <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 font-heading text-lg font-semibold text-primary">
-                    {variant.name}
-                    {selected ? (
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
-                        In use
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{variant.description}</p>
+              <h2>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => setOpenCategory(mediaType.id)}
+                  className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="size-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-heading text-lg font-semibold text-primary">
+                      {mediaType.label}
+                    </span>
+                    <span className="mt-0.5 block text-sm text-muted-foreground">
+                      {mediaType.description}
+                    </span>
+                  </span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
+                    {templates.length} template{templates.length === 1 ? "" : "s"}
+                  </span>
+                  <ChevronDown
+                    aria-hidden
+                    className={cn(
+                      "size-4 shrink-0 text-muted-foreground transition-transform",
+                      open && "rotate-180",
+                    )}
+                  />
+                </button>
+              </h2>
+
+              {open ? (
+                <div className="grid gap-4 border-t border-border/60 p-5 sm:grid-cols-2 xl:grid-cols-4">
+                  {templates.map((template) => (
+                    <figure
+                      key={template.id}
+                      className="flex flex-col rounded-lg border border-border p-3"
+                    >
+                      <div className="mb-3">
+                        {template.blank ? (
+                          <BlankThumb mediaTypeId={mediaType.id} />
+                        ) : (
+                          <Thumb mediaTypeId={mediaType.id} variant={variant} content={content} />
+                        )}
+                      </div>
+                      <figcaption className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground">{template.name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{template.description}</p>
+                      </figcaption>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => onOpenBuilder?.(mediaType.id, template.id)}
+                          disabled={!onOpenBuilder}
+                        >
+                          Use
+                        </Button>
+                        {!template.blank ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5"
+                            onClick={() => setPreviewing(template)}
+                          >
+                            <Eye className="size-4" />
+                            Preview
+                          </Button>
+                        ) : null}
+                      </div>
+                    </figure>
+                  ))}
                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 p-4">
-                <figure className="space-y-1.5">
-                  <PostcardMockup variant={variant} content={content} className="shadow-sm" />
-                  <figcaption className="text-center text-[10px] text-muted-foreground">Postcard</figcaption>
-                </figure>
-                <figure className="space-y-1.5">
-                  <EmailMockup variant={variant} content={content} className="rounded shadow-sm" />
-                  <figcaption className="text-center text-[10px] text-muted-foreground">Email</figcaption>
-                </figure>
-                <figure className="space-y-1.5">
-                  <SocialMockup variant={variant} content={content} className="shadow-sm" />
-                  <figcaption className="text-center text-[10px] text-muted-foreground">Social</figcaption>
-                </figure>
-              </div>
-
-              <p className="px-4 pb-3 text-xs text-muted-foreground">
-                <strong className="font-medium text-foreground">Best for:</strong> {variant.bestFor}
-              </p>
-
-              <div className="mt-auto flex flex-wrap gap-2 border-t border-border/60 px-4 py-3">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={selected ? "outline" : "default"}
-                  className="gap-1.5"
-                  onClick={() => onVariantChange(variant.id)}
-                  disabled={selected}
-                >
-                  {selected ? <Check className="size-4" /> : null}
-                  {selected ? "Using this design" : "Use this design"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="gap-1.5"
-                  onClick={() => setPreviewing(variant)}
-                >
-                  <Eye className="size-4" />
-                  Preview
-                </Button>
-              </div>
-            </div>
+              ) : null}
+            </section>
           );
         })}
       </div>
 
-      {previewing && previewEmail ? (
+      {previewing ? (
         <MarketingPreviewDialog
           open
-          onOpenChange={(open) => {
-            if (!open) setPreviewing(null);
+          onOpenChange={(next) => {
+            if (!next) setPreviewing(null);
           }}
-          title={`${previewing.name} — ${content.title}`}
-          description="The same campaign as a postcard, an email and a social post."
+          title={previewing.name}
+          description={`${variant.name} design · ${content.title}`}
           shareUrl={content.url}
+          html={previewDocument(previewBlocks, variant, previewing.mediaType)}
+          copies={[{ label: "Copy HTML", value: () => blocksToHtml(previewBlocks), html: true }]}
           downloads={[
             {
-              label: "Download email .html",
+              label: "Download .html",
               filename: `${content.slug}-${previewing.id}.html`,
-              content: () => wrapEmailDocument(previewEmail),
+              content: () => previewDocument(previewBlocks, variant, previewing.mediaType),
               mimeType: "text/html;charset=utf-8",
             },
           ]}
-          copies={[{ label: "Copy email", value: () => previewEmail.html, html: true }]}
           options={
             <Button
               type="button"
               size="sm"
               className="gap-1.5"
               onClick={() => {
-                onVariantChange(previewing.id);
+                onOpenBuilder?.(previewing.mediaType, previewing.id);
                 setPreviewing(null);
               }}
-              disabled={previewing.id === variantId}
+              disabled={!onOpenBuilder}
             >
-              {previewing.id === variantId ? "In use" : "Use this design"}
+              <Check className="size-4" />
+              Use this template
             </Button>
           }
-        >
-          <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2">
-            <figure className="space-y-2">
-              <figcaption className="text-sm font-medium text-foreground">Postcard front</figcaption>
-              <PostcardMockup variant={previewing} content={content} className="shadow-md" />
-            </figure>
-            <figure className="space-y-2">
-              <figcaption className="text-sm font-medium text-foreground">Social post</figcaption>
-              <SocialMockup variant={previewing} content={content} className="shadow-md" />
-            </figure>
-            <figure className="space-y-2 sm:col-span-2">
-              <figcaption className="text-sm font-medium text-foreground">Email</figcaption>
-              <iframe
-                sandbox=""
-                title="Email design preview"
-                srcDoc={wrapEmailDocument(previewEmail)}
-                className="h-[520px] w-full rounded-lg border border-border bg-white"
-              />
-            </figure>
-          </div>
-        </MarketingPreviewDialog>
+        />
       ) : null}
     </div>
   );
 }
 
+function Thumb({
+  mediaTypeId,
+  variant,
+  content,
+}: {
+  mediaTypeId: MediaTypeId;
+  variant: MarketingVariant;
+  content: MarketingContent;
+}) {
+  if (mediaTypeId === "email") {
+    return <EmailMockup variant={variant} content={content} className="rounded shadow-sm" />;
+  }
+  if (mediaTypeId === "social") {
+    return <SocialMockup variant={variant} content={content} className="shadow-sm" />;
+  }
+  return <PostcardMockup variant={variant} content={content} className="shadow-sm" />;
+}
+
+function BlankThumb({ mediaTypeId }: { mediaTypeId: MediaTypeId }) {
+  return (
+    <div
+      className={cn(
+        "flex w-full items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 text-xs text-muted-foreground",
+        mediaTypeId === "email"
+          ? "aspect-[3/4]"
+          : mediaTypeId === "social"
+            ? "aspect-[4/5]"
+            : "aspect-[3/2]",
+      )}
+    >
+      Start from nothing
+    </div>
+  );
+}
+
+/** Standalone document for the preview iframe, on the variant's canvas. */
+function previewDocument(
+  blocks: BlogBlock[],
+  variant: MarketingVariant,
+  mediaTypeId: MediaTypeId,
+): string {
+  const dark = mediaTypeId !== "email";
+  const fill = dark
+    ? variant.canvasFill.mode === "gradient"
+      ? `linear-gradient(160deg, ${variant.canvasFill.from} 0%, ${variant.canvasFill.to} 100%)`
+      : variant.canvasFill.from
+    : "#ffffff";
+  const width = mediaTypeId === "email" ? 600 : 520;
+  return `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<body style="margin:0;padding:24px;background:#f5f6f8;">
+  <div style="max-width:${width}px;margin:0 auto;padding:32px;background:${fill};border-radius:12px;">${blocksToHtml(blocks)}</div>
+</body></html>`;
+}
+
 /** Stand-in so the gallery still demonstrates the designs with no campaign yet. */
-const SAMPLE_CONTENT = {
+const SAMPLE_CONTENT: MarketingContent = {
   slug: "sample-campaign",
   title: "Help Ava Finish the Year",
   tagline: "A Christ-centered education, one year at a time.",
@@ -238,4 +317,4 @@ const SAMPLE_CONTENT = {
   donorCount: 24,
   daysLeft: 21,
   endDate: "2026-12-31",
-} satisfies ReturnType<typeof buildMarketingContent>;
+};

@@ -439,7 +439,12 @@ export function BlockFields({
 }: {
   block: BlogBlock;
   onPatch: (p: Partial<BlogBlockProps>) => void;
-  onRewrite: (instruction: string) => void;
+  /**
+   * Omitted where AI rewriting isn't available — the rewrite route is
+   * Super-Admin-only, and the parent-facing marketing builder reuses these
+   * fields. The bar is hidden rather than shown broken.
+   */
+  onRewrite?: (instruction: string) => void;
   rewriting?: boolean;
 }) {
   const p = block.props;
@@ -503,7 +508,7 @@ export function BlockFields({
               </select>
             </div>
           </div>
-          <RewriteBar onRewrite={onRewrite} busy={rewriting} />
+          {onRewrite ? <RewriteBar onRewrite={onRewrite} busy={rewriting} /> : null}
         </div>
       );
     case "paragraph":
@@ -514,7 +519,7 @@ export function BlockFields({
             onChange={(html) => onPatch({ content: html })}
             placeholder="Write your paragraph… use the toolbar for bold, color, size, font, lists and alignment."
           />
-          <RewriteBar onRewrite={onRewrite} busy={rewriting} />
+          {onRewrite ? <RewriteBar onRewrite={onRewrite} busy={rewriting} /> : null}
         </div>
       );
     case "quote":
@@ -526,7 +531,7 @@ export function BlockFields({
             placeholder="Quote text"
           />
           <Input value={p.author ?? ""} onChange={(e) => onPatch({ author: e.target.value })} placeholder="Attribution (optional)" />
-          <RewriteBar onRewrite={onRewrite} busy={rewriting} />
+          {onRewrite ? <RewriteBar onRewrite={onRewrite} busy={rewriting} /> : null}
         </div>
       );
     case "image":

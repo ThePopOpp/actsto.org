@@ -1,12 +1,17 @@
-import Link from "next/link";
-
-import { cn } from "@/lib/utils";
+import { SegmentedTabLinks } from "@/components/ui/segmented-tabs";
 
 export type AdminPageTabLink<T extends string> = {
   id: T;
   label: string;
 };
 
+/**
+ * URL-driven tabs for an admin page — the selected tab survives a reload and
+ * can be linked to directly.
+ *
+ * The look lives in `SegmentedTabs` so every tab bar in the dashboard stays in
+ * agreement.
+ */
 export function AdminPageTabLinks<T extends string>({
   tabs,
   activeTab,
@@ -17,27 +22,11 @@ export function AdminPageTabLinks<T extends string>({
   baseHref: string;
 }) {
   return (
-    <div
-      className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1 shadow-sm"
-      role="tablist"
-      aria-label="Page sections"
-    >
-      {tabs.map((tab) => (
-        <Link
-          key={tab.id}
-          href={`${baseHref}?tab=${tab.id}`}
-          className={cn(
-            "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-            activeTab === tab.id
-              ? "bg-foreground text-background shadow-sm"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-          role="tab"
-          aria-selected={activeTab === tab.id}
-        >
-          {tab.label}
-        </Link>
-      ))}
-    </div>
+    <SegmentedTabLinks
+      tabs={tabs}
+      value={activeTab}
+      href={(id) => `${baseHref}?tab=${id}`}
+      ariaLabel="Page sections"
+    />
   );
 }

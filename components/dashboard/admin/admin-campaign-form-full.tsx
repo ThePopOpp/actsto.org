@@ -10,6 +10,7 @@ import {
   CampaignFormPanelStudent,
 } from "@/components/campaigns/campaign-form-panels";
 import { Button } from "@/components/ui/button";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,32 +129,7 @@ export function AdminCampaignFormFull({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div
-              role="tablist"
-              aria-label="Campaign sections"
-              className="flex flex-wrap gap-1 border-b border-border"
-            >
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t.id}
-                  className={cn(
-                    "relative -mb-px rounded-t-md px-4 py-2.5 text-sm font-medium transition-colors",
-                    tab === t.id
-                      ? "border border-b-0 border-border bg-card text-primary shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTab(t.id);
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} ariaLabel="Campaign sections" />
 
             <div className="pt-1">
               {tab === "campaign" ? (

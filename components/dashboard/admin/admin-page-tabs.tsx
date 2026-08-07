@@ -3,14 +3,19 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 
 export type AdminPageTab<T extends string> = {
   id: T;
   label: string;
 };
 
+/**
+ * Local-state tabs for an admin page.
+ *
+ * The look lives in `SegmentedTabs` so every tab bar in the dashboard stays in
+ * agreement; this component only owns which one is selected.
+ */
 export function AdminPageTabs<T extends string>({
   tabs,
   initialTab,
@@ -24,22 +29,12 @@ export function AdminPageTabs<T extends string>({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Page sections">
-        {tabs.map((tab) => (
-          <Button
-            key={tab.id}
-            type="button"
-            size="sm"
-            variant={activeTab === tab.id ? "default" : "outline"}
-            className={cn("h-8", activeTab === tab.id && "shadow-sm")}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
+      <SegmentedTabs
+        tabs={tabs}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Page sections"
+      />
       <div role="tabpanel">{children(activeTab)}</div>
     </div>
   );

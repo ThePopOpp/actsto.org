@@ -22,6 +22,11 @@ const { renderMarketingEmail, EMAIL_TEMPLATES, wrapEmailDocument } = await impor
 const { MARKETING_VARIANTS, getVariant, DEFAULT_VARIANT_ID } = await import(
   "@/lib/marketing/design-variants"
 );
+const { MEDIA_TYPES, getMediaType, getCanvas } = await import("@/lib/marketing/media-types");
+const { MEDIA_TEMPLATES, templatesFor, getMediaTemplate } = await import(
+  "@/lib/marketing/media-templates"
+);
+const { blocksToHtml } = await import("@/lib/blog/blocks");
 
 let passed = 0;
 let failed = 0;
@@ -226,6 +231,84 @@ test("every variant carries the colours the renderers read", () => {
   for (const v of MARKETING_VARIANTS) {
     for (const key of ["canvas", "surface", "band", "bandInk", "ink", "accent", "accentInk", "line"] as const) {
       assert.match(v[key], /^#[0-9a-f]{6}$/i, `${v.id}.${key} must be a hex colour for email`);
+    }
+  }
+});
+
+// ── Media templates ─────────────────────────────────────────────────────────
+
+console.log("media templates");
+
+test("every media type offers templates and exactly one blank", () => {
+  for (const mediaType of MEDIA_TYPES) {
+    const templates = templatesFor(mediaType.id);
+    assert.ok(templates.length >= 2, `${mediaType.id} has too few templates`);
+    const blanks = templates.filter((t) => t.blank);
+    assert.equal(blanks.length, 1, `${mediaType.id} must offer exactly one blank start`);
+  }
+});
+
+test("every template builds blocks that serialize to html", () => {
+  const content = buildMarketingContent(campaignOf(), ORIGIN);
+  for (const v of MARKETING_VARIANTS) {
+    for (const template of MEDIA_TEMPLATES) {
+      const blocks = template.build(content, v);
+      if (template.blank) {
+        assert.equal(blocks.length, 0, `${template.id} should start empty`);
+        continue;
+      }
+      assert.ok(blocks.length > 0, `${template.id} produced no blocks`);
+      const html = blocksToHtml(blocks);
+      assert.ok(html.length > 0, `${template.id} serialized to nothing`);
+    }
+  }
+});
+
+test("block ids are stable across repeated builds", () => {
+  const content = buildMarketingContent(campaignOf(), ORIGIN);
+  const template = getMediaTemplate("postcard-photo-hero")!;
+  const first = template.build(content, variant).map((b) => b.id);
+  const second = template.build(content, variant).map((b) => b.id);
+  assert.deepEqual(first, second, "applying a template twice must be deterministic");
+  assert.equal(new Set(first).size, first.length, "block ids must be unique");
+});
+
+test("non-blank templates link back to the campaign", () => {
+  const content = buildMarketingContent(campaignOf(), ORIGIN);
+  for (const template of MEDIA_TEMPLATES.filter((t) => !t.blank)) {
+    const html = blocksToHtml(template.build(content, variant));
+    const links = html.includes(content.donateUrl) || html.includes(content.url);
+    assert.ok(links, `${template.id} has no link back to the campaign`);
+  }
+});
+
+test("templates only use blocks their media type offers", () => {
+  const content = buildMarketingContent(campaignOf(), ORIGIN);
+  for (const template of MEDIA_TEMPLATES) {
+    const allowed = getMediaType(template.mediaType).blocks;
+    for (const block of template.build(content, variant)) {
+      assert.ok(
+        allowed.includes(block.type),
+        `${template.id} uses "${block.type}", which is not in the ${template.mediaType} palette`,
+      );
+    }
+  }
+});
+
+test("canvas lookup falls back to the first size", () => {
+  const postcard = getMediaType("postcard");
+  assert.equal(getCanvas(postcard, "nonsense").id, postcard.canvases[0].id);
+  assert.equal(getCanvas(postcard, null).id, postcard.canvases[0].id);
+  assert.equal(getMediaType("nonsense").id, MEDIA_TYPES[0].id);
+});
+
+test("every canvas has a usable pixel size", () => {
+  for (const mediaType of MEDIA_TYPES) {
+    for (const canvas of mediaType.canvases) {
+      assert.ok(canvas.widthPx > 0, `${mediaType.id}/${canvas.id} width`);
+      if (mediaType.fixedAspect) {
+        assert.ok(canvas.heightPx > 0, `${mediaType.id}/${canvas.id} needs a height to crop to`);
+      }
     }
   }
 });

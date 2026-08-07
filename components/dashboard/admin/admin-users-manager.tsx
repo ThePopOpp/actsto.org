@@ -15,6 +15,7 @@ import {
 import { AdminUserFormFull } from "@/components/dashboard/admin/admin-user-form-full";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -324,22 +325,12 @@ export function AdminUsersManager() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="User account types">
-        {USER_ROLE_TABS.map((tab) => (
-          <Button
-            key={tab.id}
-            type="button"
-            size="sm"
-            variant={roleTab === tab.id ? "default" : "outline"}
-            className="h-8"
-            role="tab"
-            aria-selected={roleTab === tab.id}
-            onClick={() => setRoleTab(tab.id)}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
+      <SegmentedTabs
+        tabs={USER_ROLE_TABS}
+        value={roleTab}
+        onChange={setRoleTab}
+        ariaLabel="User account types"
+      />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="min-w-0 flex-1 sm:max-w-md">
