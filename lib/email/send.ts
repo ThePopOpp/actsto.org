@@ -14,7 +14,17 @@ export type SendEmailArgs = {
   attachments?: { filename: string; content: Buffer; contentType?: string }[];
 };
 
-export type SendResult = { messageId: string; provider: "resend" | "smtp"; skipped?: boolean };
+export type SendResult = {
+  messageId: string;
+  provider: "resend" | "smtp";
+  skipped?: boolean;
+  /**
+   * Who it actually went out as. Callers that record the send were previously
+   * re-deriving this from SMTP env vars, which is wrong the moment Resend is
+   * the active provider — the logged sender disagreed with the real one.
+   */
+  from: { name: string; email: string };
+};
 
 async function logEmail(args: SendEmailArgs, provider: string, messageId: string, status: string, payload: Prisma.InputJsonValue) {
   await prisma.emailLog
@@ -72,7 +82,11 @@ async function sendViaResend(
     throw new Error(`Resend error: ${data.message ?? `HTTP ${res.status}`}`);
   }
   await logEmail(args, "resend", data.id ?? "", "sent", { from: cfg.fromEmail });
-  return { messageId: data.id ?? "", provider: "resend" };
+  return {
+    messageId: data.id ?? "",
+    provider: "resend",
+    from: { name: cfg.fromName, email: cfg.fromEmail },
+  };
 }
 
 async function sendViaSmtp(args: SendEmailArgs): Promise<SendResult> {
@@ -98,7 +112,11 @@ async function sendViaSmtp(args: SendEmailArgs): Promise<SendResult> {
     accepted: info.accepted.map(String),
     rejected: info.rejected.map(String),
   });
-  return { messageId: info.messageId, provider: "smtp" };
+  return {
+    messageId: info.messageId,
+    provider: "smtp",
+    from: { name: config.fromName, email: config.fromEmail },
+  };
 }
 
 /**

@@ -17,6 +17,10 @@ type Settings = {
   emailEnabled: boolean;
   smsEnabled: boolean;
   pushEnabled: boolean;
+  /**
+   * Legacy. Kept so existing stored rows still parse, but the sender reads its
+   * identity from the environment — see the read-only fields in the form.
+   */
   fromName: string;
   fromEmail: string;
   replyTo: string;
@@ -36,6 +40,13 @@ type Settings = {
   quietStart: string;
   quietEnd: string;
   defaultLocale: string;
+};
+
+type SenderIdentity = {
+  name: string;
+  email: string;
+  replyTo: string | null;
+  provider: "resend" | "smtp" | "unconfigured";
 };
 
 type AuditRow = {
@@ -85,17 +96,27 @@ function fmt(value: string) {
 export function AdminNotificationsForm() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [audit, setAudit] = useState<AuditRow[]>([]);
+  /** Resolved server-side from the mail provider config; never editable here. */
+  const [sender, setSender] = useState<SenderIdentity | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/admin/notifications/settings", { cache: "no-store" })
-      .then((res) => res.json() as Promise<{ settings?: Settings; audit?: AuditRow[] }>)
+      .then(
+        (res) =>
+          res.json() as Promise<{
+            settings?: Settings;
+            audit?: AuditRow[];
+            sender?: SenderIdentity;
+          }>,
+      )
       .then((data) => {
         if (cancelled) return;
         setSettings({ ...DEFAULT_SETTINGS, ...(data.settings ?? {}) });
         setAudit(data.audit ?? []);
+        setSender(data.sender ?? null);
       })
       .catch(() => setNotice("Could not load notification settings."));
     return () => {
@@ -162,19 +183,33 @@ export function AdminNotificationsForm() {
             </label>
           </div>
           <Separator />
+          {/* Read-only, and deliberately so. These were three editable inputs
+              that nothing read — the sender takes its identity from the
+              environment, because the from-address has to be on a domain
+              verified with the provider. A typo typed here would have failed
+              every send with a provider error nobody would trace back. */}
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <Label htmlFor="from-name">Default From name</Label>
-              <Input id="from-name" value={settings.fromName} onChange={(e) => patch("fromName", e.target.value)} className="mt-1.5" />
+              <Label htmlFor="from-name">From name</Label>
+              <Input id="from-name" value={sender?.name ?? "—"} readOnly disabled className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="from-email">Default From email</Label>
-              <Input id="from-email" type="email" value={settings.fromEmail} onChange={(e) => patch("fromEmail", e.target.value)} className="mt-1.5" />
+              <Label htmlFor="from-email">From email</Label>
+              <Input id="from-email" value={sender?.email ?? "—"} readOnly disabled className="mt-1.5" />
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="reply-to">Reply-To</Label>
-              <Input id="reply-to" type="email" value={settings.replyTo} onChange={(e) => patch("replyTo", e.target.value)} className="mt-1.5" />
+              <Input id="reply-to" value={sender?.replyTo ?? "Not set — replies go to the From address"} readOnly disabled className="mt-1.5" />
             </div>
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              {sender?.provider === "resend" ? (
+                <>Sending through Resend. Set with <code>RESEND_FROM_NAME</code>, <code>RESEND_FROM_EMAIL</code> and <code>RESEND_REPLY_TO</code> in the deployment environment.</>
+              ) : sender?.provider === "smtp" ? (
+                <>Sending over SMTP. Set with <code>SMTP_FROM_NAME</code> and <code>SMTP_FROM_EMAIL</code>. Add <code>RESEND_API_KEY</code> to switch to Resend.</>
+              ) : (
+                <>No mail provider is configured, so nothing will send. Set <code>RESEND_API_KEY</code> and <code>RESEND_FROM_EMAIL</code>, or the SMTP variables.</>
+              )}
+            </p>
           </div>
         </CardContent>
       </Card>

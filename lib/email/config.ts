@@ -48,3 +48,42 @@ export function getImapConfig() {
 
   return { host, port, user, pass, secure, mailbox };
 }
+
+export type SenderIdentity = {
+  name: string;
+  email: string;
+  replyTo: string | null;
+  provider: "resend" | "smtp" | "unconfigured";
+};
+
+/**
+ * Who the app actually sends as, right now.
+ *
+ * Resolved from the same config the sender uses, so nothing has to guess. It's
+ * env-driven rather than editable in the dashboard on purpose: the from-address
+ * has to be on a domain verified with the provider, and a typo in a settings
+ * field would fail every send with a provider error nobody would connect back
+ * to the change.
+ */
+export function getSenderIdentity(): SenderIdentity {
+  try {
+    const resend = getResendConfig();
+    if (resend) {
+      return {
+        name: resend.fromName,
+        email: resend.fromEmail,
+        replyTo: resend.replyTo ?? null,
+        provider: "resend",
+      };
+    }
+  } catch {
+    // RESEND_API_KEY set with no from-address. Fall through to SMTP rather than
+    // taking the settings page down over it.
+  }
+  try {
+    const smtp = getSmtpConfig();
+    return { name: smtp.fromName, email: smtp.fromEmail, replyTo: null, provider: "smtp" };
+  } catch {
+    return { name: "", email: "", replyTo: null, provider: "unconfigured" };
+  }
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
+import { getSenderIdentity } from "@/lib/email/config";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_SETTINGS = {
@@ -73,7 +74,13 @@ export async function GET() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 20);
 
-  return NextResponse.json({ settings: normalize(row?.payload), audit });
+  // The live sender identity, so the settings page can show what the app
+  // actually sends as rather than three stored fields nothing reads.
+  return NextResponse.json({
+    settings: normalize(row?.payload),
+    audit,
+    sender: getSenderIdentity(),
+  });
 }
 
 export async function PUT(request: Request) {

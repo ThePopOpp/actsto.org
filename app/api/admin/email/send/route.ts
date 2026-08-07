@@ -34,16 +34,18 @@ export async function POST(request: Request) {
       data: {
         channel: "email",
         subject,
-        fromName: "Arizona Christian Tuition",
-        fromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "hello@actsto.org",
+        // The sender reported by the send itself. Deriving it from SMTP env
+        // here was wrong the moment Resend became the active provider.
+        fromName: info.from.name,
+        fromEmail: info.from.email,
         unread: false,
         lastMessageAt: new Date(),
         messages: {
           create: {
             providerMessageId: info.messageId,
             direction: "outbound",
-            fromName: "Arizona Christian Tuition",
-            fromEmail: process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER ?? "hello@actsto.org",
+            fromName: info.from.name,
+            fromEmail: info.from.email,
             toEmail: to,
             subject,
             bodyText: text,
