@@ -43,7 +43,44 @@ function daysLeft(endDate: Date | null) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-function prismaCampaignToSiteCampaign(campaign: PrismaCampaignForDisplay): Campaign {
+/** Name, contact details and photo for the person who owns a campaign. */
+type OwnerProfile = {
+  displayName: string | null;
+  fullName: string | null;
+  email: string;
+  phone: string | null;
+  avatarUrl: string | null;
+};
+
+/**
+ * Look up the profile behind each campaign's `createdByUserId`.
+ *
+ * The campaign manager block used to render a hardcoded "Campaign manager" with
+ * no name and no photo, because `parent` was never stored anywhere and the
+ * session-scoped loaders only patched it for the signed-in owner — which the
+ * public page never is. Deriving it from the owner's profile means the photo
+ * they already uploaded shows everywhere, and stays right when they change it.
+ */
+async function ownerProfilesFor(
+  campaigns: PrismaCampaignForDisplay[],
+): Promise<Map<string, OwnerProfile>> {
+  const ids = [...new Set(campaigns.map((c) => c.createdByUserId).filter(Boolean))] as string[];
+  if (ids.length === 0) return new Map();
+
+  const profiles = await prisma.profile
+    .findMany({
+      where: { id: { in: ids } },
+      select: { id: true, displayName: true, fullName: true, email: true, phone: true, avatarUrl: true },
+    })
+    .catch(() => []);
+
+  return new Map(profiles.map((p) => [p.id, p]));
+}
+
+function prismaCampaignToSiteCampaign(
+  campaign: PrismaCampaignForDisplay,
+  owner?: OwnerProfile | null,
+): Campaign {
   const firstStudent = campaign.campaignStudents[0]?.student;
   const goal = Number(campaign.goalAmount ?? 0);
   const raised = Number(campaign.raisedAmount ?? 0);
@@ -94,9 +131,10 @@ function prismaCampaignToSiteCampaign(campaign: PrismaCampaignForDisplay): Campa
       logo: campaign.school?.logoUrl ?? undefined,
     },
     parent: {
-      name: "Campaign manager",
-      email: "",
-      phone: "",
+      name: owner?.displayName ?? owner?.fullName ?? "Campaign manager",
+      email: owner?.email ?? "",
+      phone: owner?.phone ?? "",
+      photo: owner?.avatarUrl ?? undefined,
     },
     breadcrumbCategory: "Families",
     tags: campaign.status === "draft" ? ["Draft"] : ["Family campaign", "Tax credit"],
@@ -137,8 +175,14 @@ export async function getSiteCampaigns(): Promise<Campaign[]> {
     getPersistedAdminCampaignRows(),
     loadPrismaCampaignsForDisplay({ status: "active", isPublic: true }).catch(() => []),
   ]);
+  const owners = await ownerProfilesFor(prismaCampaigns);
   return applyLiveCampaignDonationTotals(
-    mergeCampaignOverrides(MOCK_CAMPAIGNS, [...adminRows, ...prismaCampaigns.map(prismaCampaignToSiteCampaign)]),
+    mergeCampaignOverrides(MOCK_CAMPAIGNS, [
+      ...adminRows,
+      ...prismaCampaigns.map((c) =>
+        prismaCampaignToSiteCampaign(c, c.createdByUserId ? owners.get(c.createdByUserId) : null),
+      ),
+    ]),
   );
 }
 
@@ -148,7 +192,11 @@ export async function getSiteCampaignBySlug(slug: string): Promise<Campaign | un
     loadPrismaCampaignsForDisplay({ slug, status: "active", isPublic: true }).catch(() => []),
   ]);
   const adminCampaign = adminRows.find((campaign) => campaign.slug === slug);
-  const campaign = prismaCampaigns[0] ? prismaCampaignToSiteCampaign(prismaCampaigns[0]) : adminCampaign ?? getCampaignBySlug(slug);
+  const owners = await ownerProfilesFor(prismaCampaigns);
+  const first = prismaCampaigns[0];
+  const campaign = first
+    ? prismaCampaignToSiteCampaign(first, first.createdByUserId ? owners.get(first.createdByUserId) : null)
+    : adminCampaign ?? getCampaignBySlug(slug);
   const [withLiveTotals] = campaign ? await applyLiveCampaignDonationTotals([campaign]) : [];
   return withLiveTotals;
 }
@@ -169,6 +217,7 @@ export async function getDashboardCampaignsForSession(session: ActSession): Prom
       name: profile.displayName ?? profile.fullName ?? session.name,
       email: profile.email,
       phone: profile.phone ?? "",
+      photo: profile.avatarUrl ?? undefined,
     },
   }));
 
@@ -178,7 +227,7 @@ export async function getDashboardCampaignsForSession(session: ActSession): Prom
 export async function getEditableCampaignBySlugForSession(slug: string, session: ActSession): Promise<Campaign | undefined> {
   const profile = await prisma.profile.findFirst({
     where: { email: session.email.toLowerCase() },
-    select: { id: true, email: true, displayName: true, fullName: true, phone: true, isSuperAdmin: true },
+    select: { id: true, email: true, displayName: true, fullName: true, phone: true, avatarUrl: true, isSuperAdmin: true },
   });
   if (!profile) return undefined;
 
@@ -195,6 +244,7 @@ export async function getEditableCampaignBySlugForSession(slug: string, session:
       name: profile.displayName ?? profile.fullName ?? session.name,
       email: profile.email,
       phone: profile.phone ?? "",
+      photo: profile.avatarUrl ?? undefined,
     },
   };
 }

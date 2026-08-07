@@ -48,7 +48,15 @@ export function CampaignPeopleSection({
           <div className="flex items-center gap-3">
             <div className="relative size-14 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
               {parent.photo ? (
-                <Image src={parent.photo} alt="" fill className="object-cover" sizes="56px" />
+                parent.photo.startsWith("data:") ? (
+                  // Avatars uploaded through the profile editor are stored as
+                  // data URLs. next/image can't optimise those and errors on
+                  // some of them, so render them directly.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={parent.photo} alt="" className="size-full object-cover" />
+                ) : (
+                  <Image src={parent.photo} alt="" fill className="object-cover" sizes="56px" />
+                )
               ) : (
                 <span className="flex size-full items-center justify-center bg-primary/10 font-heading text-sm font-semibold text-primary">
                   {parentInitials(parent.name)}

@@ -13,6 +13,8 @@ export async function getProfileForEmail(email: string) {
       displayName: true,
       fullName: true,
       phone: true,
+      // The campaign manager block renders this photo.
+      avatarUrl: true,
       isSuperAdmin: true,
     },
   });
