@@ -1,15 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 
+import { EmailStudio } from "@/components/dashboard/marketing/email-studio";
 import { PostcardBuilder } from "@/components/dashboard/marketing/postcard-builder";
 import { SocialCampaignBuilder } from "@/components/dashboard/marketing/social-campaign-builder";
+import { TemplateGallery } from "@/components/dashboard/marketing/template-gallery";
 import type { Campaign } from "@/lib/campaigns";
+import {
+  getVariantServerSnapshot,
+  getVariantSnapshot,
+  setVariantChoice,
+  subscribeVariant,
+} from "@/lib/marketing/variant-store";
 import { cn } from "@/lib/utils";
 
-type MarketingTab = "digital" | "print" | "social";
+type MarketingTab = "templates" | "emails" | "digital" | "print" | "social";
 
 const tabs: { id: MarketingTab; label: string; description: string }[] = [
+  {
+    id: "templates",
+    label: "Templates",
+    description: "Pick one design and every channel below follows it.",
+  },
+  {
+    id: "emails",
+    label: "Emails",
+    description:
+      "Ready-to-send emails built from your campaign — copy, download, or send yourself a test.",
+  },
   {
     id: "digital",
     label: "Digital postcards",
@@ -34,7 +53,14 @@ export function MarketingHub({
   variant: "admin" | "parent";
   campaigns?: Campaign[];
 }) {
-  const [tab, setTab] = useState<MarketingTab>("digital");
+  const [tab, setTab] = useState<MarketingTab>("templates");
+  // The design choice is persisted, so it comes from a store rather than local
+  // state — see lib/marketing/variant-store.ts for why.
+  const designId = useSyncExternalStore(
+    subscribeVariant,
+    getVariantSnapshot,
+    getVariantServerSnapshot,
+  );
 
   return (
     <div className="space-y-6">
@@ -60,9 +86,38 @@ export function MarketingHub({
       </div>
       <p className="text-sm text-muted-foreground">{tabs.find((x) => x.id === tab)?.description}</p>
 
-      {tab === "digital" ? <PostcardBuilder channel="digital" variant={variant} campaigns={campaigns} /> : null}
-      {tab === "print" ? <PostcardBuilder channel="print" variant={variant} campaigns={campaigns} /> : null}
-      {tab === "social" ? <SocialCampaignBuilder variant={variant} campaigns={campaigns} /> : null}
+      {tab === "templates" ? (
+        <TemplateGallery campaigns={campaigns} variantId={designId} onVariantChange={setVariantChoice} />
+      ) : null}
+      {tab === "emails" ? (
+        <EmailStudio campaigns={campaigns} variantId={designId} onVariantChange={setVariantChoice} />
+      ) : null}
+      {tab === "digital" ? (
+        <PostcardBuilder
+          channel="digital"
+          variant={variant}
+          campaigns={campaigns}
+          designId={designId}
+          onDesignChange={setVariantChoice}
+        />
+      ) : null}
+      {tab === "print" ? (
+        <PostcardBuilder
+          channel="print"
+          variant={variant}
+          campaigns={campaigns}
+          designId={designId}
+          onDesignChange={setVariantChoice}
+        />
+      ) : null}
+      {tab === "social" ? (
+        <SocialCampaignBuilder
+          variant={variant}
+          campaigns={campaigns}
+          designId={designId}
+          onDesignChange={setVariantChoice}
+        />
+      ) : null}
     </div>
   );
 }

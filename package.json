@@ -13,7 +13,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "test:select": "tsx scripts/test-select-items.mts",
-    "test": "npm run test:income && npm run test:select"
+    "test:marketing": "tsx scripts/test-marketing-content.mts",
+    "test": "npm run test:income && npm run test:select && npm run test:marketing"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

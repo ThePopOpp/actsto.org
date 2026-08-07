@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Eye, ImageIcon, Save, Sparkles } from "lucide-react";
+import { Download, Eye, ImageIcon, Save } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MarketingSection } from "@/components/dashboard/marketing/marketing-section";
+import { VariantPicker } from "@/components/dashboard/marketing/variant-picker";
+import { getVariant, type MarketingVariantId } from "@/lib/marketing/design-variants";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -220,9 +223,14 @@ function SocialCreativeCanvas({
 export function SocialCampaignBuilder({
   variant,
   campaigns = MOCK_CAMPAIGNS,
+  designId,
+  onDesignChange,
 }: {
   variant: "admin" | "parent";
   campaigns?: Campaign[];
+  /** The design chosen under Templates; drives the background fill. */
+  designId: MarketingVariantId;
+  onDesignChange: (id: MarketingVariantId) => void;
 }) {
   const [draft, setDraft] = useState<SocialDraft>(defaultSocialDraft);
   const [campaignSlug, setCampaignSlug] = useState("");
@@ -267,6 +275,15 @@ export function SocialCampaignBuilder({
       /* ignore */
     }
   }, []);
+
+  /**
+   * Applies a design variant's canvas fill. Copy, image and hashtags are left
+   * alone — a design change shouldn't wipe what someone has written.
+   */
+  function applyDesign(id: MarketingVariantId) {
+    const fill = getVariant(id).canvasFill;
+    persist({ ...draft, bgMode: fill.mode, bgColor: fill.from, bgColorEnd: fill.to });
+  }
 
   function persist(next: SocialDraft) {
     setDraft(next);
@@ -340,18 +357,9 @@ export function SocialCampaignBuilder({
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
-        <div className="space-y-6">
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-heading text-lg text-primary">
-                <Sparkles className="size-5" />
-                Campaign source
-              </CardTitle>
-              <CardDescription>
-                Optional: pull copy and hero image from {variant === "parent" ? "one of your campaigns" : "a campaign"}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+        <div className="grid content-start gap-4 sm:grid-cols-2">
+          <MarketingSection title="Campaign source" description="Optional: pull copy and hero image from a campaign." defaultOpen className="sm:col-span-2">
+            <div>
               <Label>Link campaign</Label>
               <Select
                 value={campaignSlug || "__none__"}
@@ -374,21 +382,29 @@ export function SocialCampaignBuilder({
                   ))}
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Format (pixels)</CardTitle>
-              <CardDescription>
-                Canvas matches export dimensions for{" "}
-                <span className="font-medium text-foreground">
-                  {draft.network === "facebook" ? "Facebook" : "Instagram"}
-                </span>
-                .
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <MarketingSection
+            title="Design"
+            description="The look you picked under Templates. Changing it here changes it everywhere."
+          >
+            <VariantPicker
+              value={designId}
+              onChange={(id) => {
+                onDesignChange(id);
+                applyDesign(id);
+              }}
+              compact
+            />
+            <p className="mt-3 text-xs text-muted-foreground">
+              Applying a design sets the background colours below. Anything you change afterwards
+              stays put.
+            </p>
+          </MarketingSection>
+
+          <MarketingSection title="Format (pixels)">
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="soc-format">Placement &amp; size</Label>
                 <Select
@@ -425,14 +441,11 @@ export function SocialCampaignBuilder({
                   </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Copy</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+          <MarketingSection title="Copy" className="sm:col-span-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="soc-head">Headline</Label>
                 <Input
@@ -479,14 +492,11 @@ export function SocialCampaignBuilder({
                   placeholder="e.g. Donate · Learn more"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Visuals</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+          <MarketingSection title="Visuals" className="sm:col-span-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="soc-img">Hero image URL</Label>
                 <Input
@@ -579,8 +589,8 @@ export function SocialCampaignBuilder({
                   </div>
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" disabled>

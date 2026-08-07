@@ -16,6 +16,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MarketingSection } from "@/components/dashboard/marketing/marketing-section";
+import { VariantPicker } from "@/components/dashboard/marketing/variant-picker";
+import { getVariant, type MarketingVariantId } from "@/lib/marketing/design-variants";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -405,10 +408,15 @@ export function PostcardBuilder({
   channel,
   variant,
   campaigns = MOCK_CAMPAIGNS,
+  designId,
+  onDesignChange,
 }: {
   channel: "digital" | "print";
   variant: "admin" | "parent";
   campaigns?: Campaign[];
+  /** The design chosen under Templates; drives the background fill. */
+  designId: MarketingVariantId;
+  onDesignChange: (id: MarketingVariantId) => void;
 }) {
   const [draft, setDraft] = useState<DraftShape>(defaultDraft);
   const [campaignSlug, setCampaignSlug] = useState<string>("");
@@ -456,6 +464,22 @@ export function PostcardBuilder({
   }, [draft.qrTargetUrl]);
 
   const sampleRecipient = draft.recipients[0];
+
+  /**
+   * Pushes a design variant's canvas fill into the draft.
+   *
+   * Only the background — the copy, photo and mailing details a family has
+   * already typed are theirs, and a design change shouldn't discard them.
+   */
+  function applyDesign(id: MarketingVariantId) {
+    const fill = getVariant(id).canvasFill;
+    persistDraft({
+      ...draft,
+      bgMode: fill.mode,
+      bgColor: fill.from,
+      bgColorEnd: fill.to,
+    });
+  }
 
   function persistDraft(next: DraftShape) {
     setDraft(next);
@@ -575,15 +599,12 @@ export function PostcardBuilder({
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
-        <div className="space-y-6">
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Campaign data</CardTitle>
-              <CardDescription>
-                Pull headline, imagery, and QR destination from an active campaign when available.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* content-start so a short section doesn't stretch to match a tall one
+            next to it — an open accordion beside a closed one would otherwise
+            leave the closed one with a large empty body. */}
+        <div className="grid content-start gap-4 sm:grid-cols-2">
+          <MarketingSection title="Campaign data" className="sm:col-span-2" description={"Pull headline, imagery, and QR destination from an active campaign when available."} defaultOpen>
+            <div className="space-y-4">
               <div>
                 <Label>{variant === "parent" ? "Link one of your campaigns" : "Link campaign"}</Label>
                 <Select
@@ -608,15 +629,29 @@ export function PostcardBuilder({
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Postcard size</CardTitle>
-              <CardDescription>Preview aspect ratio updates instantly for front and back.</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <MarketingSection
+            title="Design"
+            description="The look you picked under Templates. Changing it here changes it everywhere."
+          >
+            <VariantPicker
+              value={designId}
+              onChange={(id) => {
+                onDesignChange(id);
+                applyDesign(id);
+              }}
+              compact
+            />
+            <p className="mt-3 text-xs text-muted-foreground">
+              Applying a design sets the background colours below. Anything you change afterwards
+              stays put.
+            </p>
+          </MarketingSection>
+
+          <MarketingSection title="Postcard size" description={"Preview aspect ratio updates instantly for front and back."}>
+            <div>
               <Label htmlFor="pc-size">Size</Label>
               <Select
                 value={draft.sizeId}
@@ -636,14 +671,11 @@ export function PostcardBuilder({
               <p className="mt-2 text-xs text-muted-foreground">
                 Selected: {size.label} ({size.widthIn}&Prime; × {size.heightIn}&Prime;) — use print vendor specs for bleed.
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Front content</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+          <MarketingSection title="Front content" className="sm:col-span-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="pc-title">Title</Label>
                 <Input
@@ -824,15 +856,11 @@ export function PostcardBuilder({
                   onChange={(e) => persistDraft({ ...draft, qrTargetUrl: e.target.value })}
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Back — mail panel</CardTitle>
-              <CardDescription>Return address and USPS-style layout preview (not to scale for postage).</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <MarketingSection title="Back — mail panel" className="sm:col-span-2" description={"Return address and USPS-style layout preview (not to scale for postage)."}>
+            <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label htmlFor="pc-ret-name">Return name</Label>
@@ -925,15 +953,11 @@ export function PostcardBuilder({
                   </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Mailing list</CardTitle>
-              <CardDescription>CSV columns: Name, Address, City, State, ZIP (one row per recipient).</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <MarketingSection title="Mailing list" description={"CSV columns: Name, Address, City, State, ZIP (one row per recipient)."}>
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="pc-csv">Import CSV</Label>
                 <Input
@@ -984,14 +1008,11 @@ export function PostcardBuilder({
                   </Button>
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Deployment</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <MarketingSection title="Deployment">
+            <div className="space-y-4">
               <div className="flex flex-col gap-3">
                 <div className="flex items-start gap-2">
                   <Checkbox
@@ -1036,15 +1057,11 @@ export function PostcardBuilder({
                   Est. postage not configured — API key required.
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
-          <Card className="border-border/80">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg text-primary">Reusable templates</CardTitle>
-              <CardDescription>Saved in this browser (localStorage).</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
+          <MarketingSection title="Reusable templates" description={"Saved in this browser (localStorage)."}>
+            <div className="flex flex-wrap gap-2">
               <Input
                 className="max-w-xs"
                 placeholder="Template name"
@@ -1072,8 +1089,8 @@ export function PostcardBuilder({
                   </SelectContent>
                 </Select>
               ) : null}
-            </CardContent>
-          </Card>
+            </div>
+          </MarketingSection>
 
           <Card className="border-amber-500/25 bg-amber-500/5">
             <CardHeader>
