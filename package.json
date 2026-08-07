@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "test:select": "tsx scripts/test-select-items.mts",
     "test:marketing": "tsx scripts/test-marketing-content.mts",
-    "test": "npm run test:income && npm run test:select && npm run test:marketing"
+    "test:email": "tsx scripts/test-email-catalog.mts",
+    "test": "npm run test:income && npm run test:select && npm run test:marketing && npm run test:email"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

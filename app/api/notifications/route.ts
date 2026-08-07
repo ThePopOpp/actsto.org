@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { getActSession } from "@/lib/auth/session-server";
+import { DEFAULT_EMAIL_PREFERENCES } from "@/lib/email/preference-rules";
 import { prisma } from "@/lib/prisma";
 
-const DEFAULT_PREFS = {
-  emailOptIn: true,
-  smsOptIn: false,
-  transactionalEmailEnabled: true,
-  marketingEmailEnabled: false,
-  donationUpdatesEnabled: true,
-  campaignUpdatesEnabled: true,
-};
+/**
+ * Defaults live in lib/email/preferences.ts alongside the gate that reads them,
+ * so the settings page and the sender can't disagree about what "unset" means.
+ */
+const DEFAULT_PREFS = { ...DEFAULT_EMAIL_PREFERENCES, smsOptIn: false };
+
+/** Every boolean this endpoint accepts. Anything else in the body is ignored. */
+const BOOLEAN_KEYS = Object.keys(DEFAULT_PREFS) as (keyof typeof DEFAULT_PREFS)[];
 
 async function getProfileId(email: string) {
   const profile = await prisma.profile.findFirst({
@@ -45,6 +46,10 @@ export async function GET() {
           marketingEmailEnabled: prefs.marketingEmailEnabled,
           donationUpdatesEnabled: prefs.donationUpdatesEnabled,
           campaignUpdatesEnabled: prefs.campaignUpdatesEnabled,
+          campaignAlertsEnabled: prefs.campaignAlertsEnabled,
+          featuredCampaignsEnabled: prefs.featuredCampaignsEnabled,
+          productUpdatesEnabled: prefs.productUpdatesEnabled,
+          scholarshipUpdatesEnabled: prefs.scholarshipUpdatesEnabled,
         }
       : DEFAULT_PREFS,
     notifications: notifications.map((n) => ({
@@ -85,27 +90,30 @@ export async function PUT(request: Request) {
   }
 
   if (body?.preferences) {
-    const p = body.preferences;
+    // Whitelist-and-coerce rather than spreading the body: an unexpected key
+    // reaching Prisma is how a request body ends up setting a column nobody
+    // meant to expose.
+    const create: Record<string, boolean> = { ...DEFAULT_PREFS };
+    const update: Record<string, boolean> = {};
+    for (const key of BOOLEAN_KEYS) {
+      const value = (body.preferences as Record<string, unknown>)[key];
+      if (typeof value !== "boolean") continue;
+      create[key] = value;
+      update[key] = value;
+    }
+
+    // Turning off everything optional is an unsubscribe, and compliance asks
+    // when it happened — "the row says false" is not an answer.
+    const optionalKeys = BOOLEAN_KEYS.filter(
+      (k) => k !== "emailOptIn" && k !== "smsOptIn" && k !== "transactionalEmailEnabled",
+    );
+    const turnedEverythingOff =
+      optionalKeys.length > 0 && optionalKeys.every((k) => update[k] === false);
+
     await prisma.communicationPreference.upsert({
       where: { userId },
-      create: {
-        userId,
-        emailOptIn: p.emailOptIn ?? DEFAULT_PREFS.emailOptIn,
-        smsOptIn: p.smsOptIn ?? DEFAULT_PREFS.smsOptIn,
-        transactionalEmailEnabled:
-          p.transactionalEmailEnabled ?? DEFAULT_PREFS.transactionalEmailEnabled,
-        marketingEmailEnabled: p.marketingEmailEnabled ?? DEFAULT_PREFS.marketingEmailEnabled,
-        donationUpdatesEnabled: p.donationUpdatesEnabled ?? DEFAULT_PREFS.donationUpdatesEnabled,
-        campaignUpdatesEnabled: p.campaignUpdatesEnabled ?? DEFAULT_PREFS.campaignUpdatesEnabled,
-      },
-      update: {
-        emailOptIn: p.emailOptIn,
-        smsOptIn: p.smsOptIn,
-        transactionalEmailEnabled: p.transactionalEmailEnabled,
-        marketingEmailEnabled: p.marketingEmailEnabled,
-        donationUpdatesEnabled: p.donationUpdatesEnabled,
-        campaignUpdatesEnabled: p.campaignUpdatesEnabled,
-      },
+      create: { userId, ...create, ...(turnedEverythingOff ? { unsubscribedAllAt: new Date() } : {}) },
+      update: { ...update, ...(turnedEverythingOff ? { unsubscribedAllAt: new Date() } : {}) },
     });
   }
 

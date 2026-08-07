@@ -212,29 +212,29 @@ model SiteContentSettings {
 
 /// Main user profile — one row per auth.users entry
 model Profile {
-  id                 String   @id @db.Uuid
+  id                 String     @id @db.Uuid
   email              String
-  fullName           String?  @map("full_name")
-  firstName          String?  @map("first_name")
-  middleName         String?  @map("middle_name")
-  lastName           String?  @map("last_name")
-  displayName        String?  @map("display_name")
-  avatarUrl          String?  @map("avatar_url")
+  fullName           String?    @map("full_name")
+  firstName          String?    @map("first_name")
+  middleName         String?    @map("middle_name")
+  lastName           String?    @map("last_name")
+  displayName        String?    @map("display_name")
+  avatarUrl          String?    @map("avatar_url")
   phone              String?
-  phoneNormalized    String?  @map("phone_normalized")
+  phoneNormalized    String?    @map("phone_normalized")
   /// Short bio shown on campaign pages when the user features their story.
   bio                String?
   /// IANA zone, e.g. "America/Phoenix". Used when scheduling and formatting.
   timezone           String?
-  primaryAccountType String?  @map("primary_account_type")
-  activeAccountType  String?  @map("active_account_type")
-  status             String   @default("active")
-  isAdmin            Boolean  @default(false) @map("is_admin")
-  isSuperAdmin       Boolean  @default(false) @map("is_super_admin")
+  primaryAccountType String?    @map("primary_account_type")
+  activeAccountType  String?    @map("active_account_type")
+  status             String     @default("active")
+  isAdmin            Boolean    @default(false) @map("is_admin")
+  isSuperAdmin       Boolean    @default(false) @map("is_super_admin")
   /// Staff review tier. Null for parents, students and donors.
   staffRole          StaffRole? @map("staff_role")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
   userRoles              UserRoleRecord[]
   accountSetupProgress   AccountSetupProgress[]
@@ -881,18 +881,18 @@ model DonorRecommendation {
 /// Deliberately holds no award amount. Approval decides *eligibility*; awarding
 /// is a separate downstream process on `scholarship_awards`.
 model ScholarshipApplication {
-  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId      String  @map("student_id") @db.Uuid
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String  @map("student_id") @db.Uuid
   /// The owning parent/guardian profile. Every scoped query filters on this.
-  guardianUserId String? @map("guardian_user_id") @db.Uuid
-  schoolId       String? @map("school_id") @db.Uuid
+  guardianUserId  String? @map("guardian_user_id") @db.Uuid
+  schoolId        String? @map("school_id") @db.Uuid
   /// Free-typed school name when the family picks "Other". Staff reconcile it
   /// against the schools table during review; until then it's what they told us.
   schoolNameOther String? @map("school_name_other")
-  schoolYear     String? @map("school_year")
+  schoolYear      String? @map("school_year")
 
   // ── Step 1: family and student ──────────────────────────────────────────
-  grade String?
+  grade                 String?
   /// What the family still owes for the year — not the school's published rate.
   tuitionAfterDiscounts Decimal? @map("tuition_after_discounts") @db.Decimal(10, 2)
 
@@ -961,15 +961,15 @@ model ScholarshipApplication {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  student     Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  school      School?                 @relation(fields: [schoolId], references: [id])
-  window      ApplicationWindow?      @relation(fields: [windowId], references: [id])
-  supersedes  ScholarshipApplication? @relation("ApplicationChain", fields: [supersedesId], references: [id])
+  student      Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school       School?                  @relation(fields: [schoolId], references: [id])
+  window       ApplicationWindow?       @relation(fields: [windowId], references: [id])
+  supersedes   ScholarshipApplication?  @relation("ApplicationChain", fields: [supersedesId], references: [id])
   supersededBy ScholarshipApplication[] @relation("ApplicationChain")
-  awards      ScholarshipAward[]
-  documents   ApplicationDocument[]
-  reviews     ApplicationReview[]
-  eligibility StudentYearEligibility[]
+  awards       ScholarshipAward[]
+  documents    ApplicationDocument[]
+  reviews      ApplicationReview[]
+  eligibility  StudentYearEligibility[]
 
   @@index([guardianUserId])
   @@index([studentId, schoolYear])
@@ -1046,19 +1046,19 @@ model ApplicationDocument {
 /// Append-only. Every staff decision writes a row; the application's status is
 /// just the latest one. Never overwrite a decision.
 model ApplicationReview {
-  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  applicationId String       @map("application_id") @db.Uuid
-  reviewerId    String       @map("reviewer_id") @db.Uuid
-  action        ReviewAction
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId   String       @map("application_id") @db.Uuid
+  reviewerId      String       @map("reviewer_id") @db.Uuid
+  action          ReviewAction
   /// Staff eyes only. Never surfaced to the parent, in any view or email.
-  internalNote  String?      @map("internal_note")
+  internalNote    String?      @map("internal_note")
   /// Sent verbatim to the parent on 'request_info' and 'deny'.
-  parentMessage String?      @map("parent_message")
+  parentMessage   String?      @map("parent_message")
   /// Which sections reopen on 'request_info'.
-  fieldsRequested String[]   @default([]) @map("fields_requested")
+  fieldsRequested String[]     @default([]) @map("fields_requested")
   /// request_info only — the deadline as it stood at the time of the action.
-  dueAt         DateTime?    @map("due_at")
-  createdAt     DateTime     @default(now()) @map("created_at")
+  dueAt           DateTime?    @map("due_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
 
   application ScholarshipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
@@ -1084,8 +1084,8 @@ model ApplicationWindow {
   overrideBy     String?        @map("override_by") @db.Uuid
   overrideAt     DateTime?      @map("override_at")
 
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   applications ScholarshipApplication[]
 
@@ -1126,14 +1126,14 @@ model StudentYearEligibility {
 /// Who opened which document, and when. If a family asks who saw their child's
 /// IEP, this is the answer.
 model DocumentAccessLog {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId String   @map("document_id") @db.Uuid
-  accessedBy String?  @map("accessed_by") @db.Uuid
-  accessorEmail String? @map("accessor_email")
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String   @map("document_id") @db.Uuid
+  accessedBy    String?  @map("accessed_by") @db.Uuid
+  accessorEmail String?  @map("accessor_email")
   /// 'signed_url' | 'download' | 'delete' | 'denied'
-  action     String
-  ip         String?
-  createdAt  DateTime @default(now()) @map("created_at")
+  action        String
+  ip            String?
+  createdAt     DateTime @default(now()) @map("created_at")
 
   document ApplicationDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -1259,6 +1259,17 @@ model CommunicationPreference {
   marketingEmailEnabled     Boolean   @default(false) @map("marketing_email_enabled")
   donationUpdatesEnabled    Boolean   @default(true) @map("donation_updates_enabled")
   campaignUpdatesEnabled    Boolean   @default(true) @map("campaign_updates_enabled")
+  /// Deadlines, goal milestones, stalled-campaign nudges.
+  campaignAlertsEnabled     Boolean   @default(true) @map("campaign_alerts_enabled")
+  /// The featured-campaign digest.
+  featuredCampaignsEnabled  Boolean   @default(true) @map("featured_campaigns_enabled")
+  /// New dashboard tools and app releases.
+  productUpdatesEnabled     Boolean   @default(true) @map("product_updates_enabled")
+  /// Application windows, award decisions, document requests.
+  scholarshipUpdatesEnabled Boolean   @default(true) @map("scholarship_updates_enabled")
+  /// Set when someone turns off everything optional at once. Compliance asks
+  /// "when did they opt out", and "the row says false" is not an answer.
+  unsubscribedAllAt         DateTime? @map("unsubscribed_all_at") @db.Timestamptz(6)
   createdAt                 DateTime  @default(now()) @map("created_at")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 
@@ -1403,15 +1414,15 @@ model SmsLog {
 }
 
 model CallLog {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId           String?   @map("user_id") @db.Uuid
-  profileId        String?   @map("profile_id") @db.Uuid
-  roleType         String?   @map("role_type")
-  campaignId       String?   @map("campaign_id") @db.Uuid
-  contactName      String?   @map("contact_name")
-  contactEmail     String?   @map("contact_email")
-  contactSource    String?   @map("contact_source")
-  matchedPhone     String?   @map("matched_phone")
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String?   @map("user_id") @db.Uuid
+  profileId                String?   @map("profile_id") @db.Uuid
+  roleType                 String?   @map("role_type")
+  campaignId               String?   @map("campaign_id") @db.Uuid
+  contactName              String?   @map("contact_name")
+  contactEmail             String?   @map("contact_email")
+  contactSource            String?   @map("contact_source")
+  matchedPhone             String?   @map("matched_phone")
   direction                String    @default("outbound")
   agentPhone               String?   @map("agent_phone")
   callerId                 String?   @map("caller_id")
@@ -1759,18 +1770,18 @@ model CampaignPageView {
 
 /// A supporter's review of a campaign. One per person per campaign.
 model Review {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  campaignId String   @map("campaign_id") @db.Uuid
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId     String   @map("campaign_id") @db.Uuid
   /// The profile that wrote it — a donor, backer, or anyone signed in.
-  donorId    String   @map("donor_id") @db.Uuid
-  rating     Int
-  comment    String?
+  donorId        String   @map("donor_id") @db.Uuid
+  rating         Int
+  comment        String?
   /// pending | approved | rejected. Moderated by default, per CLAUDE.md.
-  status     String   @default("pending")
+  status         String   @default("pending")
   /// Staff or the campaign owner hiding a review records why, for the audit.
-  moderationNote String? @map("moderation_note")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  moderationNote String?  @map("moderation_note")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
@@ -1868,6 +1879,19 @@ model EmailTemplate {
   title            String
   subject          String?
   preheader        String?
+  /// Ties this row to an entry in lib/email/catalog.ts. Null for ad-hoc templates.
+  catalogKey       String?  @unique @map("catalog_key")
+  /// transactional | campaign | donation | scholarship | product | marketing
+  category         String?
+  /// Which role this variant addresses: parent | student | individual_donor | business_donor | all
+  audienceRole     String?  @map("audience_role")
+  /// Hero block, rendered by renderEmailLayout above the body.
+  eyebrow          String?
+  heroTitle        String?  @map("hero_title")
+  heroSubtitle     String?  @map("hero_subtitle")
+  featuredImageUrl String?  @map("featured_image_url")
+  ctaLabel         String?  @map("cta_label")
+  ctaUrl           String?  @map("cta_url")
   /// Rendered, sanitized email HTML.
   content          String?
   /// Block-editor document (mirrors BlogPost blocks) for re-editing.
@@ -1881,6 +1905,7 @@ model EmailTemplate {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([createdAt])
+  @@index([category])
   @@map("email_templates")
 }
 
@@ -1941,57 +1966,57 @@ model ShepardAction {
 
 /// Digital Business Cards — owned by any dashboard user (keyed by email). Public at /c/{slug}.
 model BusinessCard {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerEmail         String    @map("owner_email")
-  ownerName          String?   @map("owner_name")
-  slug               String    @unique
-  cardName           String    @default("My Business Card") @map("card_name")
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerEmail String  @map("owner_email")
+  ownerName  String? @map("owner_name")
+  slug       String  @unique
+  cardName   String  @default("My Business Card") @map("card_name")
   /// draft | published | unpublished | archived
-  status             String    @default("draft")
-  isPublic           Boolean   @default(false) @map("is_public")
+  status     String  @default("draft")
+  isPublic   Boolean @default(false) @map("is_public")
 
-  displayName        String?   @map("display_name")
-  firstName          String?   @map("first_name")
-  lastName           String?   @map("last_name")
-  jobTitle           String?   @map("job_title")
-  companyName        String?   @map("company_name")
-  department         String?
-  bio                String?
+  displayName String? @map("display_name")
+  firstName   String? @map("first_name")
+  lastName    String? @map("last_name")
+  jobTitle    String? @map("job_title")
+  companyName String? @map("company_name")
+  department  String?
+  bio         String?
 
-  profilePhotoUrl    String?   @map("profile_photo_url")
-  logoUrl            String?   @map("logo_url")
-  backgroundImageUrl String?   @map("background_image_url")
+  profilePhotoUrl    String? @map("profile_photo_url")
+  logoUrl            String? @map("logo_url")
+  backgroundImageUrl String? @map("background_image_url")
 
-  backgroundColor    String    @default("#001138") @map("background_color")
-  accentColor        String    @default("#C9A96E") @map("accent_color")
-  textColor          String    @default("#F4F1EA") @map("text_color")
+  backgroundColor String @default("#001138") @map("background_color")
+  accentColor     String @default("#C9A96E") @map("accent_color")
+  textColor       String @default("#F4F1EA") @map("text_color")
   /// standard | opener_slider | qr_only | nfc_landing
-  cardMode           String    @default("standard") @map("card_mode")
+  cardMode        String @default("standard") @map("card_mode")
   /// light | dark | both
-  themeMode          String    @default("dark") @map("theme_mode")
-  layoutTemplate     String    @default("classic") @map("layout_template")
+  themeMode       String @default("dark") @map("theme_mode")
+  layoutTemplate  String @default("classic") @map("layout_template")
 
-  primaryPhone       String?   @map("primary_phone")
-  smsPhone           String?   @map("sms_phone")
-  primaryEmail       String?   @map("primary_email")
-  websiteUrl         String?   @map("website_url")
-  mapsUrl            String?   @map("maps_url")
-  introVideoUrl      String?   @map("intro_video_url")
+  primaryPhone  String? @map("primary_phone")
+  smsPhone      String? @map("sms_phone")
+  primaryEmail  String? @map("primary_email")
+  websiteUrl    String? @map("website_url")
+  mapsUrl       String? @map("maps_url")
+  introVideoUrl String? @map("intro_video_url")
 
-  qrSettings         Json      @default("{}") @map("qr_settings")
-  leadFormSettings   Json      @default("{}") @map("lead_form_settings")
-  mediaSettings      Json      @default("{}") @map("media_settings")
-  sliderPages        Json      @default("[]") @map("slider_pages")
-  automations        Json      @default("[]")
+  qrSettings       Json @default("{}") @map("qr_settings")
+  leadFormSettings Json @default("{}") @map("lead_form_settings")
+  mediaSettings    Json @default("{}") @map("media_settings")
+  sliderPages      Json @default("[]") @map("slider_pages")
+  automations      Json @default("[]")
 
-  nfcStatus          String    @default("not_ordered") @map("nfc_status")
-  viewCount          Int       @default(0) @map("view_count")
-  clickCount         Int       @default(0) @map("click_count")
+  nfcStatus  String @default("not_ordered") @map("nfc_status")
+  viewCount  Int    @default(0) @map("view_count")
+  clickCount Int    @default(0) @map("click_count")
 
-  publishedAt        DateTime? @map("published_at")
-  archivedAt         DateTime? @map("archived_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  publishedAt DateTime? @map("published_at")
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   links    BusinessCardLink[]
   sections BusinessCardSection[]
@@ -2004,18 +2029,18 @@ model BusinessCard {
 }
 
 model BusinessCardLink {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cardId        String   @map("card_id") @db.Uuid
-  label         String
-  url           String   @default("")
-  linkType      String   @default("custom") @map("link_type")
-  icon          String?
-  displayOrder  Int      @default(100) @map("display_order")
-  isVisible     Boolean  @default(true) @map("is_visible")
-  openInNewTab  Boolean  @default(true) @map("open_in_new_tab")
-  clickCount    Int      @default(0) @map("click_count")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cardId       String   @map("card_id") @db.Uuid
+  label        String
+  url          String   @default("")
+  linkType     String   @default("custom") @map("link_type")
+  icon         String?
+  displayOrder Int      @default(100) @map("display_order")
+  isVisible    Boolean  @default(true) @map("is_visible")
+  openInNewTab Boolean  @default(true) @map("open_in_new_tab")
+  clickCount   Int      @default(0) @map("click_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   card BusinessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
 

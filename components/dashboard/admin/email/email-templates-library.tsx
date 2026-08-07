@@ -12,7 +12,9 @@ import {
   Mail,
   Pencil,
   Plus,
+  Loader2,
   Send,
+  Sparkles,
   Table as TableIcon,
   Trash2,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { EMAIL_CATEGORY_LABELS, getCatalogEntry, type EmailCategory } from "@/lib/email/catalog";
 import { cn } from "@/lib/utils";
 
 type Template = {
@@ -34,6 +37,9 @@ type Template = {
   updatedAt: string;
   createdAt: string;
   sourceBlogPostId: string | null;
+  catalogKey: string | null;
+  category: string | null;
+  audienceRole: string | null;
 };
 
 type ViewMode = "list" | "table" | "cards" | "calendar";
@@ -55,6 +61,8 @@ export function EmailTemplatesLibrary() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | "draft" | "ready" | "archived">("all");
   const [preview, setPreview] = useState<Template | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedNote, setSeedNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,7 +73,6 @@ export function EmailTemplatesLibrary() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -75,6 +82,36 @@ export function EmailTemplatesLibrary() {
     await load();
   }
   const edit = (t: Template) => router.push(`/dashboard/admin/email?tab=editor&id=${t.id}`);
+
+  /**
+   * Installs any catalogue templates that don't exist yet. Idempotent and
+   * non-destructive — it only creates what's missing — so it needs no
+   * confirmation step.
+   */
+  async function installStarterSet() {
+    setSeeding(true);
+    setSeedNote(null);
+    try {
+      const res = await fetch("/api/admin/email-templates/seed", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as
+        | { created?: number; total?: number; error?: string }
+        | null;
+      if (!res.ok) {
+        setSeedNote(data?.error ?? "Could not install the templates.");
+        return;
+      }
+      setSeedNote(
+        data?.created
+          ? `Installed ${data.created} template${data.created === 1 ? "" : "s"}.`
+          : "Everything in the catalogue is already installed.",
+      );
+      await load();
+    } catch {
+      setSeedNote("Network error — nothing was installed.");
+    } finally {
+      setSeeding(false);
+    }
+  }
   const use = (t: Template) => router.push(`/dashboard/admin/email?tab=send&template=${t.id}`);
 
   const filtered = useMemo(
@@ -108,9 +145,17 @@ export function EmailTemplatesLibrary() {
         </div>
         <div className="flex items-center gap-2">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search templates…" className="h-9 w-52" />
+          <Button type="button" variant="outline" onClick={() => void installStarterSet()} disabled={seeding}>
+            {seeding ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Sparkles className="mr-1.5 size-4" />}
+            Install catalogue
+          </Button>
           <Button type="button" onClick={() => router.push("/dashboard/admin/email?tab=editor")}><Plus className="mr-1.5 size-4" /> New template</Button>
         </div>
       </div>
+
+      {seedNote ? (
+        <p role="status" className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">{seedNote}</p>
+      ) : null}
 
       <div className="flex flex-wrap gap-1.5">
         {(["all", "ready", "draft", "archived"] as const).map((s) => (
@@ -122,7 +167,9 @@ export function EmailTemplatesLibrary() {
         <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Loading…</p>
       ) : filtered.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No templates. Click <strong>New template</strong>, or use “Convert to email” on a blog post.
+          Nothing here yet. <strong>Install catalogue</strong> creates an editable template for every
+          email the app can send — welcome messages, campaign alerts, receipts and the rest. You can
+          also start one from scratch, or use “Convert to email” on a blog post.
         </p>
       ) : view === "list" ? (
         <div className="space-y-2">
@@ -132,7 +179,13 @@ export function EmailTemplatesLibrary() {
               <button type="button" onClick={() => setPreview(t)} className="min-w-0 flex-1 text-left">
                 <p className="truncate font-medium text-foreground">{t.title}</p>
                 <p className="truncate text-xs text-muted-foreground">{t.subject || "No subject"} · {fmt(t.updatedAt)}</p>
+                <TriggerLine template={t} />
               </button>
+              {t.category ? (
+                <Badge variant="outline" className="hidden shrink-0 sm:inline-flex">
+                  {EMAIL_CATEGORY_LABELS[t.category as EmailCategory] ?? t.category}
+                </Badge>
+              ) : null}
               {statusBadge(t.status)}
               {actions(t)}
             </div>
@@ -236,5 +289,27 @@ function CalendarView({ templates, onSelect }: { templates: Template[]; onSelect
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * What causes this email to send, and whether the recipient can turn it off.
+ *
+ * Shown because it's the question anyone actually has when they open this list —
+ * a subject line tells you what it says, not when it happens.
+ */
+function TriggerLine({ template }: { template: Template }) {
+  const entry = template.catalogKey ? getCatalogEntry(template.catalogKey) : null;
+  if (!entry) return null;
+  return (
+    <p className="truncate text-xs text-muted-foreground">
+      <span className="text-foreground/70">{entry.trigger}</span>{" "}
+      {entry.preference === null ? (
+        <span className="font-medium text-destructive">· required</span>
+      ) : (
+        <span>· optional</span>
+      )}
+      {entry.planned ? <span className="italic"> · not wired yet</span> : null}
+    </p>
   );
 }
