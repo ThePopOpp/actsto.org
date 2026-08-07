@@ -208,7 +208,12 @@ export function blockToHtml(block: BlogBlock): string {
       );
     }
     case "paragraph": {
-      const styled = `font-size:16px;line-height:1.7;color:${esc(p.color) || "#374151"};text-align:${align(p.align)};`;
+      // Honours `fontSize` the same way headings do. The rich-text editor styles
+      // its own spans, so this only affects plain-string content — which is what
+      // the marketing templates produce, and a postcard needs larger body copy
+      // than a blog post.
+      const bodySize = typeof p.fontSize === "number" && p.fontSize > 0 ? p.fontSize : 16;
+      const styled = `font-size:${bodySize}px;line-height:1.7;color:${esc(p.color) || "#374151"};text-align:${align(p.align)};`;
       if (isRichHtml(p.content)) {
         return wrap(`<div style="${styled}">${colorizeLinks(p.content ?? "")}</div>`);
       }

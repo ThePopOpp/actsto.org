@@ -313,6 +313,54 @@ test("every canvas has a usable pixel size", () => {
   }
 });
 
+test("dark-canvas templates set light type explicitly", () => {
+  const content = buildMarketingContent(campaignOf(), ORIGIN);
+  for (const template of MEDIA_TEMPLATES.filter((t) => !t.blank)) {
+    const mediaType = getMediaType(template.mediaType);
+    if (!mediaType.darkCanvas) continue;
+    for (const b of template.build(content, variant)) {
+      // Block defaults assume a white page. On the navy/red canvases a block
+      // that inherits them renders near-invisible dark-on-dark.
+      if (b.type === "heading" || b.type === "paragraph" || b.type === "quote" || b.type === "columns") {
+        assert.ok(
+          typeof b.props.color === "string" && b.props.color.length > 0,
+          `${template.id}/${b.type} needs an explicit colour on a dark canvas`,
+        );
+      }
+    }
+  }
+});
+
+test("fixed-size media use type larger than blog defaults", () => {
+  const content = buildMarketingContent(campaignOf(), ORIGIN);
+  for (const template of MEDIA_TEMPLATES.filter((t) => !t.blank)) {
+    if (!getMediaType(template.mediaType).fixedAspect) continue;
+    for (const b of template.build(content, variant)) {
+      if (b.type === "heading") {
+        assert.ok(
+          (b.props.fontSize ?? 0) >= 30,
+          `${template.id} heading is ${b.props.fontSize}px — too small to read on a postcard`,
+        );
+      }
+      if (b.type === "paragraph") {
+        assert.ok(
+          (b.props.fontSize ?? 16) >= 18,
+          `${template.id} body is ${b.props.fontSize ?? 16}px — too small to read on a postcard`,
+        );
+      }
+    }
+  }
+});
+
+test("paragraph fontSize reaches the rendered html", () => {
+  const html = blocksToHtml([
+    { id: "t", type: "paragraph", props: { content: "Body copy", fontSize: 21 } },
+  ]);
+  assert.ok(html.includes("font-size:21px"), "paragraph ignored its fontSize");
+  const fallback = blocksToHtml([{ id: "t", type: "paragraph", props: { content: "Body copy" } }]);
+  assert.ok(fallback.includes("font-size:16px"), "paragraph default should stay 16px");
+});
+
 console.log("");
 console.log(`${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

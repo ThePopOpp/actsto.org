@@ -8,12 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarketingPreviewDialog } from "@/components/dashboard/marketing/marketing-preview-dialog";
+import { ScaledPreview } from "@/components/dashboard/marketing/scaled-preview";
 import { VariantPicker } from "@/components/dashboard/marketing/variant-picker";
-import {
-  EmailMockup,
-  PostcardMockup,
-  SocialMockup,
-} from "@/components/dashboard/marketing/variant-mockups";
 import type { Campaign } from "@/lib/campaigns";
 import { blocksToHtml, type BlogBlock } from "@/lib/blog/blocks";
 import { buildMarketingContent, type MarketingContent } from "@/lib/marketing/campaign-content";
@@ -23,7 +19,7 @@ import {
   type MarketingVariantId,
 } from "@/lib/marketing/design-variants";
 import { templatesFor, type MediaTemplate } from "@/lib/marketing/media-templates";
-import { MEDIA_TYPES, type MediaTypeId } from "@/lib/marketing/media-types";
+import { getCanvas, MEDIA_TYPES, type MediaTypeDef, type MediaTypeId } from "@/lib/marketing/media-types";
 import { cn } from "@/lib/utils";
 
 const NO_CAMPAIGN = "__none__";
@@ -158,9 +154,16 @@ export function TemplateGallery({
                     >
                       <div className="mb-3">
                         {template.blank ? (
-                          <BlankThumb mediaTypeId={mediaType.id} />
+                          <BlankThumb mediaType={mediaType} />
                         ) : (
-                          <Thumb mediaTypeId={mediaType.id} variant={variant} content={content} />
+                          <ScaledPreview
+                            html={blocksToHtml(template.build(content, variant))}
+                            designWidth={mediaType.contentWidth}
+                            aspectRatio={aspectOf(mediaType)}
+                            background={canvasFillOf(mediaType, variant)}
+                            radius={variant.radius}
+                            className="shadow-sm"
+                          />
                         )}
                       </div>
                       <figcaption className="min-w-0 flex-1">
@@ -238,35 +241,27 @@ export function TemplateGallery({
   );
 }
 
-function Thumb({
-  mediaTypeId,
-  variant,
-  content,
-}: {
-  mediaTypeId: MediaTypeId;
-  variant: MarketingVariant;
-  content: MarketingContent;
-}) {
-  if (mediaTypeId === "email") {
-    return <EmailMockup variant={variant} content={content} className="rounded shadow-sm" />;
-  }
-  if (mediaTypeId === "social") {
-    return <SocialMockup variant={variant} content={content} className="shadow-sm" />;
-  }
-  return <PostcardMockup variant={variant} content={content} className="shadow-sm" />;
+/** CSS aspect string for a media type's first (default) canvas. */
+function aspectOf(mediaType: MediaTypeDef): string | undefined {
+  if (!mediaType.fixedAspect) return "3 / 4";
+  const canvas = getCanvas(mediaType, null);
+  return `${canvas.widthPx} / ${canvas.heightPx}`;
 }
 
-function BlankThumb({ mediaTypeId }: { mediaTypeId: MediaTypeId }) {
+/** The fill a document sits on — the variant's canvas for print and social,
+ *  white for email, matching what the builder and the exports produce. */
+function canvasFillOf(mediaType: MediaTypeDef, variant: MarketingVariant): string {
+  if (!mediaType.darkCanvas) return "#ffffff";
+  return variant.canvasFill.mode === "gradient"
+    ? `linear-gradient(160deg, ${variant.canvasFill.from} 0%, ${variant.canvasFill.to} 100%)`
+    : variant.canvasFill.from;
+}
+
+function BlankThumb({ mediaType }: { mediaType: MediaTypeDef }) {
   return (
     <div
-      className={cn(
-        "flex w-full items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 text-xs text-muted-foreground",
-        mediaTypeId === "email"
-          ? "aspect-[3/4]"
-          : mediaTypeId === "social"
-            ? "aspect-[4/5]"
-            : "aspect-[3/2]",
-      )}
+      className="flex w-full items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 text-xs text-muted-foreground"
+      style={{ aspectRatio: aspectOf(mediaType) }}
     >
       Start from nothing
     </div>
