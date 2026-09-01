@@ -33,7 +33,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const c = await getSiteCampaignBySlug(slug);
   if (!c) return {};
-  return { title: c.title };
+
+  // A campaign page is the one place a student's photo belongs in a link
+  // preview: it's the subject of the page, and the family published it here on
+  // purpose. Everything else falls back to the site's drawn card.
+  const description = c.excerpt || c.tagline || undefined;
+  return {
+    title: c.title,
+    description,
+    alternates: { canonical: `/campaigns/${c.slug}` },
+    openGraph: {
+      type: "article",
+      title: c.title,
+      description,
+      url: `/campaigns/${c.slug}`,
+      images: c.image ? [{ url: c.image, alt: c.title }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: c.title,
+      description,
+      images: c.image ? [c.image] : undefined,
+    },
+  };
 }
 
 export default async function CampaignDetailPage({ params }: Props) {

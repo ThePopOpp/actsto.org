@@ -29,13 +29,36 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
+const SITE_URL = (process.env.APP_URL ?? "https://actsto.org").replace(/\/$/, "");
+const SITE_DESCRIPTION =
+  "Turn your Arizona taxes into private Christian education and tuition through the state tax credit program.";
+
 export const metadata: Metadata = {
+  // Required for Next to turn the relative `opengraph-image` route into the
+  // absolute URL that scrapers need. Without it there is no og:image at all,
+  // and iMessage falls back to scraping a photo off the page.
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Arizona Christian Tuition",
     template: "%s · Arizona Christian Tuition",
   },
-  description:
-    "Turn your Arizona taxes into private Christian education and tuition through the state tax credit program.",
+  description: SITE_DESCRIPTION,
+  // One canonical host. www and the apex serve the same app, and without this
+  // search engines treat them as two sites with identical content.
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Arizona Christian Tuition",
+    title: "Arizona Christian Tuition",
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Arizona Christian Tuition",
+    description: SITE_DESCRIPTION,
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

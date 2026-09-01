@@ -5,9 +5,28 @@ export function middleware(request: NextRequest) {
   // understands both Supabase Auth and the legacy act_session cookie. Middleware
   // only sees the legacy cookie, so enforcing role checks here can block valid
   // Supabase Super Admin sessions after role-switch testing.
+
+  // One canonical host. www and the apex resolve to the same server, so without
+  // this the app answers on both — two URLs for every page, split sessions, and
+  // duplicate content as far as search engines are concerned.
+  //
+  // Note this only runs once TLS has succeeded. If the reverse proxy has no
+  // certificate for the www hostname, the browser fails before the request ever
+  // reaches Next, and no redirect written here can help.
+  const host = request.headers.get("host");
+  if (host?.toLowerCase().startsWith("www.")) {
+    const url = request.nextUrl.clone();
+    url.host = host.slice(4);
+    // 308 rather than 301: it preserves the method and body, so a POST to a www
+    // URL isn't silently downgraded to a GET.
+    return NextResponse.redirect(url, 308);
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard/admin", "/dashboard/admin/:path*"],
+  // Everything except Next's internals and static files. The redirect has to see
+  // every route to be useful, but there's no reason to wake it for an image.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)$).*)"],
 };
