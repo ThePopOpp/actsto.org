@@ -16,7 +16,16 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get("host");
   if (host?.toLowerCase().startsWith("www.")) {
     const url = request.nextUrl.clone();
-    url.host = host.slice(4);
+    // hostname + an explicit empty port, not `host`. The URL spec's `host`
+    // setter only overwrites the port when the value it's given contains one,
+    // so assigning a bare hostname left `nextUrl`'s internal port in place and
+    // sent visitors to https://actsto.org:3000/ — a port the proxy doesn't
+    // publish.
+    url.hostname = host.slice(4).split(":")[0];
+    url.port = "";
+    // TLS terminates at the proxy, so the request Next sees is plain http.
+    // Redirecting to that would bounce the visitor through an insecure hop.
+    url.protocol = "https:";
     // 308 rather than 301: it preserves the method and body, so a POST to a www
     // URL isn't silently downgraded to a GET.
     return NextResponse.redirect(url, 308);
