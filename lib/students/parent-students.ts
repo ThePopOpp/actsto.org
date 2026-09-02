@@ -38,7 +38,7 @@ export const FAMILY_STUDENT_SELECT = {
     select: {
       individualGoal: true,
       amountAllocated: true,
-      campaign: { select: { id: true, slug: true, title: true, status: true } },
+      campaign: { select: { id: true, slug: true, title: true, status: true, endsAt: true } },
     },
   },
 } satisfies Prisma.StudentSelect;
@@ -142,7 +142,15 @@ export type ParentStudentPayload = {
   studentUserId: string | null;
   studentInviteEmail: string | null;
   studentInviteExpiresAt: string | null;
-  campaigns: Array<{ id: string; slug: string; title: string; status: string; individualGoal: number }>;
+  campaigns: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    status: string;
+    individualGoal: number;
+    /** Campaign end date, so the students calendar can show what is coming up. */
+    endsAt: string | null;
+  }>;
 };
 
 /** Shape a student for the browser — no invite tokens, no internal columns. */
@@ -170,6 +178,7 @@ export function serializeFamilyStudent(student: FamilyStudent): ParentStudentPay
       title: link.campaign.title,
       status: link.campaign.status,
       individualGoal: Number(link.individualGoal ?? 0),
+      endsAt: link.campaign.endsAt ? link.campaign.endsAt.toISOString() : null,
     })),
   };
 }

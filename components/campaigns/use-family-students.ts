@@ -17,7 +17,14 @@ export type SavedStudent = {
   studentUserId: string | null;
   studentInviteEmail: string | null;
   studentInviteExpiresAt: string | null;
-  campaigns: Array<{ id: string; slug: string; title: string; status: string; individualGoal: number }>;
+  campaigns: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    status: string;
+    individualGoal: number;
+    endsAt: string | null;
+  }>;
 };
 
 /**

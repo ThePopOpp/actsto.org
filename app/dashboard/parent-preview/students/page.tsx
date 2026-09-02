@@ -28,6 +28,7 @@ export default async function ParentPreviewStudentsPage() {
         title: campaign.title,
         status: campaign.status ?? "active",
         individualGoal: student.individualGoal,
+        endsAt: campaign.endDate ? new Date(`${campaign.endDate}T00:00:00`).toISOString() : null,
       };
 
       if (existing) {

@@ -6,11 +6,20 @@ import Link from "next/link";
 import { CheckCircle2, Copy, Link2, Plus, Send, Trash2, UserPlus, X } from "lucide-react";
 
 import { StudentHowToDialog } from "@/components/dashboard/parent/student-howto-dialog";
+import {
+  STUDENT_VIEW_TABS,
+  StudentCalendarView,
+  StudentCardsView,
+  StudentListView,
+  StudentTableView,
+  type StudentViewMode,
+} from "@/components/dashboard/parent/student-views";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import type { DuplicateGroup, ParentStudentPayload } from "@/lib/students/parent-students";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
@@ -47,8 +56,15 @@ function isInviteEligible(student: ParentStudentRow) {
  * with a second kid had to start a campaign they did not want just to record
  * that child. A student can now exist first and join campaigns afterwards.
  */
-function AddStudentForm({ onAdded }: { onAdded: () => void }) {
-  const [isOpen, setIsOpen] = useState(false);
+function AddStudentForm({
+  isOpen,
+  setIsOpen,
+  onAdded,
+}: {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  onAdded: () => void;
+}) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [grade, setGrade] = useState("");
@@ -89,14 +105,10 @@ function AddStudentForm({ onAdded }: { onAdded: () => void }) {
     }
   }
 
-  if (!isOpen) {
-    return (
-      <Button type="button" size="sm" className="gap-1.5" onClick={() => setIsOpen(true)}>
-        <UserPlus className="size-4" />
-        Add a student
-      </Button>
-    );
-  }
+  // The panel renders full-width on its own row. It used to be returned from
+  // the same component as the trigger, which put an expanding card inside the
+  // header's flex row and tore a gap through the page when it opened.
+  if (!isOpen) return null;
 
   return (
     <Card className="w-full border-primary/30 bg-primary/5">
@@ -478,6 +490,8 @@ export function ParentStudentsManager({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [errorById, setErrorById] = useState<Record<string, string>>({});
   const [inviteById, setInviteById] = useState<Record<string, InviteResult>>({});
+  const [view, setView] = useState<StudentViewMode>("cards");
+  const [addOpen, setAddOpen] = useState(false);
 
   const hasStudents = students.length > 0;
   const connectedCount = useMemo(
@@ -523,21 +537,105 @@ export function ParentStudentsManager({
             them to one — or several — whenever you are ready.
           </p>
           <div className="flex flex-wrap gap-2">
-            <AddStudentForm onAdded={refresh} />
+            <Button type="button" size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+              <UserPlus className="size-4" />
+              Add a student
+            </Button>
             <Link href="/campaigns/new" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
               Start a campaign
             </Link>
             <StudentHowToDialog variant="ghost" label="Show me how" />
           </div>
+          <AddStudentForm isOpen={addOpen} setIsOpen={setAddOpen} onAdded={refresh} />
         </CardContent>
       </Card>
     );
   }
 
+  /** The login-state pill. Shared so every view labels a student identically. */
+  function renderStatus(student: ParentStudentRow) {
+    if (student.studentUserId) {
+      return (
+        <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
+          <CheckCircle2 className="size-3.5" />
+          Student login connected
+        </Badge>
+      );
+    }
+    return isInviteEligible(student) ? (
+      <Badge variant="outline">Eligible for student login</Badge>
+    ) : (
+      <Badge variant="secondary">Parent-managed only</Badge>
+    );
+  }
+
+  /** Campaign links, the login invite and removal — identical in every view. */
+  function renderDetail(student: ParentStudentRow) {
+    const eligible = isInviteEligible(student);
+    const connected = Boolean(student.studentUserId);
+    const invite = inviteById[student.id];
+    const error = errorById[student.id];
+
+    return (
+      <>
+        <CampaignLinks student={student} campaigns={campaigns} onChanged={refresh} />
+
+        {!connected ? (
+          <div className="space-y-3 rounded-lg border border-border/80 p-4">
+            <div>
+              <Label htmlFor={`student-email-${student.id}`}>Student email</Label>
+              <Input
+                id={`student-email-${student.id}`}
+                type="email"
+                value={emails[student.id] ?? ""}
+                onChange={(event) => setEmails((state) => ({ ...state, [student.id]: event.target.value }))}
+                placeholder="student@example.com"
+                className="mt-1.5"
+                disabled={!eligible}
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="gap-2"
+              disabled={!eligible || pendingId !== null}
+              onClick={() => void createInvite(student)}
+            >
+              <Send className="size-4" />
+              {pendingId === student.id ? "Creating..." : "Invite student login"}
+            </Button>
+            {!eligible ? (
+              <p className="text-xs text-muted-foreground">
+                Add or verify the student date of birth before inviting an independent login.
+              </p>
+            ) : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {invite ? (
+              <div className="space-y-2">
+                <Label htmlFor={`invite-url-${student.id}`} className="flex items-center gap-1">
+                  <Link2 className="size-3.5" />
+                  Invite link
+                </Label>
+                <Input id={`invite-url-${student.id}`} value={invite.inviteUrl} readOnly />
+                <p className="text-xs text-muted-foreground">
+                  Expires {new Date(invite.expiresAt).toLocaleDateString()}.
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <RemoveStudentButton student={student} onRemoved={refresh} />
+      </>
+    );
+  }
+
+  const viewProps = { students, renderDetail, renderStatus };
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-wrap gap-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant="secondary">
             {students.length} student{students.length === 1 ? "" : "s"}
           </Badge>
@@ -545,98 +643,31 @@ export function ParentStudentsManager({
             {connectedCount} independent login{connectedCount === 1 ? "" : "s"}
           </Badge>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StudentHowToDialog />
-          <AddStudentForm onAdded={refresh} />
+          <Button type="button" size="sm" className="gap-1.5" onClick={() => setAddOpen((open) => !open)}>
+            <UserPlus className="size-4" />
+            Add a student
+          </Button>
         </div>
       </div>
 
+      <SegmentedTabs
+        tabs={STUDENT_VIEW_TABS}
+        value={view}
+        onChange={setView}
+        ariaLabel="How to show students"
+      />
+
+      {/* Full-width, on its own row — never inside the header flex row. */}
+      <AddStudentForm isOpen={addOpen} setIsOpen={setAddOpen} onAdded={refresh} />
+
       <DuplicateBanner groups={duplicateGroups} students={students} onMerged={refresh} />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {students.map((student) => {
-          const eligible = isInviteEligible(student);
-          const connected = Boolean(student.studentUserId);
-          const invite = inviteById[student.id];
-          const error = errorById[student.id];
-          return (
-            <Card key={student.id} className="border-border/80">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="font-heading text-base text-primary">{student.name}</CardTitle>
-                  <Badge variant="secondary">{student.grade || "Grade needed"}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{student.school || "School needed"}</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {connected ? (
-                    <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
-                      <CheckCircle2 className="size-3.5" />
-                      Student login connected
-                    </Badge>
-                  ) : eligible ? (
-                    <Badge variant="outline">Eligible for student login</Badge>
-                  ) : (
-                    <Badge variant="secondary">Parent-managed only</Badge>
-                  )}
-                </div>
-
-                <CampaignLinks student={student} campaigns={campaigns} onChanged={refresh} />
-
-                {!connected ? (
-                  <div className="space-y-3 rounded-lg border border-border/80 p-4">
-                    <div>
-                      <Label htmlFor={`student-email-${student.id}`}>Student email</Label>
-                      <Input
-                        id={`student-email-${student.id}`}
-                        type="email"
-                        value={emails[student.id] ?? ""}
-                        onChange={(event) =>
-                          setEmails((state) => ({ ...state, [student.id]: event.target.value }))
-                        }
-                        placeholder="student@example.com"
-                        className="mt-1.5"
-                        disabled={!eligible}
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="gap-2"
-                      disabled={!eligible || pendingId !== null}
-                      onClick={() => void createInvite(student)}
-                    >
-                      <Send className="size-4" />
-                      {pendingId === student.id ? "Creating..." : "Invite student login"}
-                    </Button>
-                    {!eligible ? (
-                      <p className="text-xs text-muted-foreground">
-                        Add or verify the student date of birth before inviting an independent login.
-                      </p>
-                    ) : null}
-                    {error ? <p className="text-sm text-destructive">{error}</p> : null}
-                    {invite ? (
-                      <div className="space-y-2">
-                        <Label htmlFor={`invite-url-${student.id}`} className="flex items-center gap-1">
-                          <Link2 className="size-3.5" />
-                          Invite link
-                        </Label>
-                        <Input id={`invite-url-${student.id}`} value={invite.inviteUrl} readOnly />
-                        <p className="text-xs text-muted-foreground">
-                          Expires {new Date(invite.expiresAt).toLocaleDateString()}.
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <RemoveStudentButton student={student} onRemoved={refresh} />
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {view === "cards" ? <StudentCardsView {...viewProps} /> : null}
+      {view === "list" ? <StudentListView {...viewProps} /> : null}
+      {view === "table" ? <StudentTableView {...viewProps} /> : null}
+      {view === "calendar" ? <StudentCalendarView students={students} /> : null}
     </div>
   );
 }
