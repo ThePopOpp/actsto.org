@@ -8,6 +8,12 @@ import type { CampaignFormStudent, CampaignFormValues } from "@/lib/dashboard/ca
 import { getCampaignFormStudents, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
+import { notifyStudentsMissingFromCampaigns } from "@/lib/students/notifications";
+import {
+  createFamilyStudent,
+  filterOwnedStudentIds,
+  findFamilyStudentByName,
+} from "@/lib/students/parent-students";
 import { createServerClient } from "@/lib/supabase/server";
 
 function text(value: unknown) {
@@ -29,6 +35,7 @@ function student(value: unknown): CampaignFormStudent | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<CampaignFormStudent>;
   return {
+    id: text(raw.id),
     firstName: text(raw.firstName),
     lastName: text(raw.lastName),
     nickname: text(raw.nickname),
@@ -297,32 +304,60 @@ export async function POST(request: Request) {
     }
 
     const studentRows = students.length > 0 ? students : [];
+    // A parent who already has children on their account picks them from the
+    // wizard instead of retyping. Those rows arrive with an `id`, so they get
+    // re-linked rather than duplicated — one student record per child, however
+    // many campaigns they appear on.
+    const ownedIds = await filterOwnedStudentIds(
+      tx,
+      profile.id,
+      studentRows.map((formStudent) => formStudent.id ?? ""),
+    );
     for (const [index, formStudent] of studentRows.entries()) {
-      if (!formStudent.firstName) continue;
-      const student = await tx.student.create({
-        data: {
-          parentUserId: profile.id,
-          schoolId,
+      const claimedId = formStudent.id?.trim();
+      if (!claimedId && !formStudent.firstName) continue;
+      // Typed in rather than picked: if the full name already exists on the
+      // account, reuse that child instead of storing them a second time.
+      const matchedId = claimedId
+        ? null
+        : (await findFamilyStudentByName(tx, profile.id, formStudent.firstName, formStudent.lastName))?.id ?? null;
+      const existingId = claimedId && ownedIds.has(claimedId) ? claimedId : matchedId;
+
+      let studentId = existingId;
+      if (studentId) {
+        await tx.student.update({
+          where: { id: studentId },
+          data: {
+            firstName: formStudent.firstName || undefined,
+            lastName: formStudent.lastName || null,
+            nickname: formStudent.nickname || null,
+            grade: formStudent.grade || null,
+            profilePhotoUrl: formStudent.photo || null,
+          },
+        });
+      } else {
+        const student = await createFamilyStudent(tx, profile.id, {
           firstName: formStudent.firstName,
-          lastName: formStudent.lastName || null,
-          nickname: formStudent.nickname || null,
-          grade: formStudent.grade || null,
-          profilePhotoUrl: formStudent.photo || null,
-          phone: normalizePhone(values.parentPhone) || null,
-          phoneNormalized: normalizePhone(values.parentPhone) || null,
-          createdBy: profile.id,
-          status: "draft",
-        },
-        select: { id: true },
-      });
-      await tx.campaignStudent.create({
-        data: {
+          lastName: formStudent.lastName,
+          nickname: formStudent.nickname,
+          grade: formStudent.grade,
+          profilePhotoUrl: formStudent.photo,
+          schoolId,
+          phone: normalizePhone(values.parentPhone),
+        });
+        studentId = student.id;
+      }
+
+      await tx.campaignStudent.upsert({
+        where: { campaignId_studentId: { campaignId: created.id, studentId } },
+        create: {
           campaignId: created.id,
-          studentId: student.id,
+          studentId,
           individualGoal: money(formStudent.individualGoal) || Math.round((money(values.goal) || 1000) / Math.max(1, studentRows.length)),
           amountAllocated: 0,
           sortOrder: index,
         },
+        update: { sortOrder: index },
       });
     }
 
@@ -340,6 +375,11 @@ export async function POST(request: Request) {
       missingFields: completion.missingFields,
       });
     }
+
+    // A family often has another child already on the account who did not make
+    // it onto this campaign. Point that out once rather than leaving them to
+    // discover it.
+    await notifyStudentsMissingFromCampaigns(profile.id).catch(() => null);
 
     try {
       const { fireAutomationEvent } = await import("@/lib/automations/fire");

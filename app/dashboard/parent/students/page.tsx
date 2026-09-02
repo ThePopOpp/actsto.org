@@ -1,78 +1,35 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { DashboardSectionPlaceholder } from "@/components/dashboard/dashboard-section-placeholder";
-import {
-  ParentStudentsManager,
-  type ParentStudentRow,
-} from "@/components/dashboard/parent/parent-students-manager";
-import { buttonVariants } from "@/lib/button-variants";
+import { ParentStudentsManager } from "@/components/dashboard/parent/parent-students-manager";
 import { getActSession } from "@/lib/auth/session-server";
-import { prisma } from "@/lib/prisma";
-import { cn } from "@/lib/utils";
-
-async function getParentStudents(): Promise<ParentStudentRow[]> {
-  const session = await getActSession();
-  if (!session?.email) return [];
-
-  const profile = await prisma.profile.findFirst({
-    where: { email: session.email.toLowerCase() },
-    select: { id: true },
-  });
-  if (!profile) return [];
-
-  const students = await prisma.student.findMany({
-    where: { parentUserId: profile.id },
-    orderBy: [{ createdAt: "desc" }],
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      grade: true,
-      birthDate: true,
-      ageVerified: true,
-      studentUserId: true,
-      studentInviteEmail: true,
-      studentInviteExpiresAt: true,
-      school: { select: { name: true } },
-      campaignStudents: {
-        take: 1,
-        orderBy: { createdAt: "desc" },
-        select: { campaign: { select: { slug: true } } },
-      },
-    },
-  });
-
-  return students.map((student) => ({
-    id: student.id,
-    name: [student.firstName, student.lastName].filter(Boolean).join(" "),
-    grade: student.grade,
-    school: student.school?.name ?? null,
-    campaignSlug: student.campaignStudents[0]?.campaign.slug ?? null,
-    birthDate: student.birthDate ? student.birthDate.toISOString().slice(0, 10) : null,
-    ageVerified: student.ageVerified,
-    studentUserId: student.studentUserId,
-    studentInviteEmail: student.studentInviteEmail,
-    studentInviteExpiresAt: student.studentInviteExpiresAt
-      ? student.studentInviteExpiresAt.toISOString()
-      : null,
-  }));
-}
+import { getManagedCampaignRefs, getProfileForEmail } from "@/lib/dashboard/parent-scope";
+import {
+  findDuplicateGroups,
+  listFamilyStudents,
+  serializeFamilyStudent,
+} from "@/lib/students/parent-students";
 
 export default async function ParentStudentsPage() {
-  const students = await getParentStudents();
+  const session = await getActSession();
+  if (!session) redirect("/login?next=/dashboard/parent/students");
+
+  const profile = await getProfileForEmail(session.email);
+  const [students, campaigns] = profile
+    ? await Promise.all([listFamilyStudents(profile.id), getManagedCampaignRefs(profile.id)])
+    : [[], []];
 
   return (
     <div className="space-y-6">
       <DashboardSectionPlaceholder
         title="Students"
-        description="Students linked to your account appear here. Parent-created student records stay primary; students 16+ can be invited to connect an independent login."
+        description="Every student on your account lives here. Add a child once, then connect them to any campaign — one student can appear on more than one campaign, and one campaign can support more than one student."
       />
-      <div className="flex justify-end">
-        <Link href="/campaigns/new" className={cn(buttonVariants({ size: "sm" }))}>
-          Add student
-        </Link>
-      </div>
-      <ParentStudentsManager students={students} />
+      <ParentStudentsManager
+        students={students.map(serializeFamilyStudent)}
+        campaigns={campaigns}
+        duplicateGroups={findDuplicateGroups(students)}
+      />
     </div>
   );
 }

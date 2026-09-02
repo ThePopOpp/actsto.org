@@ -12,7 +12,8 @@ export default async function ParentCampaignsPage() {
     <RoleCampaignsHub
       campaigns={await getDashboardCampaignsForSession(session)}
       basePath="/dashboard/parent"
-      description="Manage campaign drafts, review what is still missing, and edit live campaign details."
+      canStartCampaign
+      description="Manage campaign drafts, review what is still missing, and edit live campaign details. You can run more than one campaign at a time — give each child their own, or put several children on one."
     />
   );
 }

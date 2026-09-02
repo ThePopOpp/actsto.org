@@ -51,6 +51,12 @@ export function parseCampaignFilterParam(value: string | null | undefined): Camp
 }
 
 export type CampaignStudent = {
+  /**
+   * `students.id` when this student is a saved record on the family's account.
+   * Carried through the editor so a save re-links the same child instead of
+   * creating a duplicate student row for every campaign they appear on.
+   */
+  id?: string;
   firstName: string;
   lastName: string;
   nickname?: string;

@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImageUp, Plus, Trash2, X } from "lucide-react";
+import { ImageUp, Plus, Trash2, UserPlus, X } from "lucide-react";
+
+import { useFamilyStudents, type SavedStudent } from "@/components/campaigns/use-family-students";
+import { Badge } from "@/components/ui/badge";
 
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { emptyCampaignFormStudent, getCampaignFormStudents } from "@/lib/dashboard/campaign-editor";
@@ -325,6 +328,7 @@ export function CampaignFormPanelStudent({
   onPatch: OnPatch;
   onSkip?: () => void;
 }) {
+  const { students: savedStudents } = useFamilyStudents();
   const students = getCampaignFormStudents(values);
   const campaignGoal = Number.parseFloat(values.goal.replace(/,/g, ""));
   const defaultGoal =
@@ -405,13 +409,74 @@ export function CampaignFormPanelStudent({
     onSkip?.();
   }
 
+  function addSavedStudent(saved: SavedStudent) {
+    const current = students.length > 0 ? students : [];
+    if (current.some((student) => student.id && student.id === saved.id)) return;
+    const splitGoal =
+      Number.isFinite(campaignGoal) && campaignGoal > 0
+        ? String(Math.round(campaignGoal / Math.max(1, current.length + 1)))
+        : "";
+    const next = [
+      ...current.map((student) => ({ ...student, individualGoal: student.individualGoal || splitGoal })),
+      {
+        id: saved.id,
+        firstName: saved.firstName,
+        lastName: saved.lastName,
+        nickname: saved.nickname,
+        grade: saved.grade,
+        school: saved.school,
+        individualGoal: splitGoal,
+        photo: saved.photo,
+      },
+    ];
+    onPatch({
+      students: next,
+      studentFirstName: next[0]?.firstName ?? "",
+      studentLastName: next[0]?.lastName ?? "",
+      studentNickname: next[0]?.nickname ?? "",
+      studentGrade: next[0]?.grade ?? "",
+      studentSchool: next[0]?.school ?? "",
+      studentIndividualGoal: next[0]?.individualGoal ?? "",
+      studentPhoto: next[0]?.photo ?? "",
+    });
+  }
+
   const visibleStudents = students;
+  const attachedIds = new Set(visibleStudents.map((student) => student.id).filter(Boolean));
+  const availableSaved = savedStudents.filter((saved) => !attachedIds.has(saved.id));
 
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
         Add one or more students now, or skip this step and complete student details later from your dashboard.
       </p>
+
+      {availableSaved.length > 0 ? (
+        <div className="rounded-lg border border-border bg-card/70 p-4">
+          <p className="text-sm font-medium text-primary">Students already on your account</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Pick a child to add them to this campaign — their details carry over, and they stay one student
+            record across every campaign.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availableSaved.map((saved) => (
+              <Button
+                key={saved.id}
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => addSavedStudent(saved)}
+              >
+                <UserPlus className="size-4" />
+                {saved.name || saved.firstName}
+                {saved.grade ? <span className="text-xs opacity-70">{saved.grade}</span> : null}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" onClick={addStudent}>
           <Plus className="size-4" />
@@ -431,7 +496,12 @@ export function CampaignFormPanelStudent({
       {visibleStudents.map((student, index) => (
         <div key={index} className="space-y-5 rounded-lg border border-border bg-card/70 p-4">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-heading text-base font-semibold text-primary">Student {index + 1}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-heading text-base font-semibold text-primary">
+                {[student.firstName, student.lastName].filter(Boolean).join(" ") || `Student ${index + 1}`}
+              </h3>
+              {student.id ? <Badge variant="secondary">On your account</Badge> : null}
+            </div>
             {visibleStudents.length > 1 ? (
               <Button type="button" variant="ghost" size="sm" onClick={() => removeStudent(index)}>
                 <Trash2 className="size-4" />

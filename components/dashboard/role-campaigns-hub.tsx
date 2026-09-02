@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ExternalLink, HelpCircle, Pencil, PlusCircle, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,19 +15,43 @@ export function RoleCampaignsHub({
   basePath,
   title = "Campaigns",
   description = "View your live pages and open the editor to update story, goal, and imagery.",
+  canStartCampaign = false,
 }: {
   campaigns: Campaign[];
   basePath: string;
   title?: string;
   description?: string;
+  /** Parents may run several campaigns at once — students cannot start their own. */
+  canStartCampaign?: boolean;
 }) {
   const b = basePath.replace(/\/$/, "");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-primary">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold text-primary">{title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+        {canStartCampaign ? (
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`${b}/students/guide`}
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1.5")}
+            >
+              <HelpCircle className="size-4" />
+              Adding students
+            </Link>
+            <Link href={`${b}/students`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}>
+              <Users className="size-4" />
+              Manage students
+            </Link>
+            <Link href="/campaigns/new" className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}>
+              <PlusCircle className="size-4" />
+              {campaigns.length > 0 ? "Start another campaign" : "Start a campaign"}
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       {campaigns.length === 0 ? (
@@ -84,6 +108,16 @@ export function RoleCampaignsHub({
                       ${c.raised.toLocaleString()} raised · {c.donorCount} donors · {c.daysLeft} days left
                     </p>
                   </div>
+                  {c.students.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <Users className="size-3.5" aria-hidden />
+                      <span>
+                        {c.students
+                          .map((student) => [student.firstName, student.lastName].filter(Boolean).join(" "))
+                          .join(", ")}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     <Link
                       href={`/campaigns/${c.slug}`}

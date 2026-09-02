@@ -84,9 +84,16 @@ export default async function CampaignDetailPage({ params }: Props) {
   const tags = c.tags ?? [];
   const updateCount = c.updatesCount ?? 0;
   const givingLevels = getCampaignGivingLevels(c);
+  // A campaign can support several children, so name all of them rather than
+  // crediting the donation to whichever sibling happens to sort first.
+  const studentNames = c.students
+    .map((student) => [student.firstName, student.lastName].filter(Boolean).join(" "))
+    .filter(Boolean);
   const donationSubtitle =
-    c.students[0] != null
-      ? `${c.students[0].firstName} ${c.students[0].lastName} at ${c.students[0].school}`
+    studentNames.length > 0
+      ? `${new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(studentNames)} at ${
+          c.students[0].school || c.school.name
+        }`
       : `${c.title} at ${c.school.name}`;
 
   return (

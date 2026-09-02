@@ -10,6 +10,7 @@ import {
   CampaignFormPanelSchool,
   CampaignFormPanelStudent,
 } from "@/components/campaigns/campaign-form-panels";
+import { StudentHowToDialog } from "@/components/dashboard/parent/student-howto-dialog";
 import { Button } from "@/components/ui/button";
 import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
@@ -134,11 +135,19 @@ export function CreateCampaignWizard({
         {step === 1 ? <CampaignFormPanelCampaign values={values} onPatch={onPatch} /> : null}
         {step === 2 ? <CampaignFormPanelParent values={values} onPatch={onPatch} /> : null}
         {step === 3 ? (
-          <CampaignFormPanelStudent
-            values={values}
-            onPatch={onPatch}
-            onSkip={() => setStep(4)}
-          />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+              <p className="text-sm text-muted-foreground">
+                Adding more than one child? Put them all on this campaign, or give each their own.
+              </p>
+              <StudentHowToDialog variant="ghost" label="Show me how" initialTrack="new-campaign" />
+            </div>
+            <CampaignFormPanelStudent
+              values={values}
+              onPatch={onPatch}
+              onSkip={() => setStep(4)}
+            />
+          </div>
         ) : null}
         {step === 4 ? <CampaignFormPanelSchool values={values} onPatch={onPatch} /> : null}
 

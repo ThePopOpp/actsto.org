@@ -9,6 +9,7 @@ import {
   CampaignFormPanelSchool,
   CampaignFormPanelStudent,
 } from "@/components/campaigns/campaign-form-panels";
+import { StudentHowToDialog } from "@/components/dashboard/parent/student-howto-dialog";
 import { Button } from "@/components/ui/button";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -161,7 +162,14 @@ export function CampaignEditorForm({
                 </div>
               ) : null}
               {tab === "student" ? (
-                <div role="tabpanel" id="panel-student" aria-labelledby="tab-student">
+                <div role="tabpanel" id="panel-student" aria-labelledby="tab-student" className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <p className="text-sm text-muted-foreground">
+                      This campaign can support more than one student, and a student can be on more than
+                      one campaign.
+                    </p>
+                    <StudentHowToDialog variant="ghost" label="How this works" initialTrack="one-campaign" />
+                  </div>
                   <CampaignFormPanelStudent values={values} onPatch={onPatch} />
                 </div>
               ) : null}

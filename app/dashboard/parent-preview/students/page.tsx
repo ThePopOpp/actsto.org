@@ -1,49 +1,74 @@
-import Link from "next/link";
-
 import { DashboardSectionPlaceholder } from "@/components/dashboard/dashboard-section-placeholder";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/lib/button-variants";
-import { cn } from "@/lib/utils";
+import {
+  ParentStudentsManager,
+  type ParentStudentRow,
+} from "@/components/dashboard/parent/parent-students-manager";
+import { getDemoFamilyCampaigns } from "@/lib/dashboard/demo-family-campaigns";
 
-const ROWS = [
-  { name: "Jace Waters", grade: "5th Grade", school: "Valley Christian Schools", campaign: "waters-family-fundraiser" },
-  { name: "Olivia Rivera", grade: "2nd Grade", school: "Valley Christian Schools", campaign: "waters-family-fundraiser" },
-];
+/**
+ * Design-review preview of the parent Students page.
+ *
+ * It renders the real manager against the same demo campaigns the rest of the
+ * parent preview uses, rather than a hand-written copy of the card markup. The
+ * previous version hardcoded two students and its own layout, so it drifted
+ * out of date the moment the real page changed.
+ */
+export default async function ParentPreviewStudentsPage() {
+  const campaigns = await getDemoFamilyCampaigns();
 
-export default function ParentPreviewStudentsPage() {
+  const byStudent = new Map<string, ParentStudentRow>();
+  for (const campaign of campaigns) {
+    for (const student of campaign.students) {
+      const name = [student.firstName, student.lastName].filter(Boolean).join(" ");
+      const key = student.id ?? name.toLowerCase();
+      const existing = byStudent.get(key);
+      const link = {
+        id: campaign.slug,
+        slug: campaign.slug,
+        title: campaign.title,
+        status: campaign.status ?? "active",
+        individualGoal: student.individualGoal,
+      };
+
+      if (existing) {
+        existing.campaigns.push(link);
+        continue;
+      }
+
+      byStudent.set(key, {
+        id: student.id ?? key,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        nickname: student.nickname ?? "",
+        name,
+        grade: student.gradeDisplay === "-" ? "" : student.gradeDisplay,
+        birthDate: null,
+        ageVerified: false,
+        photo: student.photo ?? "",
+        schoolId: null,
+        school: student.school,
+        studentUserId: null,
+        studentInviteEmail: null,
+        studentInviteExpiresAt: null,
+        campaigns: [link],
+      });
+    }
+  }
+
   return (
     <div className="space-y-6">
       <DashboardSectionPlaceholder
         title="Students"
-        description="Students linked to your account appear here. Grant campaign editing to teens 16+ when appropriate."
+        description="Every student on your account lives here. Add a child once, then connect them to any campaign — one student can appear on more than one campaign, and one campaign can support more than one student."
       />
-      <div className="flex justify-end">
-        <Link href="/register/student" className={cn(buttonVariants({ size: "sm" }))}>
-          Add student
-        </Link>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {ROWS.map((r) => (
-          <Card key={r.name} className="border-border/80">
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="font-heading text-base text-primary">{r.name}</CardTitle>
-                <Badge variant="secondary">{r.grade}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{r.school}</p>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Link
-                href={`/dashboard/parent-preview/campaigns/${r.campaign}/edit`}
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              >
-                Manage campaign
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <ParentStudentsManager
+        students={[...byStudent.values()]}
+        campaigns={campaigns.map((campaign) => ({
+          id: campaign.slug,
+          slug: campaign.slug,
+          title: campaign.title,
+        }))}
+      />
     </div>
   );
 }

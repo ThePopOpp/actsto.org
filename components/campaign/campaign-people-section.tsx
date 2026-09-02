@@ -84,7 +84,7 @@ export function CampaignPeopleSection({
         <div className="flex min-h-0 flex-col gap-4">
           {students.map((s) => (
             <StudentFundingCard
-              key={`${s.firstName}-${s.lastName}`}
+              key={s.id ?? `${s.firstName}-${s.lastName}-${s.gradeDisplay}`}
               firstName={s.firstName}
               lastName={s.lastName}
               nickname={s.nickname}

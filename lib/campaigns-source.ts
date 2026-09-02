@@ -111,20 +111,21 @@ function prismaCampaignToSiteCampaign(
     gallery: campaign.campaignMedia
       .filter((media) => media.mediaType === "gallery_image" && media.fileUrl)
       .map((media) => media.fileUrl as string),
-    students: firstStudent
-      ? [
-          {
-            firstName: firstStudent.firstName,
-            lastName: firstStudent.lastName ?? "",
-            nickname: firstStudent.nickname ?? undefined,
-            gradeDisplay: firstStudent.grade ?? "-",
-            school: firstStudent.school?.name ?? schoolName,
-            photo: firstStudent.profilePhotoUrl ?? undefined,
-            individualGoal: Number(campaign.campaignStudents[0]?.individualGoal ?? goal),
-            individualRaised: Number(campaign.campaignStudents[0]?.amountAllocated ?? 0),
-          },
-        ]
-      : [],
+    // Every linked student, not just the first. A family can put several
+    // children on one campaign; mapping only `[0]` made every sibling after the
+    // first invisible on the public page, in the dashboard, and in the editor —
+    // and an editor save would then drop them from the campaign entirely.
+    students: campaign.campaignStudents.map((link) => ({
+      id: link.student.id,
+      firstName: link.student.firstName,
+      lastName: link.student.lastName ?? "",
+      nickname: link.student.nickname ?? undefined,
+      gradeDisplay: link.student.grade ?? "-",
+      school: link.student.school?.name ?? schoolName,
+      photo: link.student.profilePhotoUrl ?? undefined,
+      individualGoal: Number(link.individualGoal ?? 0) || goal,
+      individualRaised: Number(link.amountAllocated ?? 0),
+    })),
     school: {
       name: schoolName,
       address: [campaign.school?.addressLine1, campaign.school?.city, campaign.school?.state].filter(Boolean).join(", "),

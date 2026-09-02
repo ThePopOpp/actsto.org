@@ -9,6 +9,11 @@ import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
 import { notifyIncompleteCampaignDraft } from "@/lib/campaigns/notifications";
 import { campaignToFormValues, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
 import { prisma } from "@/lib/prisma";
+import {
+  createFamilyStudent,
+  filterOwnedStudentIds,
+  findFamilyStudentByName,
+} from "@/lib/students/parent-students";
 import { normalizePhone } from "@/lib/sms/twilio";
 
 const DIRECTORY_ID = "default";
@@ -104,7 +109,6 @@ async function updateNormalizedCampaign({
   const completion = calculateCampaignCompletion(formValues);
   const nextSlug = slugifyCampaignSlug(campaign.slug, campaign.title);
   const schoolId = await upsertSchoolForCampaign(campaign);
-  const firstStudent = campaign.students[0];
 
   const updated = await prisma.$transaction(async (tx) => {
     const updatedCampaign = await tx.campaign.update({
@@ -148,55 +152,109 @@ async function updateNormalizedCampaign({
       });
     }
 
-    if (firstStudent) {
-      const existingStudent = existing.campaignStudents[0]?.student;
-      if (existingStudent) {
+    // Reconcile the whole student list, not just the first one.
+    //
+    // Rows that carry an `id` are students already on the family's account —
+    // they are re-linked and updated in place, so putting the same child on a
+    // second campaign reuses one student record instead of duplicating them.
+    // Rows without an id are new children. Links the parent removed are
+    // detached from the campaign, but the student record itself stays on the
+    // account so their history and any other campaign survive.
+    const ownedIds = await filterOwnedStudentIds(
+      tx,
+      existing.createdByUserId,
+      campaign.students.map((student) => student.id).filter((id): id is string => Boolean(id)),
+    );
+    const linkedIds = new Set(existing.campaignStudents.map((link) => link.studentId));
+    const fallbackGoal = money(campaign.goal) || 1000;
+    const keptStudentIds = new Set<string>();
+
+    for (const [index, formStudent] of campaign.students.entries()) {
+      const claimedId = formStudent.id?.trim();
+      const matchedId = claimedId
+        ? null
+        : (
+            await findFamilyStudentByName(
+              tx,
+              existing.createdByUserId,
+              formStudent.firstName ?? "",
+              formStudent.lastName,
+            )
+          )?.id ?? null;
+      const resolvedId =
+        claimedId && (ownedIds.has(claimedId) || linkedIds.has(claimedId)) ? claimedId : matchedId;
+
+      // "Student" is the placeholder a blank row picks up on its way through
+      // the form. Drop those, but never drop a row that resolves to a real
+      // student — that would quietly detach a child the parent still has on
+      // the campaign. Their saved name is kept instead of being overwritten.
+      const typedName = formStudent.firstName?.trim();
+      const firstName = typedName && typedName !== "Student" ? typedName : null;
+      if (!firstName && !resolvedId) continue;
+      const individualGoal = money(formStudent.individualGoal) || Math.round(fallbackGoal / Math.max(1, campaign.students.length));
+      const photo = formStudent.photo || null;
+
+      let studentId = resolvedId;
+      if (studentId) {
+        // The student may be linked here already, or may have been matched by
+        // name from elsewhere on the account — either way read their own record
+        // so their existing school and phone are preserved rather than replaced
+        // with this campaign's.
+        const current =
+          existing.campaignStudents.find((link) => link.studentId === studentId)?.student ??
+          (await tx.student.findUnique({
+            where: { id: studentId },
+            select: { schoolId: true, phone: true, phoneNormalized: true },
+          }));
         await tx.student.update({
-          where: { id: existingStudent.id },
+          where: { id: studentId },
           data: {
-            schoolId,
-            firstName: firstStudent.firstName || "Student",
-            lastName: firstStudent.lastName || null,
-            nickname: firstStudent.nickname || null,
-            grade: firstStudent.gradeDisplay || null,
-            profilePhotoUrl: firstStudent.photo || null,
-            phone: normalizePhone(campaign.parent.phone) || existingStudent.phone,
-            phoneNormalized: normalizePhone(campaign.parent.phone) || existingStudent.phoneNormalized,
-          },
-        });
-        await tx.campaignStudent.update({
-          where: { id: existing.campaignStudents[0].id },
-          data: {
-            individualGoal: money(firstStudent.individualGoal) || money(campaign.goal) || 1000,
-            amountAllocated: money(firstStudent.individualRaised),
+            // Only adopt the campaign's school when the child has none of their
+            // own — siblings can attend different schools.
+            schoolId: current?.schoolId ?? schoolId,
+            ...(firstName ? { firstName } : {}),
+            lastName: formStudent.lastName || null,
+            nickname: formStudent.nickname || null,
+            grade: formStudent.gradeDisplay === "-" ? null : formStudent.gradeDisplay || null,
+            profilePhotoUrl: photo,
+            phone: normalizePhone(campaign.parent.phone) || current?.phone || null,
+            phoneNormalized: normalizePhone(campaign.parent.phone) || current?.phoneNormalized || null,
           },
         });
       } else {
-        const student = await tx.student.create({
-          data: {
-            parentUserId: existing.createdByUserId,
-            schoolId,
-            firstName: firstStudent.firstName || "Student",
-            lastName: firstStudent.lastName || null,
-            nickname: firstStudent.nickname || null,
-            grade: firstStudent.gradeDisplay || null,
-            profilePhotoUrl: firstStudent.photo || null,
-            phone: normalizePhone(campaign.parent.phone) || null,
-            phoneNormalized: normalizePhone(campaign.parent.phone) || null,
-            createdBy: profile.id,
-            status: "draft",
-          },
-          select: { id: true },
+        if (!firstName) continue;
+        const created = await createFamilyStudent(tx, existing.createdByUserId, {
+          firstName,
+          lastName: formStudent.lastName || null,
+          nickname: formStudent.nickname || null,
+          grade: formStudent.gradeDisplay === "-" ? null : formStudent.gradeDisplay || null,
+          profilePhotoUrl: photo,
+          schoolId,
+          phone: normalizePhone(campaign.parent.phone),
         });
-        await tx.campaignStudent.create({
-          data: {
-            campaignId: existing.id,
-            studentId: student.id,
-            individualGoal: money(firstStudent.individualGoal) || money(campaign.goal) || 1000,
-            amountAllocated: money(firstStudent.individualRaised),
-          },
-        });
+        studentId = created.id;
       }
+
+      keptStudentIds.add(studentId);
+      await tx.campaignStudent.upsert({
+        where: { campaignId_studentId: { campaignId: existing.id, studentId } },
+        create: {
+          campaignId: existing.id,
+          studentId,
+          individualGoal,
+          amountAllocated: money(formStudent.individualRaised),
+          sortOrder: index,
+        },
+        update: { individualGoal, sortOrder: index },
+      });
+    }
+
+    // Detach students the parent removed — the child record is untouched.
+    const removedIds = [...linkedIds].filter((id) => !keptStudentIds.has(id));
+    if (removedIds.length > 0) {
+      await tx.campaignStudent.deleteMany({
+        where: { campaignId: existing.id, studentId: { in: removedIds } },
+      });
     }
 
     return updatedCampaign;

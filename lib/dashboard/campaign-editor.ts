@@ -1,6 +1,8 @@
 import type { Campaign, CampaignStudent } from "@/lib/campaigns";
 
 export type CampaignFormStudent = {
+  /** `students.id` when this row is an existing student on the family's account. */
+  id?: string;
   firstName: string;
   lastName: string;
   nickname: string;
@@ -43,6 +45,7 @@ export type CampaignFormValues = {
 
 export function emptyCampaignFormStudent(): CampaignFormStudent {
   return {
+    id: "",
     firstName: "",
     lastName: "",
     nickname: "",
@@ -110,6 +113,7 @@ export function getCampaignFormStudents(values: CampaignFormValues): CampaignFor
   ) {
     return [
       {
+        id: "",
         firstName: values.studentFirstName,
         lastName: values.studentLastName,
         nickname: values.studentNickname,
@@ -135,19 +139,30 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
   const studentCount = Math.max(1, formStudents.length);
   const defaultStudentGoal = Math.max(500, Math.round(goal / studentCount) || 1000);
 
+  // Match each row back to its previous state by student id first — with more
+  // than one student on a campaign, list position shifts as rows are added or
+  // removed, and matching on position alone would move one child's raised total
+  // onto a sibling.
+  const previousById = new Map(
+    (previous?.students ?? []).filter((student) => student.id).map((student) => [student.id as string, student]),
+  );
+
   const students: CampaignStudent[] = formStudents.map((student, index) => {
     const indGoalRaw = Number.parseFloat(String(student.individualGoal).replace(/,/g, ""));
     const indGoal = Number.isFinite(indGoalRaw) ? Math.max(0, indGoalRaw) : 0;
+    const id = student.id?.trim() || undefined;
+    const prior = (id ? previousById.get(id) : undefined) ?? (id ? undefined : previous?.students[index]);
     return {
+      id,
       firstName: student.firstName.trim() || "Student",
       lastName: student.lastName.trim() || "",
       nickname: student.nickname.trim() || undefined,
       gradeDisplay: student.grade.trim() || "-",
       school: student.school.trim() || values.schoolName.trim() || "-",
       individualGoal: indGoal > 0 ? indGoal : defaultStudentGoal,
-      individualRaised: previous?.students[index]?.individualRaised ?? 0,
-      photo: student.photo.trim() || previous?.students[index]?.photo,
-      avatarInitials: previous?.students[index]?.avatarInitials,
+      individualRaised: prior?.individualRaised ?? 0,
+      photo: student.photo.trim() || prior?.photo,
+      avatarInitials: prior?.avatarInitials,
     };
   });
 
@@ -194,6 +209,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
 export function campaignToFormValues(c: Campaign): CampaignFormValues {
   const s = c.students[0];
   const students = c.students.map((student) => ({
+    id: student.id ?? "",
     firstName: student.firstName,
     lastName: student.lastName,
     nickname: student.nickname ?? "",
