@@ -11,22 +11,21 @@ import { CampaignPeopleSection } from "@/components/campaign/campaign-people-sec
 import { CampaignViewTracker } from "@/components/campaign/campaign-view-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  getCampaignGivingLevels,
-  MOCK_CAMPAIGNS,
-} from "@/lib/campaigns";
+import { getCampaignGivingLevels } from "@/lib/campaigns";
 import { getCampaignDetailRecords } from "@/lib/campaign-detail-records";
 import { listPublicReviews } from "@/lib/dashboard/campaign-reviews";
 import { prisma } from "@/lib/prisma";
-import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
+import { getPublishedCampaignSlugs, getSiteCampaignBySlug } from "@/lib/campaigns-source";
 import { cn, FACE_SAFE_CROP } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export function generateStaticParams() {
-  return MOCK_CAMPAIGNS.map((c) => ({ slug: c.slug }));
+export async function generateStaticParams() {
+  // Real published campaigns only. This used to prerender the sample campaign
+  // slugs, which published pages for families that do not exist.
+  return (await getPublishedCampaignSlugs()).map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

@@ -1,39 +1,11 @@
 import "server-only";
 
-import { seedAdminCampaignRows } from "@/lib/admin/campaign-directory-seed";
-import type { AdminCampaignRow } from "@/lib/admin/mock-campaigns-admin";
-import {
-  getCampaignBySlug,
-  MOCK_CAMPAIGNS,
-  type Campaign,
-} from "@/lib/campaigns";
+import type { Campaign } from "@/lib/campaigns";
 import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
 import type { ActSession } from "@/lib/auth/types";
 import { getProfileForEmail, managedCampaignWhere } from "@/lib/dashboard/parent-scope";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-
-const DIRECTORY_ID = "default";
-
-function isCampaignArray(value: unknown): value is Campaign[] {
-  return Array.isArray(value);
-}
-
-async function getPersistedAdminCampaignRows(): Promise<AdminCampaignRow[]> {
-  const row = await prisma.adminCampaignDirectory
-    .findUnique({ where: { id: DIRECTORY_ID } })
-    .catch(() => null);
-
-  if (!row) return seedAdminCampaignRows();
-  return isCampaignArray(row.rows) ? (row.rows as AdminCampaignRow[]) : [];
-}
-
-function mergeCampaignOverrides(base: Campaign[], overrides: Campaign[]) {
-  const bySlug = new Map<string, Campaign>();
-  for (const campaign of base) bySlug.set(campaign.slug, campaign);
-  for (const campaign of overrides) bySlug.set(campaign.slug, campaign);
-  return Array.from(bySlug.values());
-}
 
 type PrismaCampaignForDisplay = Awaited<ReturnType<typeof loadPrismaCampaignsForDisplay>>[number];
 
@@ -167,41 +139,73 @@ async function loadPrismaCampaignsForDisplay(where: Prisma.CampaignWhereInput) {
 }
 
 /**
- * Transitional campaign source.
+ * Campaigns shown on the public site.
  *
- * Super Admin edits are currently persisted in `admin_campaign_directory`.
- * This loader makes those edits the site-wide override source while we migrate
- * the editor to normalized campaign tables.
+ * Only real, approved campaigns from the database. This used to start from
+ * `MOCK_CAMPAIGNS` and layer the `admin_campaign_directory` rows on top, which
+ * put sample families — and their invented raised totals and donor counts — on
+ * the live homepage, the campaign listing and the donation target picker. Those
+ * sample rows are design fixtures, not campaigns anyone can give to.
  */
 export async function getSiteCampaigns(): Promise<Campaign[]> {
-  const [adminRows, prismaCampaigns] = await Promise.all([
-    getPersistedAdminCampaignRows(),
-    loadPrismaCampaignsForDisplay({ status: "active", isPublic: true }).catch(() => []),
-  ]);
+  const prismaCampaigns = await loadPrismaCampaignsForDisplay({
+    status: "active",
+    isPublic: true,
+  }).catch(() => []);
   const owners = await ownerProfilesFor(prismaCampaigns);
+
   return applyLiveCampaignDonationTotals(
-    mergeCampaignOverrides(MOCK_CAMPAIGNS, [
-      ...adminRows,
-      ...prismaCampaigns.map((c) =>
-        prismaCampaignToSiteCampaign(c, c.createdByUserId ? owners.get(c.createdByUserId) : null),
-      ),
-    ]),
+    prismaCampaigns.map((c) =>
+      prismaCampaignToSiteCampaign(c, c.createdByUserId ? owners.get(c.createdByUserId) : null),
+    ),
   );
 }
 
 export async function getSiteCampaignBySlug(slug: string): Promise<Campaign | undefined> {
-  const [adminRows, prismaCampaigns] = await Promise.all([
-    getPersistedAdminCampaignRows(),
-    loadPrismaCampaignsForDisplay({ slug, status: "active", isPublic: true }).catch(() => []),
-  ]);
-  const adminCampaign = adminRows.find((campaign) => campaign.slug === slug);
-  const owners = await ownerProfilesFor(prismaCampaigns);
+  const prismaCampaigns = await loadPrismaCampaignsForDisplay({
+    slug,
+    status: "active",
+    isPublic: true,
+  }).catch(() => []);
   const first = prismaCampaigns[0];
-  const campaign = first
-    ? prismaCampaignToSiteCampaign(first, first.createdByUserId ? owners.get(first.createdByUserId) : null)
-    : adminCampaign ?? getCampaignBySlug(slug);
-  const [withLiveTotals] = campaign ? await applyLiveCampaignDonationTotals([campaign]) : [];
+  if (!first) return undefined;
+
+  const owners = await ownerProfilesFor(prismaCampaigns);
+  const campaign = prismaCampaignToSiteCampaign(
+    first,
+    first.createdByUserId ? owners.get(first.createdByUserId) : null,
+  );
+  const [withLiveTotals] = await applyLiveCampaignDonationTotals([campaign]);
   return withLiveTotals;
+}
+
+/** Publicly visible campaigns for a set of slugs, in the order the slugs are given. */
+export async function getSiteCampaignsBySlugs(slugs: string[]): Promise<Campaign[]> {
+  const wanted = Array.from(new Set(slugs.filter(Boolean)));
+  if (wanted.length === 0) return [];
+
+  const prismaCampaigns = await loadPrismaCampaignsForDisplay({
+    slug: { in: wanted },
+    status: "active",
+    isPublic: true,
+  }).catch(() => []);
+  const owners = await ownerProfilesFor(prismaCampaigns);
+  const withTotals = await applyLiveCampaignDonationTotals(
+    prismaCampaigns.map((c) =>
+      prismaCampaignToSiteCampaign(c, c.createdByUserId ? owners.get(c.createdByUserId) : null),
+    ),
+  );
+
+  const bySlug = new Map(withTotals.map((campaign) => [campaign.slug, campaign]));
+  return wanted.map((slug) => bySlug.get(slug)).filter((c): c is Campaign => Boolean(c));
+}
+
+/** Slugs of every publicly visible campaign — for prerendering and sitemaps. */
+export async function getPublishedCampaignSlugs(): Promise<string[]> {
+  const rows = await prisma.campaign
+    .findMany({ where: { status: "active", isPublic: true }, select: { slug: true } })
+    .catch(() => []);
+  return rows.map((row) => row.slug);
 }
 
 export async function getDashboardCampaignsForSession(session: ActSession): Promise<Campaign[]> {

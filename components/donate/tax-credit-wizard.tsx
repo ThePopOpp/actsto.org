@@ -29,7 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { MOCK_CAMPAIGNS } from "@/lib/campaigns";
 import {
   getMaxForYearAndFiling,
   getOriginalOverflowForYear,
@@ -58,14 +57,6 @@ type DonationCampaignOption = {
 const CAMP_NONE = "__none__";
 const GRADE_NONE = "__none__";
 const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
-
-function normalizeGradeValue(value: string | undefined) {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (/kindergarten/i.test(trimmed)) return "K";
-  const match = /^\d+/.exec(trimmed);
-  return match?.[0] ?? trimmed;
-}
 
 function TogglePair({
   value,
@@ -457,29 +448,13 @@ export function TaxCreditWizard({
   const [phone, setPhone] = useState("");
 
   const [designateStudent, setDesignateStudent] = useState(!embedInDialog);
-  const [campaignSlug, setCampaignSlug] = useState(
-    initialCampaignSlug ?? MOCK_CAMPAIGNS[0]?.slug ?? ""
-  );
-  const fallbackCampaignOptions = useMemo<DonationCampaignOption[]>(
-    () =>
-      MOCK_CAMPAIGNS.map((campaign) => {
-        const student = campaign.students[0];
-        return {
-          slug: campaign.slug,
-          title: campaign.title,
-          campaignId: null,
-          studentId: null,
-          schoolId: null,
-          studentFirstName: student?.firstName ?? "",
-          studentLastName: student?.lastName ?? "",
-          schoolName: student?.school ?? campaign.school.name,
-          grade: normalizeGradeValue(student?.gradeDisplay),
-        };
-      }),
-    []
-  );
-  const [campaignOptions, setCampaignOptions] =
-    useState<DonationCampaignOption[]>(fallbackCampaignOptions);
+  // No preselected campaign. This used to default to the first sample campaign,
+  // so a donor who never touched the picker could send a tax-credit gift toward
+  // a campaign that does not exist.
+  const [campaignSlug, setCampaignSlug] = useState(initialCampaignSlug ?? "");
+  // Real campaigns only, loaded from /api/campaigns/donation-options. If that
+  // request fails the picker stays empty rather than offering sample campaigns.
+  const [campaignOptions, setCampaignOptions] = useState<DonationCampaignOption[]>([]);
   const [campaignOptionsError, setCampaignOptionsError] = useState<string | null>(null);
   const [studentFirst, setStudentFirst] = useState("");
   const [studentLast, setStudentLast] = useState("");

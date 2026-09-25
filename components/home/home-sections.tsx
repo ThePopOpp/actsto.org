@@ -17,7 +17,7 @@ import { SiteCtaBlock } from "@/components/site-cta-block";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { BROWSE_SCHOOL_TYPE_LABELS, MOCK_CAMPAIGNS, type Campaign } from "@/lib/campaigns";
+import { BROWSE_SCHOOL_TYPE_LABELS, type Campaign } from "@/lib/campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
@@ -214,7 +214,7 @@ export function HomeImpactStats() {
 }
 
 export function HomeNewCampaigns({
-  campaigns = MOCK_CAMPAIGNS,
+  campaigns = [],
   cta,
 }: {
   campaigns?: Campaign[];
@@ -244,7 +244,7 @@ export function HomeNewCampaigns({
   );
 }
 
-export function HomeFeaturedCampaigns({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
+export function HomeFeaturedCampaigns({ campaigns = [] }: { campaigns?: Campaign[] }) {
   return (
     <section
       id="featured-campaigns"
@@ -298,7 +298,7 @@ export function HomeBrowseSchoolTypes() {
   );
 }
 
-export function HomeGainingMomentum({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
+export function HomeGainingMomentum({ campaigns = [] }: { campaigns?: Campaign[] }) {
   return (
     <section className="bg-slate-100/80 py-14 dark:bg-white/[0.06] sm:py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -546,7 +546,7 @@ export function HomePreFooterCta({
   );
 }
 
-export async function HomeBelowHero({ campaigns = MOCK_CAMPAIGNS }: { campaigns?: Campaign[] }) {
+export async function HomeBelowHero({ campaigns = [] }: { campaigns?: Campaign[] }) {
   const [newCampaignsCta, preFooterCta, taxLimits] = await Promise.all([
     getCtaBlockByPlacement("home_new_campaigns"),
     getCtaBlockByPlacement("home_pre_footer"),

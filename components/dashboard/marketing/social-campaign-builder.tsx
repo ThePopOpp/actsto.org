@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MOCK_CAMPAIGNS, type Campaign } from "@/lib/campaigns";
+import type { Campaign } from "@/lib/campaigns";
 import {
   type SocialNetwork,
   presetsForNetwork,
@@ -222,7 +222,7 @@ function SocialCreativeCanvas({
 
 export function SocialCampaignBuilder({
   variant,
-  campaigns = MOCK_CAMPAIGNS,
+  campaigns = [],
   designId,
   onDesignChange,
 }: {

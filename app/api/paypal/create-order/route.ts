@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
-import { createPaypalOrder } from "@/lib/paypal/client";
+import { createPaypalOrder, getPaypalEnv } from "@/lib/paypal/client";
 import { logPaypalPaymentEvent } from "@/lib/paypal/payment-records";
 import { recordSmsConsent, smsConsentRequestMetadata } from "@/lib/sms/consent";
 import { normalizePhone } from "@/lib/sms/twilio";
@@ -84,6 +84,10 @@ export async function POST(req: Request) {
         })
       : null;
     const metadata: Prisma.InputJsonObject = {
+      // Which PayPal environment took this payment. Sandbox money must never
+      // count toward a campaign's public raised total, and once a donation is
+      // recorded there is otherwise no way to tell the two apart.
+      paypalEnvironment: getPaypalEnv(),
       campaignSlug,
       campaignTitle,
       ...(taxCredit

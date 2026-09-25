@@ -38,7 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MOCK_CAMPAIGNS, type Campaign } from "@/lib/campaigns";
+import type { Campaign } from "@/lib/campaigns";
 import {
   POSTCARD_SIZE_OPTIONS,
   type PostcardSizeId,
@@ -407,7 +407,7 @@ function PostcardFace({
 export function PostcardBuilder({
   channel,
   variant,
-  campaigns = MOCK_CAMPAIGNS,
+  campaigns = [],
   designId,
   onDesignChange,
 }: {
