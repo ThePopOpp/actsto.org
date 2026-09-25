@@ -145,3 +145,92 @@ export async function convertBlogToEmail(blogPostId: string, createdByEmail: str
     },
   });
 }
+
+// ── Bulk operations ──────────────────────────────────────────────────────────
+
+/** The three states a template can be in. `ready` is what "publish" means here. */
+export const EMAIL_TEMPLATE_STATUSES = ["draft", "ready", "archived"] as const;
+export type EmailTemplateStatus = (typeof EMAIL_TEMPLATE_STATUSES)[number];
+
+export function isEmailTemplateStatus(value: unknown): value is EmailTemplateStatus {
+  return typeof value === "string" && (EMAIL_TEMPLATE_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * Move templates between draft, ready and archived.
+ *
+ * Deliberately does not go through `updateEmailTemplate`: that re-renders
+ * `content` from the stored blocks, so a status change would silently rewrite
+ * the email body. Changing what state something is in should not change what
+ * it says.
+ */
+export async function setEmailTemplatesStatus(ids: string[], status: EmailTemplateStatus) {
+  if (ids.length === 0) return 0;
+  const result = await prisma.emailTemplate.updateMany({
+    where: { id: { in: ids } },
+    data: { status },
+  });
+  return result.count;
+}
+
+export async function deleteEmailTemplates(ids: string[]) {
+  if (ids.length === 0) return 0;
+  const result = await prisma.emailTemplate.deleteMany({ where: { id: { in: ids } } });
+  return result.count;
+}
+
+/**
+ * Copy templates, one new draft per source.
+ *
+ * `catalog_key` is unique and ties a row to a catalogue entry that the app
+ * sends automatically, so a copy must not carry it — two rows claiming the same
+ * trigger would be ambiguous even if the database allowed it. The copy is
+ * always a draft, whatever the original was, so duplicating something live
+ * cannot put an unreviewed second copy into circulation.
+ */
+export async function duplicateEmailTemplates(ids: string[], createdByEmail: string) {
+  if (ids.length === 0) return { created: 0 };
+
+  const sources = await prisma.emailTemplate.findMany({ where: { id: { in: ids } } });
+  if (sources.length === 0) return { created: 0 };
+
+  const existingTitles = new Set(
+    (await prisma.emailTemplate.findMany({ select: { title: true } })).map((t) => t.title),
+  );
+
+  /** "Welcome" -> "Welcome (copy)" -> "Welcome (copy 2)" … */
+  function uniqueTitle(base: string) {
+    let candidate = `${base} (copy)`;
+    let n = 2;
+    while (existingTitles.has(candidate)) {
+      candidate = `${base} (copy ${n})`;
+      n += 1;
+    }
+    existingTitles.add(candidate);
+    return candidate;
+  }
+
+  const created = await prisma.emailTemplate.createMany({
+    data: sources.map((source) => ({
+      title: uniqueTitle(source.title),
+      subject: source.subject,
+      preheader: source.preheader,
+      catalogKey: null,
+      category: source.category,
+      audienceRole: source.audienceRole,
+      eyebrow: source.eyebrow,
+      heroTitle: source.heroTitle,
+      heroSubtitle: source.heroSubtitle,
+      featuredImageUrl: source.featuredImageUrl,
+      ctaLabel: source.ctaLabel,
+      ctaUrl: source.ctaUrl,
+      content: source.content,
+      blocks: source.blocks ?? undefined,
+      status: "draft",
+      sourceBlogPostId: source.sourceBlogPostId,
+      createdByEmail,
+    })),
+  });
+
+  return { created: created.count };
+}

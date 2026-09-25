@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Eye,
+  FileEdit,
   LayoutGrid,
   List as ListIcon,
   Mail,
@@ -17,11 +21,13 @@ import {
   Sparkles,
   Table as TableIcon,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { EMAIL_CATEGORY_LABELS, getCatalogEntry, type EmailCategory } from "@/lib/email/catalog";
@@ -44,6 +50,16 @@ type Template = {
 
 type ViewMode = "list" | "table" | "cards" | "calendar";
 
+type BulkAction = "draft" | "publish" | "duplicate" | "archive" | "delete";
+
+const BULK_PAST_TENSE: Record<BulkAction, string> = {
+  draft: "Moved to draft",
+  publish: "Published",
+  duplicate: "Duplicated",
+  archive: "Archived",
+  delete: "Deleted",
+};
+
 function fmt(v: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(v));
 }
@@ -63,6 +79,10 @@ export function EmailTemplatesLibrary() {
   const [preview, setPreview] = useState<Template | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [seedNote, setSeedNote] = useState<string | null>(null);
+  /** Template ids ticked in any view. Selection is shared across all four. */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<BulkAction | null>(null);
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,9 +134,88 @@ export function EmailTemplatesLibrary() {
   }
   const use = (t: Template) => router.push(`/dashboard/admin/email?tab=send&template=${t.id}`);
 
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setBulkNote(null);
+  }
+
   const filtered = useMemo(
     () => templates.filter((t) => (status === "all" ? true : t.status === status)).filter((t) => (q ? `${t.title} ${t.subject ?? ""}`.toLowerCase().includes(q.toLowerCase()) : true)),
     [templates, status, q],
+  );
+
+  // Selection only ever refers to what is on screen, so a hidden row can never
+  // be caught by an action the admin cannot see.
+  const visibleIds = useMemo(() => filtered.map((t) => t.id), [filtered]);
+  const selectedVisible = useMemo(
+    () => visibleIds.filter((id) => selected.has(id)),
+    [visibleIds, selected],
+  );
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+
+  function toggleAllVisible() {
+    setBulkNote(null);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) for (const id of visibleIds) next.delete(id);
+      else for (const id of visibleIds) next.add(id);
+      return next;
+    });
+  }
+
+  /**
+   * Run one action over the current selection.
+   *
+   * Delete is the only one that asks first: the others are all reversible from
+   * the same toolbar.
+   */
+  async function runBulk(action: BulkAction) {
+    const ids = selectedVisible;
+    if (ids.length === 0) return;
+    if (
+      action === "delete" &&
+      !window.confirm(
+        `Delete ${ids.length} template${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setBulkBusy(action);
+    setBulkNote(null);
+    try {
+      const res = await fetch("/api/admin/email-templates/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { count?: number; error?: string }
+        | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not apply that action.");
+
+      const n = data?.count ?? 0;
+      setBulkNote(`${BULK_PAST_TENSE[action]} ${n} template${n === 1 ? "" : "s"}.`);
+      setSelected(new Set());
+      await load();
+    } catch (error) {
+      setBulkNote(error instanceof Error ? error.message : "Could not apply that action.");
+    } finally {
+      setBulkBusy(null);
+    }
+  }
+
+  const rowCheckbox = (t: Template) => (
+    <Checkbox
+      checked={selected.has(t.id)}
+      onCheckedChange={() => toggle(t.id)}
+      aria-label={`Select ${t.title}`}
+    />
   );
 
   const actions = (t: Template) => (
@@ -163,6 +262,51 @@ export function EmailTemplatesLibrary() {
         ))}
       </div>
 
+      {/* Selection toolbar — shared by every view. */}
+      {selectedVisible.length > 0 ? (
+        <div className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 shadow-sm backdrop-blur">
+          <span className="text-sm font-medium text-primary">
+            {selectedVisible.length} selected
+          </span>
+          <div className="mx-1 h-5 w-px bg-border" aria-hidden />
+          <BulkBtn action="draft" busy={bulkBusy} onRun={runBulk} icon={FileEdit}>Draft</BulkBtn>
+          <BulkBtn action="publish" busy={bulkBusy} onRun={runBulk} icon={CheckCircle2}>Publish</BulkBtn>
+          <BulkBtn action="duplicate" busy={bulkBusy} onRun={runBulk} icon={Copy}>Duplicate</BulkBtn>
+          <BulkBtn action="archive" busy={bulkBusy} onRun={runBulk} icon={Archive}>Archive</BulkBtn>
+          <BulkBtn action="delete" busy={bulkBusy} onRun={runBulk} icon={Trash2} destructive>Delete</BulkBtn>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto gap-1.5"
+            onClick={() => {
+              setSelected(new Set());
+              setBulkNote(null);
+            }}
+          >
+            <X className="size-4" /> Clear
+          </Button>
+        </div>
+      ) : null}
+
+      {bulkNote ? (
+        <p role="status" className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          {bulkNote}
+        </p>
+      ) : null}
+
+      {/* Select-all applies to whatever the current filter and search leave visible. */}
+      {!loading && filtered.length > 0 ? (
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+          <Checkbox
+            checked={allVisibleSelected}
+            onCheckedChange={toggleAllVisible}
+            aria-label="Select all templates shown"
+          />
+          Select all {filtered.length} shown
+        </label>
+      ) : null}
+
       {loading ? (
         <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Loading…</p>
       ) : filtered.length === 0 ? (
@@ -174,7 +318,8 @@ export function EmailTemplatesLibrary() {
       ) : view === "list" ? (
         <div className="space-y-2">
           {filtered.map((t) => (
-            <div key={t.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border/80 bg-card p-3">
+            <div key={t.id} className={cn("flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3", selected.has(t.id) ? "border-primary/50 bg-primary/5" : "border-border/80")}>
+              {rowCheckbox(t)}
               <div className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><Mail className="size-4" /></div>
               <button type="button" onClick={() => setPreview(t)} className="min-w-0 flex-1 text-left">
                 <p className="truncate font-medium text-foreground">{t.title}</p>
@@ -195,11 +340,15 @@ export function EmailTemplatesLibrary() {
         <div className="overflow-x-auto rounded-lg border border-border/80">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground"><tr>
+              <th className="w-10 px-3 py-2">
+                <Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} aria-label="Select all templates shown" />
+              </th>
               <th className="px-3 py-2 font-semibold">Title</th><th className="px-3 py-2 font-semibold">Subject</th><th className="px-3 py-2 font-semibold">Status</th><th className="px-3 py-2 font-semibold">Updated</th><th className="px-3 py-2 font-semibold">Actions</th>
             </tr></thead>
             <tbody className="divide-y divide-border/60">
               {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-muted/20">
+                <tr key={t.id} className={cn("hover:bg-muted/20", selected.has(t.id) && "bg-primary/5")}>
+                  <td className="px-3 py-2">{rowCheckbox(t)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{t.title}</td>
                   <td className="max-w-[260px] truncate px-3 py-2 text-muted-foreground">{t.subject || "—"}</td>
                   <td className="px-3 py-2">{statusBadge(t.status)}</td>
@@ -213,7 +362,10 @@ export function EmailTemplatesLibrary() {
       ) : view === "cards" ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (
-            <Card key={t.id} className="overflow-hidden">
+            <Card key={t.id} className={cn("relative overflow-hidden", selected.has(t.id) && "ring-2 ring-primary")}>
+              <div className="absolute left-2 top-2 z-10 rounded bg-background/90 p-1 shadow-sm">
+                {rowCheckbox(t)}
+              </div>
               <button type="button" onClick={() => setPreview(t)} className="block h-28 w-full overflow-hidden border-b border-border/60 bg-white">
                 {t.content ? <iframe title="" srcDoc={t.content} className="pointer-events-none h-[560px] w-[560px] origin-top-left scale-[0.5]" /> : <div className="grid h-full place-items-center text-muted-foreground"><Mail className="size-6" /></div>}
               </button>
@@ -227,7 +379,7 @@ export function EmailTemplatesLibrary() {
           ))}
         </div>
       ) : (
-        <CalendarView templates={filtered} onSelect={setPreview} />
+        <CalendarView templates={filtered} onSelect={setPreview} selected={selected} onToggle={toggle} />
       )}
 
       {/* Preview modal */}
@@ -263,13 +415,55 @@ export function EmailTemplatesLibrary() {
   );
 }
 
+/** One action in the selection toolbar, with its own busy state. */
+function BulkBtn({
+  action,
+  busy,
+  onRun,
+  icon: Icon,
+  destructive,
+  children,
+}: {
+  action: BulkAction;
+  busy: BulkAction | null;
+  onRun: (action: BulkAction) => void | Promise<void>;
+  icon: React.ComponentType<{ className?: string }>;
+  destructive?: boolean;
+  children: React.ReactNode;
+}) {
+  const isBusy = busy === action;
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={destructive ? "destructive" : "outline"}
+      className="gap-1.5"
+      disabled={busy !== null}
+      onClick={() => void onRun(action)}
+    >
+      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
+      {children}
+    </Button>
+  );
+}
+
 function IconBtn({ children, label, onClick, destructive }: { children: React.ReactNode; label: string; onClick: () => void; destructive?: boolean }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-label={label} className={cn("inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", destructive && "hover:bg-destructive/10 hover:text-destructive")}>{children}</button>
   );
 }
 
-function CalendarView({ templates, onSelect }: { templates: Template[]; onSelect: (t: Template) => void }) {
+function CalendarView({
+  templates,
+  onSelect,
+  selected,
+  onToggle,
+}: {
+  templates: Template[];
+  onSelect: (t: Template) => void;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+}) {
   const base = templates.length ? new Date(templates[0].updatedAt) : new Date();
   const [month, setMonth] = useState({ y: base.getFullYear(), m: base.getMonth() });
   const first = new Date(month.y, month.m, 1);
@@ -295,7 +489,30 @@ function CalendarView({ templates, onSelect }: { templates: Template[]; onSelect
       <div className="mt-1 grid grid-cols-7 gap-1">
         {cells.map((day, i) => (
           <div key={i} className={cn("min-h-[72px] rounded-md border p-1", day ? "border-border/60 bg-background" : "border-transparent")}>
-            {day ? (<><span className="text-xs text-muted-foreground">{day}</span><div className="mt-0.5 space-y-0.5">{(byDay.get(day) ?? []).map((t) => (<button key={t.id} type="button" onClick={() => onSelect(t)} className="block w-full truncate rounded bg-primary/10 px-1 py-0.5 text-left text-[11px] font-medium text-primary" title={t.title}>{t.title}</button>))}</div></>) : null}
+            {day ? (<><span className="text-xs text-muted-foreground">{day}</span><div className="mt-0.5 space-y-0.5">{(byDay.get(day) ?? []).map((t) => (
+                    <div
+                      key={t.id}
+                      className={cn(
+                        "flex items-center gap-1 rounded px-1 py-0.5",
+                        selected.has(t.id) ? "bg-primary/25" : "bg-primary/10",
+                      )}
+                    >
+                      <Checkbox
+                        checked={selected.has(t.id)}
+                        onCheckedChange={() => onToggle(t.id)}
+                        aria-label={`Select ${t.title}`}
+                        className="size-3"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onSelect(t)}
+                        className="min-w-0 flex-1 truncate text-left text-[11px] font-medium text-primary"
+                        title={t.title}
+                      >
+                        {t.title}
+                      </button>
+                    </div>
+                  ))}</div></>) : null}
           </div>
         ))}
       </div>

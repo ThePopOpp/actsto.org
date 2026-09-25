@@ -1,4 +1,5 @@
 import { fireAutomationEvent } from "@/lib/automations/fire";
+import { sendDonationReceiptEmail } from "@/lib/email/donation-receipt";
 import { prisma } from "@/lib/prisma";
 
 function siteBase() {
@@ -73,6 +74,15 @@ export async function finalizePaidDonation({
   }
 
   const receipt = await ensureTaxReceiptForDonation(donationId, amountUsd);
+
+  // Send our own receipt. PayPal's notice to the payer is a payment record, not
+  // a receipt from the school tuition organisation, and it cannot be switched
+  // off. Only on the transition to paid, so a replayed webhook does not send a
+  // second copy.
+  if (paidUpdate.count > 0) {
+    await sendDonationReceiptEmail(donationId);
+  }
+
   await logPaypalPaymentEvent({
     donationId,
     orderId,
