@@ -141,11 +141,11 @@ async function loadPrismaCampaignsForDisplay(where: Prisma.CampaignWhereInput) {
 /**
  * Campaigns shown on the public site.
  *
- * Only real, approved campaigns from the database. This used to start from
- * `MOCK_CAMPAIGNS` and layer the `admin_campaign_directory` rows on top, which
- * put sample families — and their invented raised totals and donor counts — on
- * the live homepage, the campaign listing and the donation target picker. Those
- * sample rows are design fixtures, not campaigns anyone can give to.
+ * Only real, approved campaigns from the database. This used to start from a
+ * hardcoded sample set and layer the `admin_campaign_directory` rows on top,
+ * which put sample families — and their invented raised totals and donor
+ * counts — on the live homepage, the campaign listing and the donation target
+ * picker. Both sources have been removed.
  */
 export async function getSiteCampaigns(): Promise<Campaign[]> {
   const prismaCampaigns = await loadPrismaCampaignsForDisplay({
@@ -198,14 +198,6 @@ export async function getSiteCampaignsBySlugs(slugs: string[]): Promise<Campaign
 
   const bySlug = new Map(withTotals.map((campaign) => [campaign.slug, campaign]));
   return wanted.map((slug) => bySlug.get(slug)).filter((c): c is Campaign => Boolean(c));
-}
-
-/** Slugs of every publicly visible campaign — for prerendering and sitemaps. */
-export async function getPublishedCampaignSlugs(): Promise<string[]> {
-  const rows = await prisma.campaign
-    .findMany({ where: { status: "active", isPublic: true }, select: { slug: true } })
-    .catch(() => []);
-  return rows.map((row) => row.slug);
 }
 
 export async function getDashboardCampaignsForSession(session: ActSession): Promise<Campaign[]> {

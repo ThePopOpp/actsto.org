@@ -26,6 +26,8 @@ export function managedCampaignWhere(userId: string): Prisma.CampaignWhereInput 
       { createdByUserId: userId },
       { campaignStudents: { some: { student: { parentUserId: userId } } } },
       { campaignStudents: { some: { student: { guardians: { some: { guardianUserId: userId } } } } } },
+      // A student 16+ with their own login reaches the campaigns they are on.
+      { campaignStudents: { some: { student: { studentUserId: userId } } } },
     ],
   };
 }

@@ -66,7 +66,13 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
 
   const donations = await prisma.donation
     .findMany({
-      where: { status: "paid", OR: orClauses },
+      where: {
+        status: "paid",
+        // Archived pre-launch sandbox tests stay in the table but are not
+        // someone's giving history.
+        NOT: { metadata: { path: ["isTest"], equals: true } },
+        OR: orClauses,
+      },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

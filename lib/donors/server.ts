@@ -26,8 +26,18 @@ export type DonorRow = {
 
 export type DonorFilters = { q?: string; status?: string; campaignId?: string; from?: string; to?: string; missingReceipt?: boolean };
 
+/**
+ * Donations archived as pre-launch sandbox tests.
+ *
+ * They keep their rows for the audit trail but must not appear in revenue
+ * figures — $1,261 of sandbox captures would otherwise read as income.
+ */
+export const EXCLUDE_ARCHIVED_TESTS: Prisma.DonationWhereInput = {
+  NOT: { metadata: { path: ["isTest"], equals: true } },
+};
+
 export function buildDonorWhere(p: DonorFilters): Prisma.DonationWhereInput {
-  const and: Prisma.DonationWhereInput[] = [];
+  const and: Prisma.DonationWhereInput[] = [EXCLUDE_ARCHIVED_TESTS];
   if (p.missingReceipt) and.push({ status: "paid", taxReceipts: { none: {} } });
   else if (p.status && p.status !== "all") and.push({ status: p.status });
   if (p.campaignId) and.push({ campaignId: p.campaignId });

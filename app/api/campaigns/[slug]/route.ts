@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { seedAdminCampaignRows } from "@/lib/admin/campaign-directory-seed";
-import type { AdminCampaignRow } from "@/lib/admin/mock-campaigns-admin";
 import { canAccessSuperAdminDashboard } from "@/lib/auth/admin-allowlist";
 import { getActSession } from "@/lib/auth/session-server";
 import type { Campaign } from "@/lib/campaigns";
@@ -15,8 +13,6 @@ import {
   findFamilyStudentByName,
 } from "@/lib/students/parent-students";
 import { normalizePhone } from "@/lib/sms/twilio";
-
-const DIRECTORY_ID = "default";
 
 function isCampaign(value: unknown): value is Campaign {
   return Boolean(
@@ -37,17 +33,6 @@ function date(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-async function loadRows(): Promise<AdminCampaignRow[]> {
-  const row = await prisma.adminCampaignDirectory.findUnique({ where: { id: DIRECTORY_ID } });
-  if (!row) return seedAdminCampaignRows();
-  return Array.isArray(row.rows) ? (row.rows as AdminCampaignRow[]) : [];
-}
-
-function canEditCampaign(sessionEmail: string, campaign: Campaign) {
-  if (canAccessSuperAdminDashboard(sessionEmail)) return true;
-  return campaign.parent.email.trim().toLowerCase() === sessionEmail.trim().toLowerCase();
 }
 
 async function profileForSession(email: string) {
@@ -285,35 +270,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
     return NextResponse.json({ error: "Body must include a campaign." }, { status: 400 });
   }
 
-  const normalizedResponse = await updateNormalizedCampaign({
+  const updated = await updateNormalizedCampaign({
     slug,
     campaign: body.campaign,
     sessionEmail: session.email,
   });
-  if (normalizedResponse) return normalizedResponse;
+  if (updated) return updated;
 
-  const rows = await loadRows();
-  const previous = rows.find((row) => row.slug === slug);
-  const campaign = body.campaign;
-  const authCampaign = previous ?? campaign;
-
-  if (!canEditCampaign(session.email, authCampaign)) {
-    return NextResponse.json({ error: "You do not have access to edit this campaign." }, { status: 403 });
-  }
-
-  const nextRow: AdminCampaignRow = {
-    ...campaign,
-    moderationStatus: previous?.moderationStatus ?? "pending",
-    reviewer: previous?.reviewer ?? "Unassigned",
-  };
-  const nextRows = rows.filter((row) => row.slug !== slug && row.slug !== campaign.slug);
-  nextRows.push(nextRow);
-
-  await prisma.adminCampaignDirectory.upsert({
-    where: { id: DIRECTORY_ID },
-    create: { id: DIRECTORY_ID, rows: nextRows },
-    update: { rows: nextRows },
-  });
-
-  return NextResponse.json({ campaign: nextRow });
+  // Campaigns live in the campaigns table. There used to be a fallback here
+  // that wrote unknown slugs into `admin_campaign_directory` as JSON, which is
+  // how the sample campaigns became editable records that reached the public
+  // site. A slug with no campaign row is simply not a campaign.
+  return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
 }

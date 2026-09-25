@@ -15,18 +15,17 @@ import { getCampaignGivingLevels } from "@/lib/campaigns";
 import { getCampaignDetailRecords } from "@/lib/campaign-detail-records";
 import { listPublicReviews } from "@/lib/dashboard/campaign-reviews";
 import { prisma } from "@/lib/prisma";
-import { getPublishedCampaignSlugs, getSiteCampaignBySlug } from "@/lib/campaigns-source";
+import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
 import { cn, FACE_SAFE_CROP } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export async function generateStaticParams() {
-  // Real published campaigns only. This used to prerender the sample campaign
-  // slugs, which published pages for families that do not exist.
-  return (await getPublishedCampaignSlugs()).map((slug) => ({ slug }));
-}
+// No generateStaticParams: this route is force-dynamic, so nothing is
+// prerendered and listing slugs only adds a database round trip to the build.
+// It previously prerendered the sample campaign slugs, publishing pages for
+// families that do not exist.
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;

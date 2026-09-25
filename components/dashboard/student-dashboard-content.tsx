@@ -5,22 +5,44 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { getCampaignBySlug, type Campaign } from "@/lib/campaigns";
+import type { Campaign } from "@/lib/campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { cn } from "@/lib/utils";
 
-const CAMPAIGN_SLUG = "waters-family-fundraiser";
+/** A supporter as shown on the student's thank-you feed. */
+export type StudentSupporter = {
+  id: string;
+  name: string;
+  amount: number | null;
+  when: string;
+};
 
-const MOCK_SUPPORTERS = [
-  { name: "Sarah T.", amount: 500, when: "Mar 28" },
-  { name: "Grace Fellowship", amount: 250, when: "Mar 22" },
-  { name: "Mike & Linda", amount: 100, when: "Mar 18" },
-  { name: "Anonymous", amount: 50, when: "Mar 10" },
-];
-
-export function StudentDashboardContent({ campaign }: { campaign?: Campaign }) {
-  const c = campaign ?? getCampaignBySlug(CAMPAIGN_SLUG);
-  if (!c) return null;
+export function StudentDashboardContent({
+  campaign,
+  supporters = [],
+}: {
+  campaign?: Campaign;
+  supporters?: StudentSupporter[];
+}) {
+  const c = campaign;
+  // No campaign yet, and no sample one to stand in for it. This used to fall
+  // back to a hardcoded campaign, so every student saw the same family's page
+  // and that family's raised total as though it were their own.
+  if (!c) {
+    return (
+      <div className="space-y-4">
+        <p className="text-muted-foreground">
+          Your scholarship page will appear here once a parent or guardian creates your campaign and
+          it is approved.
+        </p>
+        <Card className="border-dashed border-border">
+          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+            No campaign is linked to your account yet.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const pct = c.goal > 0 ? Math.min(100, Math.round((c.raised / c.goal) * 100)) : 0;
 
   return (
@@ -69,22 +91,28 @@ export function StudentDashboardContent({ campaign }: { campaign?: Campaign }) {
         <h3 className="mb-4 font-heading text-lg font-semibold text-primary">Recent supporters</h3>
         <Card className="border-border/80">
           <CardHeader className="pb-0">
-            <CardTitle className="text-base font-medium text-primary">Thank-you feed (sample)</CardTitle>
+            <CardTitle className="text-base font-medium text-primary">Thank-you feed</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ul className="divide-y divide-border">
-              {MOCK_SUPPORTERS.map((row) => (
-                <li key={`${row.name}-${row.when}`} className="flex items-center justify-between px-6 py-3 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Heart className="size-4 text-act-red" />
-                    <span className="font-medium">{row.name}</span>
-                  </span>
-                  <span className="tabular-nums text-muted-foreground">
-                    ${row.amount} · {row.when}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {supporters.length === 0 ? (
+              <p className="px-6 py-6 text-sm text-muted-foreground">
+                No supporters yet. Share your page and they will show up here as gifts come in.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {supporters.map((row) => (
+                  <li key={row.id} className="flex items-center justify-between px-6 py-3 text-sm">
+                    <span className="flex items-center gap-2">
+                      <Heart className="size-4 text-act-red" />
+                      <span className="font-medium">{row.name}</span>
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {row.amount === null ? row.when : `$${row.amount.toLocaleString()} · ${row.when}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

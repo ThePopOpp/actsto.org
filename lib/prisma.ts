@@ -21,6 +21,10 @@ function createPrismaClient(): PrismaClient {
     new Pool({
       connectionString,
       max: process.env.NODE_ENV === "production" ? 10 : 5,
+      // Fail fast when the database is unreachable. Without this a connection
+      // attempt waits indefinitely, which turns a temporary pooler outage into
+      // a container start or a build that hangs rather than erroring.
+      connectionTimeoutMillis: 10_000,
     });
   // Prevent unhandled 'error' events from crashing the RSC stream when the
   // DB is temporarily unreachable (e.g. pooler not yet provisioned).
