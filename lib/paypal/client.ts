@@ -71,10 +71,18 @@ export async function createPaypalOrder(amountUsd: string): Promise<{ orderId: s
   return { orderId: data.id! };
 }
 
+/** Who paid, as PayPal reports it on the captured order. */
+export type PaypalPayer = {
+  email: string | null;
+  givenName: string | null;
+  surname: string | null;
+};
+
 export async function capturePaypalOrder(orderId: string): Promise<{
   captureId: string;
   status: string;
   amountUsd: string;
+  payer: PaypalPayer;
 }> {
   const env = getPaypalEnv();
   const token = await getAccessToken(env);
@@ -84,6 +92,8 @@ export async function capturePaypalOrder(orderId: string): Promise<{
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      // Full order body, so the payer comes back with the capture.
+      Prefer: "return=representation",
     },
     cache: "no-store",
   });
@@ -91,6 +101,7 @@ export async function capturePaypalOrder(orderId: string): Promise<{
   const data = (await resp.json()) as {
     status?: string;
     message?: string;
+    payer?: { email_address?: string; name?: { given_name?: string; surname?: string } };
     purchase_units?: Array<{
       payments?: {
         captures?: Array<{ id: string; amount?: { value: string } }>;
@@ -105,6 +116,11 @@ export async function capturePaypalOrder(orderId: string): Promise<{
     captureId: capture?.id ?? "",
     status: data.status ?? "",
     amountUsd: capture?.amount?.value ?? "0.00",
+    payer: {
+      email: data.payer?.email_address?.trim().toLowerCase() || null,
+      givenName: data.payer?.name?.given_name?.trim() || null,
+      surname: data.payer?.name?.surname?.trim() || null,
+    },
   };
 }
 

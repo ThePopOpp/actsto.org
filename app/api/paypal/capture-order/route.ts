@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { captureId, status, amountUsd } = await capturePaypalOrder(orderId);
+    const { captureId, status, amountUsd, payer } = await capturePaypalOrder(orderId);
 
     if (status !== "COMPLETED") {
       await markDonationPaymentStatus({
@@ -69,6 +69,7 @@ export async function POST(req: Request) {
       captureId,
       amountUsd,
       payload: { status, amountUsd },
+      payer,
     });
 
     return NextResponse.json({

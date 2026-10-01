@@ -3,6 +3,7 @@ import "server-only";
 import type { ActSession } from "@/lib/auth/types";
 import type { Campaign } from "@/lib/campaigns";
 import { getSiteCampaignsBySlugs } from "@/lib/campaigns-source";
+import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
 
 export type MyGift = {
@@ -70,8 +71,7 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
         status: "paid",
         // Archived pre-launch sandbox tests stay in the table but are not
         // someone's giving history.
-        NOT: { metadata: { path: ["isTest"], equals: true } },
-        OR: orClauses,
+        AND: [EXCLUDE_ARCHIVED_TESTS, { OR: orClauses }],
       },
       orderBy: { createdAt: "desc" },
       select: {

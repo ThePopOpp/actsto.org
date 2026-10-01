@@ -240,7 +240,7 @@ async function getCampaignIdBySlug(slug: string): Promise<string | null> {
 async function getUserIdByEmail(email: string): Promise<string | null> {
   try {
     const profile = await prisma.profile.findFirst({
-      where: { email: email.toLowerCase() },
+      where: { email: { equals: email, mode: "insensitive" } },
       select: { id: true },
     });
     return profile?.id ?? null;

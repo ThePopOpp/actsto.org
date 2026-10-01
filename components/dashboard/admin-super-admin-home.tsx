@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/lib/button-variants";
 import { adminHrefForBase } from "@/lib/dashboard/admin-base-path";
+import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -143,8 +144,8 @@ async function getOverviewData() {
     failedEvents,
     incompleteProfiles,
   ] = await Promise.all([
-    prisma.donation.aggregate({ where: { status: "paid", createdAt: { gte: yearStart } }, _sum: { totalAmount: true, amount: true }, _count: { _all: true } }),
-    prisma.donation.aggregate({ where: { status: "paid", createdAt: { gte: monthStart } }, _sum: { totalAmount: true, amount: true }, _count: { _all: true } }),
+    prisma.donation.aggregate({ where: { ...EXCLUDE_ARCHIVED_TESTS, status: "paid", createdAt: { gte: yearStart } }, _sum: { totalAmount: true, amount: true }, _count: { _all: true } }),
+    prisma.donation.aggregate({ where: { ...EXCLUDE_ARCHIVED_TESTS, status: "paid", createdAt: { gte: monthStart } }, _sum: { totalAmount: true, amount: true }, _count: { _all: true } }),
     prisma.campaign.count({ where: { status: "active", isPublic: true } }),
     prisma.campaign.count({ where: { status: "pending_review" } }),
     prisma.profile.count(),
@@ -153,11 +154,11 @@ async function getOverviewData() {
     prisma.userRoleRecord.count({ where: { role: "donor_individual", status: "active" } }),
     prisma.userRoleRecord.count({ where: { role: "donor_business", status: "active" } }),
     prisma.profile.count({ where: { isSuperAdmin: true } }),
-    prisma.donation.count({ where: { status: "paid", paymentProvider: "paypal", taxReceipts: { none: {} } } }),
+    prisma.donation.count({ where: { ...EXCLUDE_ARCHIVED_TESTS, status: "paid", paymentProvider: "paypal", taxReceipts: { none: {} } } }),
     prisma.emailThread.count({ where: { channel: "email", unread: true } }).catch(() => 0),
     prisma.paymentEvent.count({ where: { provider: "paypal", processed: false, eventType: { contains: "FAILED" } } }),
     prisma.campaign.findMany({ where: { status: "pending_review" }, orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }], take: 3, select: { id: true, title: true, submittedAt: true, createdAt: true } }),
-    prisma.donation.findMany({ where: { status: "paid", paymentProvider: "paypal", taxReceipts: { none: {} } }, orderBy: { createdAt: "asc" }, take: 3, include: { campaign: { select: { title: true } } } }),
+    prisma.donation.findMany({ where: { ...EXCLUDE_ARCHIVED_TESTS, status: "paid", paymentProvider: "paypal", taxReceipts: { none: {} } }, orderBy: { createdAt: "asc" }, take: 3, include: { campaign: { select: { title: true } } } }),
     prisma.emailThread.findMany({ where: { channel: "email", unread: true }, orderBy: { lastMessageAt: "desc" }, take: 3, select: { id: true, subject: true, fromName: true, fromEmail: true, lastMessageAt: true, flagged: true } }).catch(() => []),
     prisma.paymentEvent.findMany({ where: { provider: "paypal", processed: false, eventType: { contains: "FAILED" } }, orderBy: { createdAt: "desc" }, take: 3, select: { id: true, eventType: true, providerOrderId: true, createdAt: true } }),
     prisma.accountSetupProgress.findMany({ where: { completionPercent: { lt: 100 } }, orderBy: [{ completionPercent: "asc" }, { updatedAt: "desc" }], take: 3, include: { profile: { select: { email: true, displayName: true, fullName: true } } } }).catch(() => []),

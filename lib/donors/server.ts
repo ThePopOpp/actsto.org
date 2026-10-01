@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -33,7 +33,13 @@ export type DonorFilters = { q?: string; status?: string; campaignId?: string; f
  * figures — $1,261 of sandbox captures would otherwise read as income.
  */
 export const EXCLUDE_ARCHIVED_TESTS: Prisma.DonationWhereInput = {
-  NOT: { metadata: { path: ["isTest"], equals: true } },
+  // A bare NOT { isTest = true } also drops every row with no isTest key:
+  // Postgres evaluates the missing path as NULL, and NOT NULL is not true.
+  // Real donations never carry the key, so that form hid all of them.
+  OR: [
+    { metadata: { path: ["isTest"], equals: Prisma.AnyNull } },
+    { NOT: { metadata: { path: ["isTest"], equals: true } } },
+  ],
 };
 
 export function buildDonorWhere(p: DonorFilters): Prisma.DonationWhereInput {

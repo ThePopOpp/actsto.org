@@ -1,5 +1,6 @@
 import { fireAutomationEvent } from "@/lib/automations/fire";
 import { sendDonationReceiptEmail } from "@/lib/email/donation-receipt";
+import type { PaypalPayer } from "@/lib/paypal/client";
 import { prisma } from "@/lib/prisma";
 
 function siteBase() {
@@ -16,6 +17,7 @@ export async function finalizePaidDonation({
   amountUsd,
   eventType = "PAYMENT.CAPTURE.COMPLETED",
   payload = {},
+  payer = null,
 }: {
   donationId: string;
   orderId: string;
@@ -23,10 +25,15 @@ export async function finalizePaidDonation({
   amountUsd: string;
   eventType?: string;
   payload?: object;
+  /** From the capture response; the webhook's capture resource carries none. */
+  payer?: PaypalPayer | null;
 }) {
   const donation = await prisma.donation.findUnique({ where: { id: donationId } });
   if (!donation) throw new Error("Donation not found.");
+  // Chosen before the payer is recorded, so a guest's PayPal name is never
+  // published on the campaign without them having asked for it.
   const backerDisplay = await getBackerDisplayForDonation(donationId);
+  await recordPayerOnDonation(donationId, donation.userId, donation.anonymous, payer);
 
   const paidUpdate = await prisma.donation.updateMany({
     where: { id: donationId, status: { not: "paid" } },
@@ -156,6 +163,52 @@ export async function finalizePaidDonation({
   }
 
   return { receipt, newlyPaid: paidUpdate.count > 0 };
+}
+
+/**
+ * Keep who paid on every donation.
+ *
+ * Quick gifts collect no donor details, so a guest's gift was stored with no
+ * name and no email: Super Admins saw "Supporter", no receipt email could be
+ * sent, and the gift could never be matched to an account. PayPal's payer is
+ * recorded when the donation has no details yet; a tax-credit donor's legal
+ * name and address are never overwritten. A guest whose PayPal email belongs
+ * to an existing account has the gift linked to that account.
+ */
+async function recordPayerOnDonation(
+  donationId: string,
+  userId: string | null,
+  anonymous: boolean,
+  payer: PaypalPayer | null,
+) {
+  if (!payer?.email) return;
+  try {
+    const existing = await prisma.donationDetail.findUnique({ where: { donationId }, select: { id: true } });
+    if (!existing) {
+      await prisma.donationDetail.create({
+        data: {
+          donationId,
+          donorFirstName: payer.givenName,
+          donorLastName: payer.surname,
+          donorEmail: payer.email,
+          showNamePublicly: false,
+          showAmountPublicly: false,
+          metadata: { source: "paypal_payer", anonymous },
+        },
+      });
+    }
+    if (!userId) {
+      const profile = await prisma.profile.findFirst({
+        where: { email: { equals: payer.email, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (profile) {
+        await prisma.donation.updateMany({ where: { id: donationId, userId: null }, data: { userId: profile.id } });
+      }
+    }
+  } catch {
+    // Non-fatal: the payment is captured either way, and must still be marked paid.
+  }
 }
 
 async function getBackerDisplayForDonation(donationId: string) {
