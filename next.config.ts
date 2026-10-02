@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@react-pdf/renderer"],
   // Native addon (resvg) — keep it external so Next doesn't try to bundle the .node binary.
-  serverExternalPackages: ["@resvg/resvg-js"],
+  // @react-pdf/renderer must load from node_modules too: bundled into a route
+  // handler it resolves React's react-server build, which has no renderer
+  // internals, and every PDF route failed with "reading 'S'".
+  serverExternalPackages: ["@resvg/resvg-js", "@react-pdf/renderer"],
   // The in-build TypeScript type-check is the most memory-heavy part of
   // `next build` and was OOM-killing the container on the VPS ("Running
   // TypeScript ..." then exit 255). We run `tsc --noEmit` separately before
