@@ -4,10 +4,16 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 
-import { TaxReceiptDocument, type TaxReceiptPdfData } from "@/components/receipts/tax-receipt-pdf";
+import {
+  TaxReceiptDocument,
+  type TaxCreditBreakdown,
+  type TaxReceiptPdfData,
+} from "@/components/receipts/tax-receipt-pdf";
 import { streamToBuffer } from "@/lib/admin/invoices";
 import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
+import { getOriginalOverflowForYear } from "@/lib/tax-credit";
+import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +38,52 @@ function phoenixDate(value: Date) {
 function usd(value: unknown) {
   const n = Number(value ?? 0);
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number.isFinite(n) ? n : 0);
+}
+
+function num(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value) : Number.NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The donation form's "Tax Credit Breakdown" and "Final summary", rebuilt from
+ * what checkout saved on the donation. Limits come from the snapshot taken at
+ * checkout (limitsAtGift); gifts made before that was recorded fall back to
+ * the year's limits as currently configured, with the saved combined limit.
+ */
+async function buildBreakdown(args: {
+  taxYear: string;
+  total: number;
+  filingStatus: string | null;
+  taxCredit: Record<string, unknown>;
+}): Promise<TaxCreditBreakdown> {
+  const { taxYear, total, taxCredit } = args;
+  const filing = args.filingStatus === "married" ? "married" : "single";
+  const snapshot = (taxCredit.limitsAtGift ?? null) as Record<string, unknown> | null;
+  const configured = getOriginalOverflowForYear(taxYear, await getTaxCreditLimitConfig())[filing];
+
+  const original = num(snapshot?.original) ?? configured.original;
+  const overflow = num(snapshot?.overflow) ?? configured.overflow;
+  const combined = num(snapshot?.combined) ?? num(taxCredit.creditLimit) ?? configured.combined;
+  const otherSto = Math.max(0, num(taxCredit.previousStoTotal) ?? 0);
+  const earlierAct = Math.max(0, num(taxCredit.priorActDonationsThisYear) ?? 0);
+  const creditThisYear = Math.min(
+    total,
+    num(taxCredit.eligibleCredit) ?? Math.max(0, combined - otherSto - earlierAct),
+  );
+
+  return {
+    taxYear,
+    totalDonation: usd(total),
+    creditThisYear: usd(creditThisYear),
+    futureCredit: usd(Math.max(0, total - creditThisYear)),
+    filingStatus: filing === "married" ? "Married filing jointly" : "Single / head of household",
+    original: usd(original),
+    overflow: usd(overflow),
+    combined: usd(combined),
+    otherStoGifts: usd(otherSto),
+    earlierActGifts: usd(earlierAct),
+  };
 }
 
 function giftTypeLabel(donationType: string) {
@@ -108,6 +160,22 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const metadata = (donation.metadata ?? {}) as Record<string, unknown>;
   const metaTitle = typeof metadata.campaignTitle === "string" ? metadata.campaignTitle : null;
 
+  const taxYear = String(receipt.taxYear ?? donation.taxYear ?? donation.createdAt.getFullYear());
+  const total = Number(receipt.amount ?? donation.totalAmount ?? donation.amount ?? 0);
+  const taxCreditMeta =
+    metadata.taxCredit && typeof metadata.taxCredit === "object"
+      ? (metadata.taxCredit as Record<string, unknown>)
+      : null;
+  const breakdown =
+    donation.donationType === "tax_credit"
+      ? await buildBreakdown({
+          taxYear,
+          total,
+          filingStatus: detail?.filingStatus ?? null,
+          taxCredit: taxCreditMeta ?? {},
+        })
+      : null;
+
   const data: TaxReceiptPdfData = {
     receiptNumber: receipt.receiptNumber,
     issuedAt: phoenixDate(receipt.issuedAt ?? receipt.createdAt),
@@ -118,13 +186,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     donorAddress: [detail?.billingAddressLine1, detail?.billingAddressLine2, cityLine].filter(
       (line): line is string => Boolean(line && line.trim()),
     ),
-    amount: usd(receipt.amount ?? donation.totalAmount ?? donation.amount),
-    taxYear: String(receipt.taxYear ?? donation.taxYear ?? donation.createdAt.getFullYear()),
+    amount: usd(total),
+    taxYear,
     giftType: giftTypeLabel(donation.donationType),
     isTaxCredit: donation.donationType === "tax_credit",
     designation: donation.campaign?.title ?? metaTitle ?? "ACT general scholarship fund",
     paymentReference: donation.paymentProviderCaptureId ?? donation.paymentProviderOrderId ?? "",
     isVoid: receipt.status === "void",
+    breakdown,
   };
 
   const buffer = await streamToBuffer(await pdf(TaxReceiptDocument({ data, logo: await receiptLogo() })).toBuffer());

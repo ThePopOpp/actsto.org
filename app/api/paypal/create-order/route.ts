@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { createPaypalOrder, getPaypalEnv } from "@/lib/paypal/client";
 import { logPaypalPaymentEvent } from "@/lib/paypal/payment-records";
 import { recordSmsConsent, smsConsentRequestMetadata } from "@/lib/sms/consent";
+import { getOriginalOverflowForYear } from "@/lib/tax-credit";
+import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 import { normalizePhone } from "@/lib/sms/twilio";
 
 /**
@@ -75,6 +77,14 @@ export async function POST(req: Request) {
   let donationId: string | null = null;
 
   try {
+    // The limits in force when the gift was made, looked up here rather than
+    // taken from the browser, so the receipt can show them even if the year's
+    // limits are edited later.
+    const limitsAtGift = taxCredit
+      ? getOriginalOverflowForYear(String(taxCredit.taxYear), await getTaxCreditLimitConfig())[
+          taxCredit.filingStatus === "married" ? "married" : "single"
+        ]
+      : null;
     const recommendation = taxCredit
       ? await getRecommendationTargets({
           campaignId,
@@ -106,6 +116,15 @@ export async function POST(req: Request) {
               eligibleCredit: taxCredit.eligibleCredit,
               previousStoTotal: taxCredit.previousStoTotal,
               priorActDonationsThisYear: taxCredit.priorActDonationsThisYear,
+              ...(limitsAtGift
+                ? {
+                    limitsAtGift: {
+                      original: limitsAtGift.original,
+                      overflow: limitsAtGift.overflow,
+                      combined: limitsAtGift.combined,
+                    },
+                  }
+                : {}),
               relationshipAck: taxCredit.relationshipAck,
               termsAccepted: taxCredit.termsAccepted,
               privacyConsent: taxCredit.privacyConsent,

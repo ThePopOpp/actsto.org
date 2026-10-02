@@ -1,5 +1,21 @@
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
+/** The same figures the donation form's breakdown and final summary show. */
+export type TaxCreditBreakdown = {
+  taxYear: string;
+  totalDonation: string;
+  /** Portion of the gift that counts toward this tax year's credit. */
+  creditThisYear: string;
+  /** Portion beyond this year's remaining limit, carried forward. */
+  futureCredit: string;
+  filingStatus: string;
+  original: string;
+  overflow: string;
+  combined: string;
+  otherStoGifts: string;
+  earlierActGifts: string;
+};
+
 export type TaxReceiptPdfData = {
   receiptNumber: string;
   issuedAt: string;
@@ -15,6 +31,8 @@ export type TaxReceiptPdfData = {
   designation: string;
   paymentReference: string;
   isVoid: boolean;
+  /** Tax-credit gifts only. */
+  breakdown?: TaxCreditBreakdown | null;
 };
 
 const ORG = {
@@ -23,30 +41,45 @@ const ORG = {
   contact: "(602) 421-8301 · hello@actsto.org · actsto.org",
 };
 
+const NAVY = "#1e2a4a";
+const MUTED = "#6b7280";
+const RULE = "#e5e7eb";
+
+// Spacing is kept tight so a tax-credit receipt, with its breakdown, stays on
+// one LETTER page. Check the page count after any layout change.
 const s = StyleSheet.create({
-  page: { padding: 48, fontSize: 10, color: "#1f2937", fontFamily: "Helvetica" },
+  page: { paddingTop: 36, paddingHorizontal: 44, paddingBottom: 48, fontSize: 9.5, color: "#1f2937", fontFamily: "Helvetica" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  logo: { width: 150, height: 37, marginBottom: 8 },
-  brand: { fontSize: 13, fontWeight: 700, color: "#1e2a4a" },
-  sub: { fontSize: 9, color: "#6b7280", marginTop: 2 },
+  logo: { width: 138, height: 34, marginBottom: 6 },
+  brand: { fontSize: 12, fontWeight: 700, color: NAVY },
+  sub: { fontSize: 8.5, color: MUTED, marginTop: 1.5 },
   receiptBox: { alignItems: "flex-end" },
-  receiptLabel: { fontSize: 8, color: "#6b7280", textTransform: "uppercase" },
-  receiptNumber: { fontSize: 11, fontWeight: 700, color: "#1e2a4a", marginTop: 2 },
-  h1: { fontSize: 18, fontWeight: 700, color: "#1e2a4a", marginTop: 28 },
-  intro: { marginTop: 6, color: "#4b5563", lineHeight: 1.3 },
-  columns: { flexDirection: "row", marginTop: 20, gap: 24 },
+  receiptLabel: { fontSize: 7.5, color: MUTED, textTransform: "uppercase" },
+  receiptNumber: { fontSize: 11, fontWeight: 700, color: NAVY, marginTop: 2 },
+  h1: { fontSize: 16, fontWeight: 700, color: NAVY, marginTop: 16 },
+  intro: { marginTop: 4, color: "#4b5563" },
+  columns: { flexDirection: "row", marginTop: 12, gap: 24 },
   column: { flex: 1 },
-  sectionLabel: { fontSize: 8, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 },
-  line: { marginBottom: 2 },
-  table: { marginTop: 22, borderTopWidth: 1, borderColor: "#1e2a4a" },
-  row: { flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#e5e7eb", paddingVertical: 6 },
-  label: { color: "#6b7280" },
-  value: { fontWeight: 700, color: "#111827", maxWidth: "60%", textAlign: "right" },
-  amountRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10 },
-  amountLabel: { fontWeight: 700, color: "#1e2a4a", fontSize: 12 },
-  amountValue: { fontWeight: 700, color: "#1e2a4a", fontSize: 16 },
-  notice: { marginTop: 18, padding: 10, backgroundColor: "#f3f4f6", lineHeight: 1.3, color: "#374151" },
-  noticeTitle: { fontWeight: 700, color: "#1e2a4a", marginBottom: 3 },
+  sectionLabel: { fontSize: 7.5, color: MUTED, textTransform: "uppercase", marginBottom: 3 },
+  line: { marginBottom: 1.5 },
+  table: { marginTop: 12, borderTopWidth: 1, borderColor: NAVY },
+  row: { flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderColor: RULE, paddingVertical: 4 },
+  label: { color: MUTED },
+  value: { fontWeight: 700, color: "#111827", maxWidth: "62%", textAlign: "right" },
+  amountRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 7 },
+  amountLabel: { fontWeight: 700, color: NAVY, fontSize: 11 },
+  amountValue: { fontWeight: 700, color: NAVY, fontSize: 15 },
+  panels: { flexDirection: "row", gap: 14, marginTop: 4 },
+  panel: { flex: 1, borderWidth: 1, borderColor: RULE, borderRadius: 4, paddingHorizontal: 10, paddingVertical: 8 },
+  panelTitle: { fontSize: 9, fontWeight: 700, color: NAVY, marginBottom: 4 },
+  panelRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2.5 },
+  panelRule: { borderTopWidth: 1, borderColor: RULE, marginTop: 2, paddingTop: 4 },
+  panelLabel: { color: MUTED, maxWidth: "62%" },
+  panelValue: { fontWeight: 700, color: "#111827", textAlign: "right" },
+  panelEmphasis: { fontWeight: 700, color: NAVY },
+  panelNote: { fontSize: 7.5, color: MUTED, marginTop: 4 },
+  notice: { marginTop: 12, padding: 9, backgroundColor: "#f3f4f6", color: "#374151", fontSize: 8.5 },
+  noticeTitle: { fontWeight: 700, color: NAVY, marginBottom: 3, fontSize: 9 },
   void: {
     position: "absolute",
     top: 300,
@@ -57,11 +90,21 @@ const s = StyleSheet.create({
     transform: "rotate(-30deg)",
     fontWeight: 700,
   },
-  footer: { position: "absolute", bottom: 32, left: 48, right: 48, fontSize: 8, color: "#9ca3af", textAlign: "center" },
+  footer: { position: "absolute", bottom: 24, left: 44, right: 44, fontSize: 7.5, color: "#9ca3af", textAlign: "center" },
 });
+
+function PanelRow({ label, value, emphasis, rule }: { label: string; value: string; emphasis?: boolean; rule?: boolean }) {
+  return (
+    <View style={rule ? [s.panelRow, s.panelRule] : s.panelRow}>
+      <Text style={emphasis ? [s.panelLabel, s.panelEmphasis] : s.panelLabel}>{label}</Text>
+      <Text style={emphasis ? [s.panelValue, s.panelEmphasis] : s.panelValue}>{value}</Text>
+    </View>
+  );
+}
 
 /** `logo` is the PNG wordmark; react-pdf cannot draw the site's SVG logo. */
 export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; logo?: Buffer | null }) {
+  const b = data.breakdown;
   return (
     <Document title={`Receipt ${data.receiptNumber}`} author={ORG.name}>
       <Page size="LETTER" style={s.page}>
@@ -136,7 +179,32 @@ export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; lo
           </View>
         </View>
 
-        <View style={s.notice}>
+        {b ? (
+          <View style={s.panels} wrap={false}>
+            <View style={s.panel}>
+              <Text style={s.panelTitle}>Tax credit breakdown</Text>
+              <PanelRow label="Total donation" value={b.totalDonation} />
+              <PanelRow label={`${b.taxYear} tax credit`} value={b.creditThisYear} emphasis />
+              <PanelRow label="Future tax credit" value={b.futureCredit} />
+              <Text style={s.panelNote}>
+                The future tax credit is the part of this gift above your remaining {b.taxYear} limit. Arizona
+                allows it to be carried forward for up to five years.
+              </Text>
+            </View>
+            <View style={s.panel}>
+              <Text style={s.panelTitle}>{b.taxYear} credit limits</Text>
+              <PanelRow label="Filing status" value={b.filingStatus} />
+              <PanelRow label="Original tax credit" value={b.original} />
+              <PanelRow label="Overflow tax credit" value={b.overflow} />
+              <PanelRow label="Combined total" value={b.combined} emphasis />
+              <PanelRow label="Other STO gifts this year" value={b.otherStoGifts} rule />
+              <PanelRow label="Earlier ACT gifts this year" value={b.earlierActGifts} />
+              <Text style={s.panelNote}>Other STO and earlier ACT gifts as reported by the donor at checkout.</Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={s.notice} wrap={false}>
           <Text style={s.noticeTitle}>No goods or services were provided in exchange for this contribution.</Text>
           {data.isTaxCredit ? (
             <Text>
@@ -154,7 +222,7 @@ export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; lo
           )}
         </View>
 
-        <Text style={s.footer}>
+        <Text style={s.footer} fixed>
           {ORG.name} · EIN {ORG.ein} · {ORG.contact}
         </Text>
       </Page>
