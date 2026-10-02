@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink, FileText, Receipt } from "lucide-react";
 
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
+import { AdminStoReportingForm } from "@/components/dashboard/admin/admin-sto-reporting-form";
 import { AdminTaxCreditLimitsForm } from "@/components/dashboard/admin/admin-tax-credit-limits-form";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -12,10 +13,12 @@ export default function AdminTaxDocumentsPage() {
     <>
       <AdminPageHeader
         title="Tax Documents"
-        description="Arizona tax-credit limits, the ADOR tax disclosure, and receipt policy."
+        description="Arizona tax-credit limits, scholarship reporting, the ADOR tax disclosure, and receipts."
       />
       <div className="space-y-6">
         <AdminTaxCreditLimitsForm />
+
+        <AdminStoReportingForm />
 
         <Card className="border-border/80">
           <CardContent className="grid gap-3 p-4 sm:grid-cols-2">

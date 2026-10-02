@@ -34,6 +34,7 @@ import {
   getOriginalOverflowForYear,
   summarizeTaxCredit,
   DEFAULT_TAX_CREDIT_LIMITS,
+  donationTaxYears,
   type FilingStatus,
   type TaxCreditLimitConfig,
   type TaxYear,
@@ -81,7 +82,10 @@ function TogglePair({
 }) {
   const leftOn = value === left;
   const selectedBrand = "bg-[#001138] text-white shadow-sm hover:bg-[#001138] hover:text-white";
-  const selectedDefault = "bg-background text-foreground shadow-sm";
+  // A plain white chip on a light track read as unselected, so donors could
+  // not tell which answer was active. The ring and weight make it unmistakable.
+  const selectedDefault =
+    "bg-background font-semibold text-primary shadow-sm ring-2 ring-primary/70 hover:bg-background";
   const unselectedBrand =
     "bg-background text-foreground hover:bg-muted/60 dark:bg-background/80";
   return (
@@ -110,6 +114,7 @@ function TogglePair({
               ? unselectedBrand
               : undefined
         )}
+        aria-pressed={leftOn}
         onClick={() => onChange(left)}
       >
         {leftLabel}
@@ -130,6 +135,7 @@ function TogglePair({
               ? unselectedBrand
               : undefined
         )}
+        aria-pressed={!leftOn}
         onClick={() => onChange(right)}
       >
         {rightLabel}
@@ -233,14 +239,22 @@ function CheckField({
   checked,
   onCheckedChange,
   children,
+  error,
 }: {
   id: string;
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
   children: React.ReactNode;
+  error?: string | null;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-3">
+    <div>
+      <div
+        className={cn(
+          "flex items-start gap-3 rounded-lg border bg-muted/10 px-3 py-3",
+          error ? "border-destructive" : "border-border/60",
+        )}
+      >
       <Checkbox
         id={id}
         checked={checked}
@@ -254,6 +268,12 @@ function CheckField({
       >
         {children}
       </Label>
+      </div>
+      {error ? (
+        <p role="alert" className="mt-1.5 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -447,7 +467,10 @@ export function TaxCreditWizard({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  const [designateStudent, setDesignateStudent] = useState(!embedInDialog);
+  // Designation is optional, so it starts at No everywhere. The full donation
+  // page used to start at Yes, which silently required the relationship box
+  // and failed only at payment.
+  const [designateStudent, setDesignateStudent] = useState(false);
   // No preselected campaign. This used to default to the first sample campaign,
   // so a donor who never touched the picker could send a tax-credit gift toward
   // a campaign that does not exist.
@@ -461,8 +484,14 @@ export function TaxCreditWizard({
   const [schoolName, setSchoolName] = useState("");
   const [grade, setGrade] = useState("");
   const [relationshipAck, setRelationshipAck] = useState(false);
+  const [relationshipAckError, setRelationshipAckError] = useState<string | null>(null);
 
-  const [taxYear, setTaxYear] = useState<TaxYear>("2026");
+  const offeredTaxYears = useMemo(() => donationTaxYears(taxLimits), [taxLimits]);
+  const [taxYearChoice, setTaxYear] = useState<TaxYear | null>(null);
+  // Derived rather than synced, so it stays valid once the configured limits load.
+  const taxYear: TaxYear =
+    taxYearChoice && offeredTaxYears.includes(taxYearChoice) ? taxYearChoice : offeredTaxYears[0];
+  const yearLimits = getOriginalOverflowForYear(taxYear, taxLimits);
   const [filing, setFiling] = useState<FilingStatus>("single");
   const [hasOtherSto, setHasOtherSto] = useState(embedInDialog ? false : true);
   const [stoRows, setStoRows] = useState<StoRow[]>([
@@ -619,13 +648,13 @@ export function TaxCreditWizard({
         campaignId: selectedCampaign?.campaignId ?? null,
         campaignSlug: designateStudent ? campaignSlug || null : null,
         campaignTitle: selectedCampaign?.title ?? null,
-        studentId: selectedCampaign?.studentId ?? null,
-        schoolId: selectedCampaign?.schoolId ?? null,
-        studentFirstName: studentFirst,
-        studentLastName: studentLast,
-        schoolName,
-        grade,
-        relationshipAck,
+        studentId: designateStudent ? selectedCampaign?.studentId ?? null : null,
+        schoolId: designateStudent ? selectedCampaign?.schoolId ?? null : null,
+        studentFirstName: designateStudent ? studentFirst : "",
+        studentLastName: designateStudent ? studentLast : "",
+        schoolName: designateStudent ? schoolName : "",
+        grade: designateStudent ? grade : "",
+        relationshipAck: designateStudent && relationshipAck,
         termsAccepted: terms,
         privacyConsent: gdpr,
         smsConsent,
@@ -635,6 +664,19 @@ export function TaxCreditWizard({
         priorActDonationsThisYear,
       },
     };
+  }
+
+  /** Step 2 to 3. Catches the relationship box here, not at PayPal two steps later. */
+  function continueFromTaxes() {
+    if (designateStudent && !relationshipAck) {
+      setRelationshipAckError(
+        "Check the relationship policy to designate a student, or choose No above.",
+      );
+      document.getElementById("rel-ack")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setRelationshipAckError(null);
+    setStep(3);
   }
 
   const campaignSelectValue = campaignSlug || CAMP_NONE;
@@ -803,7 +845,7 @@ export function TaxCreditWizard({
                 <Button type="button" variant="outline" onClick={() => setStep(1)}>
                   Previous
                 </Button>
-                <Button type="button" onClick={() => setStep(3)} className="gap-1">
+                <Button type="button" onClick={continueFromTaxes} className="gap-1">
                   Next
                   <ChevronRight className="size-4" aria-hidden />
                 </Button>
@@ -813,7 +855,7 @@ export function TaxCreditWizard({
                 <Button type="button" variant="outline" onClick={() => setStep(1)}>
                   Back
                 </Button>
-                <Button type="button" onClick={() => setStep(3)}>
+                <Button type="button" onClick={continueFromTaxes}>
                   Continue
                 </Button>
               </>
@@ -829,7 +871,10 @@ export function TaxCreditWizard({
               </ChoiceLegend>
               <TogglePair
                 value={designateStudent}
-                onChange={setDesignateStudent}
+                onChange={(v) => {
+                  setDesignateStudent(v);
+                  if (!v) setRelationshipAckError(null);
+                }}
                 left
                 right={false}
                 leftLabel="Yes"
@@ -906,7 +951,11 @@ export function TaxCreditWizard({
                   <CheckField
                     id="rel-ack"
                     checked={relationshipAck}
-                    onCheckedChange={setRelationshipAck}
+                    onCheckedChange={(v) => {
+                      setRelationshipAck(v);
+                      if (v) setRelationshipAckError(null);
+                    }}
+                    error={relationshipAckError}
                   >
                     Relationship policy: I understand that I may not designate or direct this
                     donation to benefit my own dependent or family member.
@@ -919,30 +968,33 @@ export function TaxCreditWizard({
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                 <ChoiceLegend>Tax year {taxYear}</ChoiceLegend>
                 <span className="text-muted-foreground">
-                  Single {formatCheckoutUsd(taxLimits[taxYear].single.combined)} · Married{" "}
-                  {formatCheckoutUsd(taxLimits[taxYear].married.combined)}
+                  Single {formatCheckoutUsd(yearLimits.single.combined)} · Married{" "}
+                  {formatCheckoutUsd(yearLimits.married.combined)}
                 </span>
               </div>
-              <TogglePair
-                value={taxYear === "2026"}
-                onChange={(v) => setTaxYear(v ? "2026" : "2025")}
-                left={false}
-                right
-                leftLabel="2025 tax year"
-                rightLabel="2026 tax year"
-                relaxed={embedInDialog}
-              />
+              {/* The prior year is offered only until April 15; see donationTaxYears. */}
+              {offeredTaxYears.length > 1 ? (
+                <TogglePair
+                  value={taxYear === offeredTaxYears[1]}
+                  onChange={(v) => setTaxYear(v ? offeredTaxYears[1] : offeredTaxYears[0])}
+                  left
+                  right={false}
+                  leftLabel={`${offeredTaxYears[1]} tax year`}
+                  rightLabel={`${offeredTaxYears[0]} tax year`}
+                  relaxed={embedInDialog}
+                />
+              ) : null}
             </div>
 
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Annual credit limit — Single{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  {formatCheckoutUsd(taxLimits[taxYear].single.combined)}
+                  {formatCheckoutUsd(yearLimits.single.combined)}
                 </span>{" "}
                 · Married{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  {formatCheckoutUsd(taxLimits[taxYear].married.combined)}
+                  {formatCheckoutUsd(yearLimits.married.combined)}
                 </span>
               </p>
               <ChoiceLegend>Select Your Tax Filing Status</ChoiceLegend>
@@ -1148,10 +1200,10 @@ export function TaxCreditWizard({
                     size="sm"
                     className="text-xs font-medium sm:text-sm"
                     onClick={() =>
-                      setDonationRaw(String(getMaxForYearAndFiling(taxYear, "married")))
+                      setDonationRaw(String(getMaxForYearAndFiling(taxYear, "married", taxLimits)))
                     }
                   >
-                    {formatCheckoutUsd(getMaxForYearAndFiling(taxYear, "married"))}
+                    {formatCheckoutUsd(getMaxForYearAndFiling(taxYear, "married", taxLimits))}
                   </Button>
                 </div>
               ) : null}

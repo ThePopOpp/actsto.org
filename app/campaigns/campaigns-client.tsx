@@ -29,6 +29,25 @@ const FILTERS: { id: CampaignFilter; label: string }[] = [
   { id: "fully-funded", label: "Fully funded" },
 ];
 
+const PAGE_SIZE = 9;
+
+function parsePageParam(value: string | null): number {
+  const n = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+/** Page numbers to show, with null standing for a gap: 1 … 4 5 6 … 12. */
+function pageWindow(current: number, total: number): (number | null)[] {
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out: (number | null)[] = [];
+  sorted.forEach((n, i) => {
+    if (i > 0 && n - sorted[i - 1] > 1) out.push(null);
+    out.push(n);
+  });
+  return out;
+}
+
 function useSyncedSearchParams() {
   const router = useRouter();
   const pathname = usePathname();
@@ -98,16 +117,27 @@ export function CampaignsPageClient({
 
   const stats = campaignStats(campaigns);
 
+  // Out-of-range pages (after a filter narrows the list) clamp to the last one.
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const page = Math.min(parsePageParam(searchParams.get("page")), pageCount);
+  const pageItems = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  function goToPage(next: number) {
+    replaceParams({ page: next <= 1 ? null : String(next) });
+    document.getElementById("campaign-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function setFilterAndUrl(next: CampaignFilter) {
     setFilter(next);
     replaceParams({
       filter: next === "all" ? null : next,
+      page: null,
     });
   }
 
   function clearSchoolType() {
     setSchoolType(null);
-    replaceParams({ schoolType: null });
+    replaceParams({ schoolType: null, page: null });
   }
 
   return (
@@ -187,7 +217,7 @@ export function CampaignsPageClient({
               onChange={(e) => {
                 const v = e.target.value;
                 setQ(v);
-                replaceParams({ q: v.trim() ? v : null });
+                replaceParams({ q: v.trim() ? v : null, page: null });
               }}
               className="pl-9"
               aria-label="Search campaigns"
@@ -195,12 +225,14 @@ export function CampaignsPageClient({
           </div>
         </div>
 
-        <p className="mt-6 text-sm text-muted-foreground">
-          Showing {list.length} campaign{list.length === 1 ? "" : "s"}
+        <p id="campaign-results" className="mt-6 scroll-mt-24 text-sm text-muted-foreground">
+          {list.length > PAGE_SIZE
+            ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + pageItems.length} of ${list.length} campaigns`
+            : `Showing ${list.length} campaign${list.length === 1 ? "" : "s"}`}
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-8 md:grid-cols-3">
-          {list.map((c) => (
+          {pageItems.map((c) => (
             <CampaignCard key={c.slug} campaign={c} />
           ))}
         </div>
@@ -214,30 +246,40 @@ export function CampaignsPageClient({
           </p>
         )}
 
-        <nav
-          className="mt-12 flex justify-center gap-1 text-sm"
-          aria-label="Pagination"
-        >
-          <Button type="button" variant="outline" size="sm" disabled>
-            Previous
-          </Button>
-          <Button type="button" variant="default" size="sm">
-            1
-          </Button>
-          <Button type="button" variant="secondary" size="sm">
-            2
-          </Button>
-          <Button type="button" variant="secondary" size="sm">
-            3
-          </Button>
-          <span className="px-2 py-1 text-muted-foreground">…</span>
-          <Button type="button" variant="secondary" size="sm">
-            8
-          </Button>
-          <Button type="button" variant="outline" size="sm">
-            Next
-          </Button>
-        </nav>
+        {pageCount > 1 ? (
+          <nav className="mt-12 flex flex-wrap justify-center gap-1 text-sm" aria-label="Pagination">
+            <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
+              Previous
+            </Button>
+            {pageWindow(page, pageCount).map((n, i) =>
+              n === null ? (
+                <span key={`gap-${i}`} className="px-2 py-1 text-muted-foreground">
+                  …
+                </span>
+              ) : (
+                <Button
+                  key={n}
+                  type="button"
+                  size="sm"
+                  variant={n === page ? "default" : "secondary"}
+                  aria-current={n === page ? "page" : undefined}
+                  onClick={() => goToPage(n)}
+                >
+                  {n}
+                </Button>
+              ),
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page >= pageCount}
+              onClick={() => goToPage(page + 1)}
+            >
+              Next
+            </Button>
+          </nav>
+        ) : null}
       </section>
     </>
   );

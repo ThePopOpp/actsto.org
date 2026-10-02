@@ -3,12 +3,11 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_TAX_CREDIT_LIMITS,
+  isTaxYear,
   type FilingStatus,
   type TaxCreditLimitConfig,
-  type TaxYear,
 } from "@/lib/tax-credit";
 
-const TAX_YEARS: TaxYear[] = ["2025", "2026"];
 const FILING_STATUSES: FilingStatus[] = ["single", "married"];
 
 function dollars(value: unknown, fallback: number) {
@@ -28,9 +27,15 @@ export async function getTaxCreditLimitConfig(): Promise<TaxCreditLimitConfig> {
   const next: TaxCreditLimitConfig = structuredClone(DEFAULT_TAX_CREDIT_LIMITS);
 
   for (const row of rows) {
-    const year = String(row.taxYear) as TaxYear;
+    const year = String(row.taxYear);
     const filing = row.filingStatus as FilingStatus;
-    if (!TAX_YEARS.includes(year) || !FILING_STATUSES.includes(filing)) continue;
+    if (!isTaxYear(year) || !FILING_STATUSES.includes(filing)) continue;
+    // A year added by a Super Admin has no code default; its sibling filing
+    // status starts at zero until that row is saved too.
+    next[year] ??= {
+      single: { original: 0, overflow: 0, combined: 0 },
+      married: { original: 0, overflow: 0, combined: 0 },
+    };
     const fallback = next[year][filing];
     next[year][filing] = {
       original: dollars(row.originalCreditLimit, fallback.original),

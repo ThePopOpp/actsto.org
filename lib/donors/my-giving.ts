@@ -15,6 +15,8 @@ export type MyGift = {
   amount: number;
   taxYear: number | null;
   receiptNumber: string | null;
+  /** Tax receipt row id, for the PDF link. */
+  receiptId: string | null;
 };
 
 export type MyGiving = {
@@ -83,7 +85,7 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
         taxYear: true,
         campaign: { select: { title: true, slug: true } },
         metadata: true,
-        taxReceipts: { select: { receiptNumber: true }, take: 1 },
+        taxReceipts: { select: { id: true, receiptNumber: true }, take: 1 },
       },
     })
     .catch(() => []);
@@ -101,6 +103,7 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
       amount: Number(donation.totalAmount ?? donation.amount ?? 0),
       taxYear: donation.taxYear ?? donation.createdAt.getFullYear(),
       receiptNumber: donation.taxReceipts[0]?.receiptNumber ?? null,
+      receiptId: donation.taxReceipts[0]?.id ?? null,
     };
   });
 

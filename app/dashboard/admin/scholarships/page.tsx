@@ -17,7 +17,28 @@ export const dynamic = "force-dynamic";
 
 const OPEN_STATUSES = ["submitted", "under_review", "needs_info"] as const;
 
-export default async function AdminScholarshipsPage() {
+/**
+ * Tabs over the application list. Decided applications used to drop out of
+ * the page entirely, so once approved there was no way to find one again.
+ */
+const TABS = [
+  { id: "open", label: "Open", statuses: [...OPEN_STATUSES] },
+  { id: "approved", label: "Approved", statuses: ["approved"] },
+  { id: "denied", label: "Denied", statuses: ["denied"] },
+  { id: "withdrawn", label: "Withdrawn", statuses: ["withdrawn"] },
+  { id: "all", label: "All", statuses: [...OPEN_STATUSES, "approved", "denied", "withdrawn"] },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
+
+export default async function AdminScholarshipsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const { status: statusParam } = await searchParams;
+  const tab = TABS.find((t) => t.id === statusParam) ?? TABS[0];
+  const isOpenTab = tab.id === "open";
   const actor = await getStaffActor();
   if (!actor) {
     return (
@@ -31,15 +52,27 @@ export default async function AdminScholarshipsPage() {
     );
   }
 
+  const statusCounts = await prisma.scholarshipApplication.groupBy({
+    by: ["status"],
+    where: { status: { not: "draft" } },
+    _count: { _all: true },
+  });
+  const countFor = (id: TabId) => {
+    const statuses = TABS.find((t) => t.id === id)!.statuses as readonly string[];
+    return statusCounts.filter((c) => statuses.includes(c.status)).reduce((sum, c) => sum + c._count._all, 0);
+  };
+
   const applications = await prisma.scholarshipApplication.findMany({
-    where: { status: { in: [...OPEN_STATUSES] } },
-    orderBy: [{ submittedAt: "asc" }],
+    where: { status: { in: [...tab.statuses] } },
+    // The queue works oldest-first; decided lists read newest decision first.
+    orderBy: isOpenTab ? [{ submittedAt: "asc" }] : [{ reviewedAt: { sort: "desc", nulls: "last" } }, { submittedAt: "desc" }],
     select: {
       id: true,
       status: true,
       schoolYear: true,
       confirmationCode: true,
       submittedAt: true,
+      reviewedAt: true,
       attemptNumber: true,
       needsInfoDueAt: true,
       infoNotReceived: true,
@@ -89,10 +122,24 @@ export default async function AdminScholarshipsPage() {
         </Alert>
       ) : null}
 
+      <nav className="mb-5 flex flex-wrap gap-2" aria-label="Application status">
+        {TABS.map((t) => (
+          <Link
+            key={t.id}
+            href={t.id === "open" ? "/dashboard/admin/scholarships" : `/dashboard/admin/scholarships?status=${t.id}`}
+            aria-current={t.id === tab.id ? "page" : undefined}
+            className={cn(buttonVariants({ size: "sm", variant: t.id === tab.id ? "default" : "outline" }), "gap-1.5")}
+          >
+            {t.label}
+            <span className="tabular-nums opacity-70">{countFor(t.id)}</span>
+          </Link>
+        ))}
+      </nav>
+
       {applications.length === 0 ? (
         <Card className="border-border/80">
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
-            Nothing waiting for review.
+            {isOpenTab ? "Nothing waiting for review." : `No ${tab.label.toLowerCase()} applications.`}
           </CardContent>
         </Card>
       ) : (
@@ -140,6 +187,9 @@ export default async function AdminScholarshipsPage() {
                       {application.submittedAt
                         ? `Submitted ${formatWindowDate(application.submittedAt)}`
                         : "Not submitted"}
+                      {!OPEN_STATUSES.includes(application.status as (typeof OPEN_STATUSES)[number]) && application.reviewedAt
+                        ? ` · decided ${formatWindowDate(application.reviewedAt)}`
+                        : ""}
                       {application.needsInfoDueAt
                         ? ` · reply due ${formatWindowDate(application.needsInfoDueAt)}`
                         : ""}
@@ -155,9 +205,9 @@ export default async function AdminScholarshipsPage() {
                   </div>
                   <Link
                     href={`/dashboard/admin/scholarships/${application.id}`}
-                    className={cn(buttonVariants({ size: "sm" }))}
+                    className={cn(buttonVariants({ size: "sm", variant: OPEN_STATUSES.includes(application.status as (typeof OPEN_STATUSES)[number]) ? "default" : "outline" }))}
                   >
-                    Review
+                    {OPEN_STATUSES.includes(application.status as (typeof OPEN_STATUSES)[number]) ? "Review" : "View"}
                   </Link>
                 </CardContent>
               </Card>

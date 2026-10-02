@@ -1,9 +1,11 @@
-export type TaxYear = "2025" | "2026";
+/** A four-digit tax year, e.g. "2026". Years are data, added by Super Admins. */
+export type TaxYear = string;
 export type FilingStatus = "single" | "married";
-export type TaxCreditLimitConfig = Record<TaxYear, {
+export type TaxYearLimits = {
   single: { original: number; overflow: number; combined: number };
   married: { original: number; overflow: number; combined: number };
-}>;
+};
+export type TaxCreditLimitConfig = Record<TaxYear, TaxYearLimits>;
 
 /** Statutory-style caps for UI; confirm annually with legal / AZ DOR guidance. */
 export const TAX_CREDIT_MAX: Record<
@@ -25,19 +27,55 @@ export const DEFAULT_TAX_CREDIT_LIMITS: TaxCreditLimitConfig = {
   },
 };
 
-export function combinedLimitsFromConfig(
+export function isTaxYear(value: unknown): value is TaxYear {
+  if (typeof value !== "string" || !/^\d{4}$/.test(value)) return false;
+  const year = Number(value);
+  return year >= 2000 && year <= 2100;
+}
+
+/** Configured years, newest first. */
+export function taxYearsOf(limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS): TaxYear[] {
+  return Object.keys(limits)
+    .filter(isTaxYear)
+    .sort((a, b) => Number(b) - Number(a));
+}
+
+/**
+ * The year public copy quotes: this calendar year when it is configured,
+ * otherwise the newest configured year not in the future, otherwise the newest.
+ */
+export function currentTaxYear(
   limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
-): Record<TaxYear, { single: number; married: number }> {
-  return {
-    "2025": {
-      single: limits["2025"].single.combined,
-      married: limits["2025"].married.combined,
-    },
-    "2026": {
-      single: limits["2026"].single.combined,
-      married: limits["2026"].married.combined,
-    },
-  };
+  now: Date = new Date(),
+): TaxYear {
+  const years = taxYearsOf(limits);
+  const calendar = now.getFullYear();
+  return years.find((y) => Number(y) <= calendar) ?? years[years.length - 1] ?? String(calendar);
+}
+
+export function currentTaxYearLimits(
+  limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
+  now: Date = new Date(),
+): TaxYearLimits {
+  return limits[currentTaxYear(limits, now)] ?? DEFAULT_TAX_CREDIT_LIMITS["2026"];
+}
+
+/**
+ * Years a donor may still claim a gift against, newest first.
+ *
+ * Arizona lets a gift made from January 1 through April 15 count toward the
+ * prior tax year (A.R.S. § 43-1089), so the prior year is offered only in that
+ * window. Years without configured limits are never offered.
+ */
+export function donationTaxYears(
+  limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
+  now: Date = new Date(),
+): TaxYear[] {
+  const calendar = now.getFullYear();
+  const beforeDeadline = now < new Date(calendar, 3, 16);
+  const wanted = [String(calendar), ...(beforeDeadline ? [String(calendar - 1)] : [])];
+  const offered = wanted.filter((y) => limits[y]);
+  return offered.length > 0 ? offered : [currentTaxYear(limits, now)];
 }
 
 export function getMaxForYearAndFiling(
@@ -45,7 +83,7 @@ export function getMaxForYearAndFiling(
   filing: FilingStatus,
   limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
 ): number {
-  return limits[taxYear][filing].combined;
+  return (limits[taxYear] ?? currentTaxYearLimits(limits))[filing].combined;
 }
 
 /** Original vs overflow caps for a tax year. */
@@ -53,7 +91,7 @@ export function getOriginalOverflowForYear(
   taxYear: TaxYear,
   limits: TaxCreditLimitConfig = DEFAULT_TAX_CREDIT_LIMITS,
 ) {
-  return limits[taxYear];
+  return limits[taxYear] ?? currentTaxYearLimits(limits);
 }
 
 /**

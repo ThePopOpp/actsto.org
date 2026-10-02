@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
 import { ACT_LOGO_ROUND } from "@/lib/constants";
-import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
+import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 
 export default function RegisterDonorPage() {
   const [showPw, setShowPw] = useState(false);
@@ -207,8 +207,8 @@ export default function RegisterDonorPage() {
               <Building2 className="mt-0.5 size-5 shrink-0" />
               <p>
                 Arizona tax credit: As an individual donor you may contribute up to{" "}
-                <strong>${taxLimits["2026"].single.combined.toLocaleString()} (single)</strong> or{" "}
-                <strong>${taxLimits["2026"].married.combined.toLocaleString()} (married filing jointly)</strong>{" "}
+                <strong>${currentTaxYearLimits(taxLimits).single.combined.toLocaleString()} (single)</strong> or{" "}
+                <strong>${currentTaxYearLimits(taxLimits).married.combined.toLocaleString()} (married filing jointly)</strong>{" "}
                 — confirm current-year amounts with a tax advisor.
               </p>
             </div>

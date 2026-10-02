@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { CampaignGivingLevel } from "@/lib/campaigns";
-import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
+import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn, parseDateValue } from "@/lib/utils";
 
 const QUICK_CHOOSE_PILLS = [250, 1500, 3750] as const;
@@ -86,7 +86,7 @@ export function CampaignDonationDialog({
   const donationIdRef = React.useRef<string | null>(null);
   const createOrderErrorRef = React.useRef<string | null>(null);
 
-  const taxCaps = taxLimits["2026"];
+  const taxCaps = currentTaxYearLimits(taxLimits);
 
   React.useEffect(() => {
     if (!open) {

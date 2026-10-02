@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,9 +13,9 @@ import {
   type FilingStatus,
   type TaxCreditLimitConfig,
   type TaxYear,
+  taxYearsOf,
 } from "@/lib/tax-credit";
 
-const TAX_YEARS: TaxYear[] = ["2026", "2025"];
 const FILING_STATUSES: { id: FilingStatus; label: string }[] = [
   { id: "single", label: "Single / Head of Household" },
   { id: "married", label: "Married Filing Jointly" },
@@ -36,6 +37,25 @@ export function AdminTaxCreditLimitsForm() {
   const [notes, setNotes] = useState("");
   const [state, setState] = useState<SaveState>("loading");
   const [message, setMessage] = useState("");
+  /** Years added on this page and not saved yet — the only ones removable here. */
+  const [unsavedYears, setUnsavedYears] = useState<TaxYear[]>([]);
+  const years = taxYearsOf(limits);
+
+  function addTaxYear() {
+    const newest = years[0];
+    const next = String((newest ? Number(newest) : new Date().getFullYear() - 1) + 1);
+    // Start from the newest year's figures; ADOR adjusts them a little each year.
+    setLimits((current) => ({ ...current, [next]: structuredClone(current[newest] ?? DEFAULT_TAX_CREDIT_LIMITS["2026"]) }));
+    setUnsavedYears((current) => [...current, next]);
+    setState("idle");
+    setMessage(`${next} added. Enter the ADOR limits for ${next}, then save.`);
+  }
+
+  function removeUnsavedYear(year: TaxYear) {
+    setLimits((current) => Object.fromEntries(Object.entries(current).filter(([y]) => y !== year)));
+    setUnsavedYears((current) => current.filter((y) => y !== year));
+    setMessage("");
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -94,6 +114,7 @@ export function AdminTaxCreditLimitsForm() {
       return;
     }
     setLimits(data.limits);
+    setUnsavedYears([]);
     setState("saved");
     setMessage("Tax credit limits saved. Public pages and donation flows will use these values.");
     window.setTimeout(() => setState((current) => (current === "saved" ? "idle" : current)), 2600);
@@ -112,9 +133,15 @@ export function AdminTaxCreditLimitsForm() {
       <Card className="border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-primary">Tax Credit Limits</CardTitle>
-          <CardDescription>
-            Original + overflow must equal the combined annual maximum for each filing status.
-          </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <CardDescription>
+              Original + overflow must equal the combined annual maximum for each filing status.
+            </CardDescription>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addTaxYear} disabled={state === "loading"}>
+              <Plus className="size-4" />
+              Add tax year
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <form
@@ -124,16 +151,33 @@ export function AdminTaxCreditLimitsForm() {
               void save();
             }}
           >
-            {TAX_YEARS.map((year) => (
+            {years.map((year) => (
               <section key={year} className="space-y-4 rounded-lg border border-border/80 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-heading text-lg font-semibold text-primary">{year} Tax Year</h3>
+                    <h3 className="font-heading text-lg font-semibold text-primary">
+                      {year} Tax Year
+                      {unsavedYears.includes(year) ? (
+                        <span className="ml-2 align-middle text-xs font-normal text-act-red">Not saved</span>
+                      ) : null}
+                    </h3>
                     <p className="text-sm text-muted-foreground">
                       Single {formatUsd(limits[year].single.combined)} · Married{" "}
                       {formatUsd(limits[year].married.combined)}
                     </p>
                   </div>
+                  {unsavedYears.includes(year) ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-muted-foreground"
+                      onClick={() => removeUnsavedYear(year)}
+                    >
+                      <X className="size-3.5" />
+                      Remove
+                    </Button>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">

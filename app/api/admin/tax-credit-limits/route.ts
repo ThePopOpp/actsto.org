@@ -3,14 +3,12 @@ import { NextResponse } from "next/server";
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
 import {
-  DEFAULT_TAX_CREDIT_LIMITS,
+  isTaxYear,
   type FilingStatus,
   type TaxCreditLimitConfig,
-  type TaxYear,
 } from "@/lib/tax-credit";
 import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 
-const TAX_YEARS: TaxYear[] = ["2025", "2026"];
 const FILING_STATUSES: FilingStatus[] = ["single", "married"];
 
 function numberField(value: unknown, label: string) {
@@ -22,18 +20,27 @@ function numberField(value: unknown, label: string) {
 function normalizeLimits(input: unknown): TaxCreditLimitConfig {
   if (!input || typeof input !== "object") throw new Error("Limits payload is required.");
   const raw = input as Record<string, Record<string, Record<string, unknown>>>;
-  const next: TaxCreditLimitConfig = structuredClone(DEFAULT_TAX_CREDIT_LIMITS);
+  const next: TaxCreditLimitConfig = {};
 
-  for (const year of TAX_YEARS) {
+  // Every year sent is saved, so Super Admins can add a new tax year here.
+  const years = Object.keys(raw);
+  if (years.length === 0) throw new Error("At least one tax year is required.");
+  for (const year of years) {
+    if (!isTaxYear(year)) throw new Error(`${year} is not a valid tax year.`);
+    next[year] = {
+      single: { original: 0, overflow: 0, combined: 0 },
+      married: { original: 0, overflow: 0, combined: 0 },
+    };
     for (const filing of FILING_STATUSES) {
       const row = raw[year]?.[filing];
-      if (!row || typeof row !== "object") continue;
+      if (!row || typeof row !== "object") throw new Error(`${year} ${filing} limits are required.`);
       const original = numberField(row.original, `${year} ${filing} original`);
       const overflow = numberField(row.overflow, `${year} ${filing} overflow`);
       const combined = numberField(row.combined, `${year} ${filing} combined`);
       if (Math.round((original + overflow) * 100) !== Math.round(combined * 100)) {
         throw new Error(`${year} ${filing} original plus overflow must equal the combined limit.`);
       }
+      if (combined <= 0) throw new Error(`${year} ${filing} combined limit must be more than zero.`);
       next[year][filing] = { original, overflow, combined };
     }
   }
@@ -87,7 +94,7 @@ export async function PUT(request: Request) {
   const notes = typeof body?.notes === "string" ? body.notes.trim().slice(0, 2048) : "";
 
   await prisma.$transaction(
-    TAX_YEARS.flatMap((year) =>
+    Object.keys(limits).flatMap((year) =>
       FILING_STATUSES.map((filing) =>
         prisma.taxCreditLimit.upsert({
           where: { taxYear_filingStatus: { taxYear: Number(year), filingStatus: filing } },

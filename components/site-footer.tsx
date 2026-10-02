@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ActLogo } from "@/components/act-logo";
-import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
+import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn } from "@/lib/utils";
 
 /** Footer sits on brand navy; keep links explicitly light across themes. */
@@ -24,6 +24,7 @@ const discover = [
   { href: "/about-us", label: "About Us" },
   // "Our Team" (/team) intentionally hidden for now — will be re-added later.
   { href: "/faq", label: "FAQ" },
+  { href: "/scholarship-reporting", label: "Scholarship Reporting" },
   { href: "/contact", label: "Contact Us" },
 ];
 
@@ -59,7 +60,7 @@ const resources = [
 
 export function SiteFooter() {
   const [taxLimits, setTaxLimits] = useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
-  const current = taxLimits["2026"];
+  const current = currentTaxYearLimits(taxLimits);
   const singleLimit = `$${current.single.combined.toLocaleString()}`;
   const marriedLimit = `$${current.married.combined.toLocaleString()}`;
 

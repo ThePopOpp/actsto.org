@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Download } from "lucide-react";
 
 import { DashboardSectionPlaceholder } from "@/components/dashboard/dashboard-section-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +20,7 @@ export default async function DonorReceiptsPage() {
     <div className="space-y-6">
       <DashboardSectionPlaceholder
         title="Receipts & tax"
-        description="Acknowledgments for your paid gifts. Each receipt is also emailed to you when the gift is completed."
+        description="Receipts for your paid gifts, ready to download for your tax records. Each one is also emailed to you when the gift is completed."
       />
 
       {receipts.length === 0 ? (
@@ -36,7 +37,7 @@ export default async function DonorReceiptsPage() {
       ) : (
         <Card className="overflow-hidden border-border/80">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase text-muted-foreground">
                   <th className="px-4 py-3">Receipt</th>
@@ -44,6 +45,7 @@ export default async function DonorReceiptsPage() {
                   <th className="px-4 py-3">Campaign</th>
                   <th className="px-4 py-3">Tax year</th>
                   <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3 text-right">PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -55,6 +57,19 @@ export default async function DonorReceiptsPage() {
                     <td className="px-4 py-3 tabular-nums">{gift.taxYear ?? "—"}</td>
                     <td className="px-4 py-3 text-right font-medium tabular-nums">
                       ${gift.amount.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {gift.receiptId ? (
+                        <a
+                          href={`/api/receipts/${gift.receiptId}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={cn(buttonVariants({ size: "sm", variant: "outline" }), "gap-1.5")}
+                        >
+                          <Download className="size-3.5" />
+                          Download
+                        </a>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

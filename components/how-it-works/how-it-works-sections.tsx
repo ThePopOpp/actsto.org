@@ -5,6 +5,7 @@ import { HomeHowItWorksSplit } from "@/components/home/home-sections";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/lib/button-variants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
+import { currentTaxYear as currentTaxYearOf } from "@/lib/tax-credit";
 import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +70,7 @@ export async function HowItWorksSections() {
     getCtaBlockByPlacement("how_it_works_bottom"),
     getTaxCreditLimitConfig(),
   ]);
-  const currentTaxYear = "2026";
+  const currentTaxYear = currentTaxYearOf(taxLimits);
   const currentLimits = taxLimits[currentTaxYear];
 
   return (

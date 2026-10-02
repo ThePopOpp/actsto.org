@@ -73,13 +73,14 @@ export async function AdminReceiptsList() {
                       <td className="py-2.5 pr-4">{statusBadge(r.status)}</td>
                       <td className="py-2.5 pr-4 text-muted-foreground">{dt(r.issuedAt)}</td>
                       <td className="py-2.5">
-                        {r.receiptPdfUrl ? (
-                          <Link href={r.receiptPdfUrl} target="_blank" className="text-primary underline underline-offset-2">
-                            View
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                        {/* Rendered on request; receipt_pdf_url was never populated. */}
+                        <Link
+                          href={`/api/receipts/${r.id}/pdf`}
+                          target="_blank"
+                          className="text-primary underline underline-offset-2"
+                        >
+                          View
+                        </Link>
                       </td>
                     </tr>
                   ))

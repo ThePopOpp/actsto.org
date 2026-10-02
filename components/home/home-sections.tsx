@@ -21,7 +21,7 @@ import { BROWSE_SCHOOL_TYPE_LABELS, type Campaign } from "@/lib/campaigns";
 import { buttonVariants } from "@/lib/button-variants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
-import { DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
+import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 import { cn } from "@/lib/utils";
 
@@ -360,7 +360,7 @@ export function HomeHowItWorksSplit({
 }: {
   taxLimits?: TaxCreditLimitConfig;
 }) {
-  const current = taxLimits["2026"];
+  const current = currentTaxYearLimits(taxLimits);
   return (
     <section className="bg-slate-50 py-14 dark:bg-white/[0.08] sm:py-16">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -500,7 +500,7 @@ export function HomePreFooterCta({
   taxLimits?: TaxCreditLimitConfig;
 }) {
   if (cta) return <SiteCtaBlock block={cta} darkBand />;
-  const current = taxLimits["2026"];
+  const current = currentTaxYearLimits(taxLimits);
   const singleLimit = `$${current.single.combined.toLocaleString()}`;
   const marriedLimit = `$${current.married.combined.toLocaleString()}`;
 

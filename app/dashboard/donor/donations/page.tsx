@@ -74,13 +74,15 @@ export default async function DonorDonationsPage() {
                         ${gift.amount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
-                        {gift.receiptNumber ? (
-                          <Link
-                            href="/dashboard/donor/receipts"
+                        {gift.receiptNumber && gift.receiptId ? (
+                          <a
+                            href={`/api/receipts/${gift.receiptId}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
                             className="font-mono text-xs text-primary underline-offset-4 hover:underline"
                           >
                             {gift.receiptNumber}
-                          </Link>
+                          </a>
                         ) : (
                           <span className="text-xs text-muted-foreground">Pending</span>
                         )}
