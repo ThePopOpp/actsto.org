@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 export type TaxReceiptPdfData = {
   receiptNumber: string;
@@ -26,7 +26,8 @@ const ORG = {
 const s = StyleSheet.create({
   page: { padding: 48, fontSize: 10, color: "#1f2937", fontFamily: "Helvetica" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  brand: { fontSize: 16, fontWeight: 700, color: "#1e2a4a" },
+  logo: { width: 150, height: 37, marginBottom: 8 },
+  brand: { fontSize: 13, fontWeight: 700, color: "#1e2a4a" },
   sub: { fontSize: 9, color: "#6b7280", marginTop: 2 },
   receiptBox: { alignItems: "flex-end" },
   receiptLabel: { fontSize: 8, color: "#6b7280", textTransform: "uppercase" },
@@ -59,7 +60,8 @@ const s = StyleSheet.create({
   footer: { position: "absolute", bottom: 32, left: 48, right: 48, fontSize: 8, color: "#9ca3af", textAlign: "center" },
 });
 
-export function TaxReceiptDocument({ data }: { data: TaxReceiptPdfData }) {
+/** `logo` is the PNG wordmark; react-pdf cannot draw the site's SVG logo. */
+export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; logo?: Buffer | null }) {
   return (
     <Document title={`Receipt ${data.receiptNumber}`} author={ORG.name}>
       <Page size="LETTER" style={s.page}>
@@ -67,6 +69,8 @@ export function TaxReceiptDocument({ data }: { data: TaxReceiptPdfData }) {
 
         <View style={s.header}>
           <View>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
+            {logo ? <Image src={{ data: logo, format: "png" }} style={s.logo} /> : null}
             <Text style={s.brand}>{ORG.name}</Text>
             <Text style={s.sub}>Certified Arizona School Tuition Organization · 501(c)(3) nonprofit</Text>
             <Text style={s.sub}>EIN {ORG.ein}</Text>

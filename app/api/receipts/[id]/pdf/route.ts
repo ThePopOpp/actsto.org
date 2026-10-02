@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 
@@ -8,6 +11,14 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+let logoCache: Promise<Buffer | null> | null = null;
+
+/** The PNG wordmark from /public; a receipt still renders if it is missing. */
+function receiptLogo() {
+  logoCache ??= readFile(path.join(process.cwd(), "public", "actsto-logo-light.png")).catch(() => null);
+  return logoCache;
+}
 
 function phoenixDate(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -116,7 +127,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     isVoid: receipt.status === "void",
   };
 
-  const buffer = await streamToBuffer(await pdf(TaxReceiptDocument({ data })).toBuffer());
+  const buffer = await streamToBuffer(await pdf(TaxReceiptDocument({ data, logo: await receiptLogo() })).toBuffer());
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
