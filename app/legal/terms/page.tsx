@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Terms of service" };
 
 export default function TermsPage() {
   return (
-    <LegalPageShell title="Terms of service" lastUpdated="April 1, 2026">
+    <LegalPageShell title="Terms of service" lastUpdated="October 5, 2026">
       <div className={LEGAL_BODY_CLASS}>
         <TermsDocumentBody />
       </div>

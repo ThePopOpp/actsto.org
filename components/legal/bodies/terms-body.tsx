@@ -161,7 +161,7 @@ export function TermsDocumentBody() {
         <ul className="mt-3 text-muted-foreground">
           <li>
             Campaigns must include accurate student first name, grade, school name, truthful narrative, funding goal, and
-            end date (maximum 365 days).
+            end date. A campaign may run until June 30 of the year after the year it starts.
           </li>
           <li>
             <strong className="text-foreground">Prohibited content:</strong> false or misleading information, defamation,

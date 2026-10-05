@@ -40,6 +40,7 @@ import {
   type TaxYear,
 } from "@/lib/tax-credit";
 import { cn, formatCheckoutUsd } from "@/lib/utils";
+import type { DonorPrefill } from "@/app/api/donate/prefill/route";
 
 type StoRow = { id: string; organization: string; amount: number };
 type PaypalConfig = { clientId: string; environment: string };
@@ -466,6 +467,7 @@ export function TaxCreditWizard({
   const [zip, setZip] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [prefilledFromAccount, setPrefilledFromAccount] = useState(false);
 
   // Designation is optional, so it starts at No everywhere. The full donation
   // page used to start at Yes, which silently required the relationship box
@@ -549,6 +551,38 @@ export function TaxCreditWizard({
   useEffect(() => {
     if (initialCampaignSlug) setCampaignSlug(initialCampaignSlug);
   }, [initialCampaignSlug]);
+
+  // Signed-in donors: start step 1 from their account. Only empty fields are
+  // filled, so nothing the donor already typed is replaced, and every field
+  // stays editable for this gift without changing the profile. Guests get a
+  // 401 and the form stays blank. SMS consent is never prefilled.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/donate/prefill", { cache: "no-store" })
+      .then((res) => (res.ok ? (res.json() as Promise<DonorPrefill>) : null))
+      .then((p) => {
+        if (cancelled || !p) return;
+        const fill = (set: (fn: (v: string) => string) => void, value: string) => {
+          if (value) set((current) => current || value);
+        };
+        fill(setFirstName, p.firstName);
+        fill(setMiddleName, p.middleName);
+        fill(setLastName, p.lastName);
+        fill(setEmail, p.email);
+        fill(setPhone, p.phone);
+        fill(setBillingAddress, p.addressLine1);
+        fill(setUnit, p.addressLine2);
+        fill(setCity, p.city);
+        fill(setZip, p.zip);
+        // State starts as "AZ"; replace that default only, never a choice.
+        if (p.state) setState((current) => (current === "AZ" || !current ? p.state.toUpperCase().slice(0, 2) : current));
+        if (p.firstName || p.email || p.addressLine1) setPrefilledFromAccount(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -734,7 +768,12 @@ export function TaxCreditWizard({
           }
         >
           <div className={cn("space-y-6", embedInDialog && "sm:space-y-7")}>
-            {embedInDialog ? (
+            {prefilledFromAccount ? (
+              <p className="text-sm text-muted-foreground">
+                Pulled from your account. Check these details before you continue — changes here apply to this
+                donation and its receipt only.
+              </p>
+            ) : embedInDialog ? (
               <p className="text-sm text-muted-foreground">
                 Enter your personal information below.
               </p>
