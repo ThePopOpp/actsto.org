@@ -156,11 +156,19 @@ export async function uploadApplicationDocument(
  * this function does not perform one, by design, because the parent path and
  * the staff path authorize differently.
  */
-export async function createSignedDocumentUrl(storagePath: string): Promise<string | null> {
+export async function createSignedDocumentUrl(
+  storagePath: string,
+  options: { downloadAs?: string } = {},
+): Promise<string | null> {
   const supabase = createServiceClient();
   const { data, error } = await supabase.storage
     .from(DOCUMENT_BUCKET)
-    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+    .createSignedUrl(
+      storagePath,
+      SIGNED_URL_TTL_SECONDS,
+      // Without `download` the browser renders PDFs and images inline.
+      options.downloadAs ? { download: options.downloadAs } : undefined,
+    );
   if (error || !data?.signedUrl) return null;
   return data.signedUrl;
 }
@@ -192,7 +200,14 @@ export async function deleteStorageObjectIfOrphaned(
 
 // ── Access logging ───────────────────────────────────────────────────────────
 
-export type DocumentAccessAction = "signed_url" | "download" | "delete" | "denied" | "purge";
+export type DocumentAccessAction =
+  | "signed_url"
+  | "view"
+  | "download"
+  | "upload"
+  | "delete"
+  | "denied"
+  | "purge";
 
 /**
  * Log every touch of a document: who, when, which file. If a family ever asks

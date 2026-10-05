@@ -96,6 +96,8 @@ export type Campaign = {
   donorCount: number;
   daysLeft: number;
   endDate: string;
+  /** "yyyy-MM-dd" when the campaign has a scheduled start. */
+  startDate?: string;
   image: string;
   gallery: string[];
   students: CampaignStudent[];

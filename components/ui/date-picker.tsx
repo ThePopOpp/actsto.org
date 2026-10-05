@@ -22,20 +22,37 @@ function toDateValue(date: Date | undefined) {
   return date ? format(date, "yyyy-MM-dd") : "";
 }
 
+// With a year dropdown and no endMonth, react-day-picker stops at December of
+// the current year, which silently blocked campaign end dates, invoice due
+// dates and plan dates past Dec 31. Default to ten years ahead instead.
+function defaultEndMonth() {
+  const now = new Date();
+  return new Date(now.getFullYear() + 10, 11, 1);
+}
+
 export function DatePicker({
   id,
   value,
   onChange,
   placeholder = "Select date",
   className,
+  minDate,
+  maxDate,
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** Earliest selectable day, "yyyy-MM-dd". */
+  minDate?: string;
+  /** Latest selectable day, "yyyy-MM-dd". */
+  maxDate?: string;
 }) {
   const selected = parseDateValue(value);
+  const min = parseDateValue(minDate ?? "");
+  const max = parseDateValue(maxDate ?? "");
+  const disabled = [...(min ? [{ before: min }] : []), ...(max ? [{ after: max }] : [])];
 
   return (
     <Popover>
@@ -57,6 +74,10 @@ export function DatePicker({
           onSelect={(date) => onChange(toDateValue(date))}
           captionLayout="dropdown"
           buttonVariant="ghost"
+          defaultMonth={selected ?? (max && max < new Date() ? max : undefined)}
+          startMonth={min}
+          endMonth={max ?? defaultEndMonth()}
+          disabled={disabled.length > 0 ? disabled : undefined}
         />
         {selected ? (
           <div className="border-t border-border p-2">

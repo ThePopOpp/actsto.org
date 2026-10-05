@@ -376,14 +376,23 @@ export default async function AdminScholarshipDetailPage({
                       {document.verifiedAt ? " · verified" : ""}
                     </p>
                     {!document.purgedAt && can(actor.staffRole, "documents.view") ? (
-                      <Link
-                        href={`/api/scholarship/documents/${document.id}/url`}
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Get a link
-                      </Link>
+                      // Plain <a>: these are API redirects, not pages Next should prefetch.
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href={`/api/scholarship/documents/${document.id}/view`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View document
+                        </a>
+                        <a
+                          href={`/api/scholarship/documents/${document.id}/view?download=1`}
+                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                        >
+                          Download
+                        </a>
+                      </div>
                     ) : null}
                   </div>
                 ))

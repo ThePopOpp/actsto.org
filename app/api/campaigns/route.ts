@@ -15,6 +15,7 @@ import {
   findFamilyStudentByName,
 } from "@/lib/students/parent-students";
 import { createServerClient } from "@/lib/supabase/server";
+import { campaignEndDateError, defaultCampaignEndDate } from "@/lib/campaign-dates";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -154,6 +155,11 @@ export async function POST(request: Request) {
     schoolWebsite: text(raw.schoolWebsite),
     schoolLogo: text(raw.schoolLogo),
     };
+
+    // Same rule as the date picker; an API call can't get around it.
+    values.endDate = values.endDate || defaultCampaignEndDate(values.startDate);
+    const endDateError = campaignEndDateError(values.startDate, values.endDate);
+    if (endDateError) return NextResponse.json({ error: endDateError }, { status: 400 });
 
     const completion = calculateCampaignCompletion(values);
     if (action === "review" && !completion.readyForReview) {

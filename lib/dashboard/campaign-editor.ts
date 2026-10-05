@@ -1,4 +1,5 @@
 import type { Campaign, CampaignStudent } from "@/lib/campaigns";
+import { defaultCampaignEndDate } from "@/lib/campaign-dates";
 
 export type CampaignFormStudent = {
   /** `students.id` when this row is an existing student on the family's account. */
@@ -64,7 +65,8 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     tagline: "",
     excerpt: "",
     startDate: "",
-    endDate: "",
+    // New campaigns default to the latest allowed end: June 30 of next year.
+    endDate: defaultCampaignEndDate(),
     goal: "",
     image: "",
     galleryText: "",
@@ -179,7 +181,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
     raised: previous?.raised ?? 0,
     donorCount: previous?.donorCount ?? 0,
     daysLeft: previous?.daysLeft ?? 60,
-    endDate: values.endDate.trim() || previous?.endDate || "2026-12-31",
+    endDate: values.endDate.trim() || previous?.endDate || defaultCampaignEndDate(values.startDate),
     image: values.image.trim() || previous?.image || defaultImage,
     gallery: gallery.length > 0 ? gallery : (previous?.gallery ?? []),
     students,
@@ -224,7 +226,7 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     description: c.description,
     tagline: c.tagline,
     excerpt: c.excerpt,
-    startDate: "",
+    startDate: c.startDate ?? "",
     endDate: c.endDate,
     goal: String(c.goal),
     image: c.image,

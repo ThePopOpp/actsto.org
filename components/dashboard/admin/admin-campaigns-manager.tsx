@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import type { AdminCampaign } from "@/app/api/admin/campaigns/route";
 import { cn, FACE_SAFE_CROP, initialsOf } from "@/lib/utils";
+import { campaignEndDateError, maxCampaignEndDate } from "@/lib/campaign-dates";
 
 type ViewMode = "card" | "list" | "table" | "kanban" | "calendar" | "map";
 
@@ -91,7 +92,14 @@ export function AdminCampaignsManager() {
   }, [load]);
 
   const patch = useCallback(async (id: string, body: Record<string, unknown>) => {
-    await fetch(`/api/admin/campaigns/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(`/api/admin/campaigns/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      // Surface refusals (e.g. an end date past the allowed window) instead of
+      // reloading as if the change had saved.
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setNotice(data?.error ?? "That change could not be saved.");
+      window.setTimeout(() => setNotice(null), 5000);
+    }
     await load();
   }, [load]);
 
@@ -764,9 +772,16 @@ function ManageDialog({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule</p>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-muted-foreground">Starts</Label><DatePicker value={startsAt} onChange={setStartsAt} placeholder="Pick a date" /></div>
-              <div><Label className="text-xs text-muted-foreground">Ends</Label><DatePicker value={endsAt} onChange={setEndsAt} placeholder="Pick a date" /></div>
+              <div><Label className="text-xs text-muted-foreground">Ends</Label><DatePicker value={endsAt} onChange={setEndsAt} placeholder="Pick a date" minDate={startsAt || undefined} maxDate={maxCampaignEndDate(startsAt || campaign.startsAt || campaign.createdAt)} /></div>
             </div>
-            <Button type="button" size="sm" variant="outline" className="mt-2" disabled={busy} onClick={() => void run({ startsAt: startsAt || null, endsAt: endsAt || null })}>
+            {campaignEndDateError(startsAt || campaign.startsAt || campaign.createdAt, endsAt) ? (
+              <p className="mt-2 text-xs text-destructive">{campaignEndDateError(startsAt || campaign.startsAt || campaign.createdAt, endsAt)}</p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Can run until June 30, {maxCampaignEndDate(startsAt || campaign.startsAt || campaign.createdAt).slice(0, 4)}.
+              </p>
+            )}
+            <Button type="button" size="sm" variant="outline" className="mt-2" disabled={busy || Boolean(campaignEndDateError(startsAt || campaign.startsAt || campaign.createdAt, endsAt))} onClick={() => void run({ startsAt: startsAt || null, endsAt: endsAt || null })}>
               Save schedule
             </Button>
           </div>

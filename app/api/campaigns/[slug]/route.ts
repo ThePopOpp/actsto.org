@@ -13,6 +13,7 @@ import {
   findFamilyStudentByName,
 } from "@/lib/students/parent-students";
 import { normalizePhone } from "@/lib/sms/twilio";
+import { campaignEndDateError } from "@/lib/campaign-dates";
 
 function isCampaign(value: unknown): value is Campaign {
   return Boolean(
@@ -89,6 +90,10 @@ async function updateNormalizedCampaign({
   if (!isAdmin && existing.createdByUserId !== profile.id) {
     return NextResponse.json({ error: "You do not have access to edit this campaign." }, { status: 403 });
   }
+
+  // Measured from the stored start date, which this editor does not change.
+  const endDateError = campaignEndDateError(existing.startsAt ?? existing.createdAt, campaign.endDate);
+  if (endDateError) return NextResponse.json({ error: endDateError }, { status: 400 });
 
   const formValues = campaignToFormValues(campaign);
   const completion = calculateCampaignCompletion(formValues);

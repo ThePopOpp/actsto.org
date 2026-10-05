@@ -7,6 +7,7 @@ import {
   ensureRoleScaffold,
   getAccountTypeSummaries,
   syncAccountSetupProgress,
+  type AccountTypeSummary,
 } from "@/lib/auth/account-types";
 import { decodeSession, encodeSession, SESSION_COOKIE_NAME } from "@/lib/auth/cookie";
 import { dashboardPathForRole } from "@/lib/auth/paths";
@@ -55,7 +56,12 @@ async function getRequestIdentity() {
   return { userId, email, name, session };
 }
 
-function summariesFromSession(session: ActSession) {
+/**
+ * Last resort when the session can't be tied to a profile row. Must carry every
+ * AccountTypeSummary field: this used to omit `missing`, and the page's
+ * `account.missing.map` threw, so legacy-login users saw "This page couldn't load".
+ */
+function summariesFromSession(session: ActSession): AccountTypeSummary[] {
   return PORTAL_ROLES.map((role) => {
     const isActive = session.roles.includes(role);
     return {
@@ -75,6 +81,7 @@ function summariesFromSession(session: ActSession) {
       requiredFields: [],
       completedFields: [],
       missingFields: [],
+      missing: [],
       dashboardHref: dashboardPathForRole(role),
     };
   });
@@ -94,6 +101,18 @@ export async function GET() {
   if (userId) {
     const accountTypes = await getAccountTypeSummaries(userId);
     return NextResponse.json({ accountTypes });
+  }
+
+  // Legacy-cookie login: use the real profile when the email has one, so the
+  // page shows actual setup progress rather than a blank placeholder.
+  if (session) {
+    const profile = await prisma.profile
+      .findFirst({ where: { email: { equals: session.email, mode: "insensitive" } }, select: { id: true } })
+      .catch(() => null);
+    if (profile) {
+      const accountTypes = await getAccountTypeSummaries(profile.id).catch(() => null);
+      if (accountTypes) return NextResponse.json({ accountTypes });
+    }
   }
 
   return NextResponse.json({ accountTypes: session ? summariesFromSession(session) : [] });

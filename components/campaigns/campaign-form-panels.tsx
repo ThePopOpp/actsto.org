@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, FACE_SAFE_CROP, formatUsPhone, initialsOf } from "@/lib/utils";
+import { campaignEndDateError, maxCampaignEndDate } from "@/lib/campaign-dates";
 
 type OnPatch = (patch: Partial<CampaignFormValues>) => void;
 
@@ -210,7 +211,20 @@ export function CampaignFormPanelCampaign({
         </div>
         <div>
           <Label htmlFor="cf-end">Campaign end date</Label>
-          <DatePicker id="cf-end" value={values.endDate} onChange={(endDate) => onPatch({ endDate })} />
+          <DatePicker
+            id="cf-end"
+            value={values.endDate}
+            onChange={(endDate) => onPatch({ endDate })}
+            minDate={values.startDate || undefined}
+            maxDate={maxCampaignEndDate(values.startDate)}
+          />
+          {campaignEndDateError(values.startDate, values.endDate) ? (
+            <p className="mt-1 text-xs text-destructive">{campaignEndDateError(values.startDate, values.endDate)}</p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Can run until June 30, {maxCampaignEndDate(values.startDate).slice(0, 4)}.
+            </p>
+          )}
         </div>
       </div>
       <div>

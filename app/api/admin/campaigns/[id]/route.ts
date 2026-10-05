@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
+import { campaignEndDateError } from "@/lib/campaign-dates";
 
 const ALLOWED_STATUS = ["draft", "pending_review", "active", "paused", "completed", "rejected", "archived"];
 
@@ -30,6 +31,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (body.isFeatured !== undefined) data.isFeatured = body.isFeatured;
   if (body.isPublic !== undefined) data.isPublic = body.isPublic;
+  if (body.startsAt !== undefined || body.endsAt !== undefined) {
+    const current = await prisma.campaign.findUnique({ where: { id }, select: { startsAt: true, endsAt: true, createdAt: true } });
+    if (!current) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
+    const start = body.startsAt !== undefined ? body.startsAt : current.startsAt ?? current.createdAt;
+    const end = body.endsAt !== undefined ? body.endsAt : current.endsAt;
+    const endDateError = campaignEndDateError(start, end);
+    if (endDateError) return NextResponse.json({ error: endDateError }, { status: 400 });
+  }
   if (body.startsAt !== undefined) data.startsAt = body.startsAt ? new Date(body.startsAt) : null;
   if (body.endsAt !== undefined) data.endsAt = body.endsAt ? new Date(body.endsAt) : null;
 

@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       documentId: document.id,
       accessedBy: parent.profileId,
       accessorEmail: parent.email,
-      action: "download",
+      action: "upload",
       ip: requestIp(request),
     });
 

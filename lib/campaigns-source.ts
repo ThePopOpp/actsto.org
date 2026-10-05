@@ -6,6 +6,7 @@ import type { ActSession } from "@/lib/auth/types";
 import { getProfileForEmail, managedCampaignWhere } from "@/lib/dashboard/parent-scope";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { defaultCampaignEndDate } from "@/lib/campaign-dates";
 
 type PrismaCampaignForDisplay = Awaited<ReturnType<typeof loadPrismaCampaignsForDisplay>>[number];
 
@@ -59,7 +60,8 @@ function prismaCampaignToSiteCampaign(
   const raised = Number(campaign.raisedAmount ?? 0);
   const title = campaign.title || "Untitled campaign";
   const schoolName = campaign.school?.name ?? firstStudent?.school?.name ?? "School";
-  const endDate = campaign.endsAt?.toISOString().slice(0, 10) ?? "2026-12-31";
+  const startDate = campaign.startsAt?.toISOString().slice(0, 10);
+  const endDate = campaign.endsAt?.toISOString().slice(0, 10) ?? defaultCampaignEndDate(startDate ?? campaign.createdAt);
 
   return {
     slug: campaign.slug,
@@ -77,6 +79,7 @@ function prismaCampaignToSiteCampaign(
     donorCount: campaign.donorCount,
     daysLeft: daysLeft(campaign.endsAt),
     endDate,
+    startDate,
     image:
       campaign.featuredImageUrl ??
       "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&q=80",
