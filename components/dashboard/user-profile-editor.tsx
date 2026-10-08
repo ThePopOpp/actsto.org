@@ -20,6 +20,9 @@ import { formatUsPhone } from "@/lib/utils";
 type ProfileResponse = {
   profile?: {
     name?: string | null;
+    firstName?: string | null;
+    middleName?: string | null;
+    lastName?: string | null;
     email?: string | null;
     phone?: string | null;
     avatarUrl?: string | null;
@@ -59,6 +62,9 @@ export function UserProfileEditor({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [name, setName] = useState(defaultName);
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState(defaultPhone);
   const [address, setAddress] = useState(defaultAddress);
   const [city, setCity] = useState(defaultCity);
@@ -85,6 +91,9 @@ export function UserProfileEditor({
         if (!mounted || !data.profile) return;
 
         setName(data.profile.name || defaultName);
+        setFirstName(data.profile.firstName || "");
+        setMiddleName(data.profile.middleName || "");
+        setLastName(data.profile.lastName || "");
         setPhone(data.profile.phone || defaultPhone);
         setAddress(data.profile.address || defaultAddress);
         setCity(data.profile.city || defaultCity);
@@ -144,6 +153,9 @@ export function UserProfileEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          firstName,
+          middleName,
+          lastName,
           phone,
           address,
           city,
@@ -176,8 +188,8 @@ export function UserProfileEditor({
       <div>
         <h1 className="font-heading text-2xl font-semibold text-primary">Profile</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Update how you appear on campaigns and in supporter communications. Email changes may
-          require verification when wired to your auth provider.
+          Your name and contact details, used on receipts and to fill in donation forms, and how you
+          appear on campaigns.
         </p>
       </div>
 
@@ -186,8 +198,7 @@ export function UserProfileEditor({
           <CardHeader>
             <CardTitle className="font-heading text-lg text-primary">Photo</CardTitle>
             <CardDescription>
-              Square images (400px+) look best on campaign cards. Larger files will be stored
-              through media storage once uploads are connected.
+              JPG or PNG up to 1.5 MB. Square images (400px or larger) look best on campaign cards.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
@@ -246,15 +257,56 @@ export function UserProfileEditor({
             <CardTitle className="font-heading text-lg text-primary">Contact</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+              <div>
+                <Label htmlFor="dp-first">First name</Label>
+                <Input
+                  id="dp-first"
+                  className="mt-1.5"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="dp-middle">Middle name (optional)</Label>
+                <Input
+                  id="dp-middle"
+                  className="mt-1.5"
+                  autoComplete="additional-name"
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="dp-last">Last name</Label>
+                <Input
+                  id="dp-last"
+                  className="mt-1.5"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+            </div>
             <div className="sm:col-span-2">
-              <Label htmlFor="dp-name">Display name</Label>
-              <Input id="dp-name" className="mt-1.5" value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="dp-name">Public display name (optional)</Label>
+              <Input
+                id="dp-name"
+                className="mt-1.5"
+                placeholder={[firstName, lastName].filter(Boolean).join(" ")}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Shown on campaign pages and messages. Leave blank to use your first and last name.
+              </p>
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="dp-email">Email</Label>
               <Input id="dp-email" type="email" className="mt-1.5 bg-muted/50" value={defaultEmail} disabled readOnly />
               <p className="mt-1 text-xs text-muted-foreground">
-                To change email, use account security (when connected) or contact support.
+                This is the email you sign in with. To change it, contact us.
               </p>
             </div>
             <div>

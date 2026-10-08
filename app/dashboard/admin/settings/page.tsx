@@ -6,7 +6,7 @@ export default function AdminSettingsPage() {
     <>
       <AdminPageHeader
         title="Settings"
-        description="Domains, analytics, tax-year display, campaign defaults, compliance copy, and feature flags."
+        description="Eligibility rules, and links to every other screen where site settings are changed."
       />
       <AdminSettingsForm />
     </>

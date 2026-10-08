@@ -129,7 +129,10 @@ export function CampaignDetailSidebar({
             ${raised.toLocaleString()}
           </p>
           <p className="text-sm text-muted-foreground">
-            donated of ${goal.toLocaleString()} goal
+            awarded to students of ${goal.toLocaleString()} goal
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Gifts count here once our team awards them to students.
           </p>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
             <div

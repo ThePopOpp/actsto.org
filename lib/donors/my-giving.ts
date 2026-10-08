@@ -3,6 +3,7 @@ import "server-only";
 import type { ActSession } from "@/lib/auth/types";
 import type { Campaign } from "@/lib/campaigns";
 import { getSiteCampaignsBySlugs } from "@/lib/campaigns-source";
+import { FUNDING_SOURCE_PARENT_LABEL, isFundingSource } from "@/lib/funding-sources";
 import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
 
@@ -17,6 +18,10 @@ export type MyGift = {
   receiptNumber: string | null;
   /** Tax receipt row id, for the PDF link. */
   receiptId: string | null;
+  /** Programs the gift funds, e.g. "Low-income corporate scholarship". */
+  programs: string[];
+  /** Business name on a corporate gift, as entered on the form. */
+  businessName: string | null;
 };
 
 export type MyGiving = {
@@ -32,7 +37,7 @@ function creditLabel(donationType: string) {
     case "tax_credit":
       return "Tax credit";
     case "business":
-      return "Business";
+      return "Corporate tax credit";
     case "general":
       return "General fund";
     case "manual_check":
@@ -86,6 +91,8 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
         campaign: { select: { title: true, slug: true } },
         metadata: true,
         taxReceipts: { select: { id: true, receiptNumber: true }, take: 1 },
+        fundSplits: { select: { fundingSource: true } },
+        donationDetail: { select: { businessName: true } },
       },
     })
     .catch(() => []);
@@ -104,6 +111,15 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
       taxYear: donation.taxYear ?? donation.createdAt.getFullYear(),
       receiptNumber: donation.taxReceipts[0]?.receiptNumber ?? null,
       receiptId: donation.taxReceipts[0]?.id ?? null,
+      programs: Array.from(
+        new Set(
+          donation.fundSplits
+            .map((split) => split.fundingSource)
+            .filter(isFundingSource)
+            .map((source) => FUNDING_SOURCE_PARENT_LABEL[source]),
+        ),
+      ),
+      businessName: donation.donationDetail?.businessName ?? null,
     };
   });
 

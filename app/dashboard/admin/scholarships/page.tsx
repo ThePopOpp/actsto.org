@@ -31,13 +31,47 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+/**
+ * Item types in the one review queue. Disability and displacement
+ * verifications sit beside applications, labelled, so reviewers use one place
+ * and one set of actions for all of it.
+ */
+const TYPES = [
+  { id: "all", label: "All types" },
+  { id: "application", label: "Scholarship applications" },
+  { id: "disability", label: "Disability verifications" },
+  { id: "displacement", label: "Displacement verifications" },
+] as const;
+type TypeId = (typeof TYPES)[number]["id"];
+
+/** Verification statuses that belong under each status tab. */
+const VERIFICATION_TAB_STATUSES: Record<TabId, string[]> = {
+  open: ["pending_review", "awaiting_dcs", "info_requested"],
+  approved: ["approved"],
+  denied: ["denied"],
+  withdrawn: ["withdrawn"],
+  all: ["pending_review", "awaiting_dcs", "info_requested", "approved", "denied", "withdrawn"],
+};
+
+const VERIFICATION_STATUS_LABEL: Record<string, string> = {
+  pending_review: "Under review",
+  awaiting_dcs: "Sent to DCS",
+  info_requested: "Awaiting information",
+  approved: "Approved",
+  denied: "Denied",
+  withdrawn: "Withdrawn",
+};
+
 export default async function AdminScholarshipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; type?: string }>;
 }) {
-  const { status: statusParam } = await searchParams;
+  const { status: statusParam, type: typeParam } = await searchParams;
   const tab = TABS.find((t) => t.id === statusParam) ?? TABS[0];
+  const type: TypeId = TYPES.find((t) => t.id === typeParam)?.id ?? "all";
+  const showApplications = type === "all" || type === "application";
+  const verificationKinds = type === "all" ? ["disability", "displacement"] : type === "application" ? [] : [type];
   const isOpenTab = tab.id === "open";
   const actor = await getStaffActor();
   if (!actor) {
@@ -62,7 +96,29 @@ export default async function AdminScholarshipsPage({
     return statusCounts.filter((c) => statuses.includes(c.status)).reduce((sum, c) => sum + c._count._all, 0);
   };
 
-  const applications = await prisma.scholarshipApplication.findMany({
+  const verifications = verificationKinds.length
+    ? await prisma.studentVerification.findMany({
+        where: { kind: { in: verificationKinds }, status: { in: VERIFICATION_TAB_STATUSES[tab.id] } },
+        orderBy: { createdAt: isOpenTab ? "asc" : "desc" },
+        select: {
+          id: true,
+          kind: true,
+          status: true,
+          schoolYear: true,
+          source: true,
+          createdAt: true,
+          decidedAt: true,
+          claimedBy: true,
+          student: { select: { firstName: true, lastName: true, school: { select: { name: true } } } },
+          _count: { select: { documents: true } },
+        },
+      })
+    : [];
+  const openVerificationCount = await prisma.studentVerification.count({
+    where: { status: { in: VERIFICATION_TAB_STATUSES.open } },
+  });
+
+  const applications = !showApplications ? [] : await prisma.scholarshipApplication.findMany({
     where: { status: { in: [...tab.statuses] } },
     // The queue works oldest-first; decided lists read newest decision first.
     orderBy: isOpenTab ? [{ submittedAt: "asc" }] : [{ reviewedAt: { sort: "desc", nulls: "last" } }, { submittedAt: "desc" }],
@@ -86,7 +142,9 @@ export default async function AdminScholarshipsPage({
     },
   });
 
-  const reviewerIds = [...new Set(applications.map((a) => a.reviewedBy).filter(Boolean))] as string[];
+  const reviewerIds = [
+    ...new Set([...applications.map((a) => a.reviewedBy), ...verifications.map((v) => v.claimedBy)].filter(Boolean)),
+  ] as string[];
   const reviewers = reviewerIds.length
     ? await prisma.profile.findMany({
         where: { id: { in: reviewerIds } },
@@ -108,7 +166,7 @@ export default async function AdminScholarshipsPage({
     <>
       <AdminPageHeader
         title="Scholarship applications"
-        description="Approve, deny, or ask a family for more information. Approval decides eligibility only — awarding happens separately."
+        description="Applications and disability or displacement verifications. Approve, deny, or ask a family for more information. Approval decides eligibility only; awards are made on Allocation."
       />
 
       {stale.length > 0 ? (
@@ -122,11 +180,44 @@ export default async function AdminScholarshipsPage({
         </Alert>
       ) : null}
 
+      <nav className="mb-3 flex flex-wrap gap-2" aria-label="Item type">
+        {TYPES.map((t) => {
+          const query = new URLSearchParams();
+          if (tab.id !== "open") query.set("status", tab.id);
+          if (t.id !== "all") query.set("type", t.id);
+          const qs = query.toString();
+          return (
+            <Link
+              key={t.id}
+              href={"/dashboard/admin/scholarships" + (qs ? "?" + qs : "")}
+              aria-current={t.id === type ? "page" : undefined}
+              className={cn(buttonVariants({ size: "sm", variant: t.id === type ? "secondary" : "ghost" }))}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+        {openVerificationCount > 0 ? (
+          <span className="self-center text-xs text-muted-foreground">
+            {openVerificationCount} open verification{openVerificationCount === 1 ? "" : "s"}
+          </span>
+        ) : null}
+      </nav>
+
       <nav className="mb-5 flex flex-wrap gap-2" aria-label="Application status">
         {TABS.map((t) => (
           <Link
             key={t.id}
-            href={t.id === "open" ? "/dashboard/admin/scholarships" : `/dashboard/admin/scholarships?status=${t.id}`}
+            href={
+              "/dashboard/admin/scholarships" +
+              (() => {
+                const query = new URLSearchParams();
+                if (t.id !== "open") query.set("status", t.id);
+                if (type !== "all") query.set("type", type);
+                const qs = query.toString();
+                return qs ? "?" + qs : "";
+              })()
+            }
             aria-current={t.id === tab.id ? "page" : undefined}
             className={cn(buttonVariants({ size: "sm", variant: t.id === tab.id ? "default" : "outline" }), "gap-1.5")}
           >
@@ -136,7 +227,46 @@ export default async function AdminScholarshipsPage({
         ))}
       </nav>
 
-      {applications.length === 0 ? (
+      {verifications.length > 0 ? (
+        <div className="mb-3 space-y-3">
+          {verifications.map((v) => (
+            <Card key={v.id} className="border-border/80">
+              <CardContent className="flex flex-wrap items-start justify-between gap-4 p-4">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-foreground">
+                      {[v.student.firstName, v.student.lastName].filter(Boolean).join(" ")}
+                    </p>
+                    <Badge className="border-0 bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-100">
+                      {v.kind === "disability" ? "Disability verification" : "Displacement verification"}
+                    </Badge>
+                    <Badge variant="secondary">{VERIFICATION_STATUS_LABEL[v.status] ?? v.status}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {v.schoolYear === "K-12" ? "All of K-12" : v.schoolYear} · {v.student.school?.name ?? "No school"} ·{" "}
+                    from the {v.source === "application" ? "application" : "student profile"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Requested {formatWindowDate(v.createdAt)}
+                    {v.decidedAt ? " · decided " + formatWindowDate(v.decidedAt) : ""}
+                    {reviewerName(v.claimedBy) ? " · with " + reviewerName(v.claimedBy) : ""}
+                    {" · "}
+                    {v._count.documents} document{v._count.documents === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <Link
+                  href={"/dashboard/admin/scholarships/verifications/" + v.id}
+                  className={cn(buttonVariants({ size: "sm", variant: isOpenTab ? "default" : "outline" }))}
+                >
+                  {isOpenTab ? "Review" : "View"}
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
+      {applications.length === 0 && verifications.length === 0 ? (
         <Card className="border-border/80">
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
             {isOpenTab ? "Nothing waiting for review." : `No ${tab.label.toLowerCase()} applications.`}
@@ -161,6 +291,7 @@ export default async function AdminScholarshipsPage({
                           .filter(Boolean)
                           .join(" ")}
                       </p>
+                      <Badge variant="outline">Scholarship application</Badge>
                       <Badge variant="secondary">
                         {STAFF_STATUS_LABEL[application.status] ?? application.status}
                       </Badge>

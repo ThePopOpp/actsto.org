@@ -69,22 +69,23 @@ export async function getLiveCampaignDonationTotalsBySlug(slugs: string[]) {
 }
 
 /**
- * Set every campaign's raised total and donor count to what has really been paid.
+ * Attach what each campaign has really been paid, as `received`.
  *
- * These values are replaced, never added to. Adding meant any figure already on
- * the record — including the seeded sample numbers that used to reach the public
- * site — was quietly included in the total shown to donors. A campaign with no
- * paid donations reads zero, which is the honest answer.
+ * The public "funded" figure (`raised`) is awarded money only — a gift counts
+ * once our team awards it to the campaign's students (spec #6) — so the cards,
+ * the campaign page and the dashboards no longer disagree. What was paid in is
+ * still shown to staff and the family as `received`, so nothing seems lost.
+ * Both are replaced, never added to.
  */
-export async function applyLiveCampaignDonationTotals(campaigns: Campaign[]) {
+export async function applyLiveCampaignDonationTotals(campaigns: Campaign[]): Promise<Campaign[]> {
   const totals = await getLiveCampaignDonationTotalsBySlug(campaigns.map((campaign) => campaign.slug));
 
   return campaigns.map((campaign) => {
     const live = totals.get(campaign.slug);
     return {
       ...campaign,
-      raised: live?.raised ?? 0,
-      donorCount: live?.donorCount ?? 0,
+      received: live?.raised ?? 0,
+      receivedDonorCount: live?.donorCount ?? 0,
     };
   });
 }

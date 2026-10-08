@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { WizardData, WizardApplication } from "@/components/dashboard/scholarship/types";
+import { getEligibilitySettings } from "@/lib/eligibility/settings-server";
 import { prisma } from "@/lib/prisma";
 import { schoolYearLabel } from "@/lib/scholarship/constants";
 import { householdLastUpdated, listHouseholdMembers } from "@/lib/scholarship/household";
@@ -47,7 +48,7 @@ export async function loadWizardData(
 ): Promise<WizardData> {
   const application = await requireOwnedApplication(applicationId, parent.profileId);
 
-  const [students, schools, household, lastUpdated, profile] = await Promise.all([
+  const [students, schools, household, lastUpdated, profile, settings] = await Promise.all([
     prisma.student.findMany({
       where: parentStudentWhere(parent.profileId),
       orderBy: [{ firstName: "asc" }],
@@ -74,6 +75,7 @@ export async function loadWizardData(
         },
       },
     }),
+    getEligibilitySettings(),
   ]);
 
   const window = application.schoolYear ? await getWindowForYear(application.schoolYear) : null;
@@ -138,6 +140,11 @@ export async function loadWizardData(
     overflowComments: application.overflowComments,
     esaCurrentYear: application.esaCurrentYear,
     esaPriorYear: application.esaPriorYear,
+    hasDisability: application.hasDisability,
+    disabilityAutoSet: application.disabilityAutoSet,
+    isDisplaced: application.isDisplaced,
+    incomeProofStatus: application.incomeProofStatus,
+    incomeProofNote: application.incomeProofNote,
     status: application.status,
     lockedAt: application.lockedAt?.toISOString() ?? null,
     confirmationCode: application.confirmationCode,
@@ -187,5 +194,9 @@ export async function loadWizardData(
     priorDenialMessage: priorDenial?.parentMessage ?? null,
     certifiedIncome: toCertifiedIncome(application.incomeSnapshot),
     missingImportedDocuments: missingImported.map((d) => d.fileName),
+    eligibilityText: {
+      displacedDefinition: settings.displacedDefinition,
+      incomeProofGuidance: settings.incomeProofGuidance,
+    },
   };
 }

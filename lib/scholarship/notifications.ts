@@ -27,13 +27,13 @@ function firstNameOf(name: string | null | undefined): string {
   return (name ?? "").trim().split(/\s+/)[0] || "there";
 }
 
-type Recipient = {
+export type Recipient = {
   profileId: string | null;
   email: string;
   name: string | null;
 };
 
-async function notify(args: {
+export async function notify(args: {
   to: Recipient;
   subject: string;
   body: string[];

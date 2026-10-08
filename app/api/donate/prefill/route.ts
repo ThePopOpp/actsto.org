@@ -16,6 +16,20 @@ export type DonorPrefill = {
   city: string;
   state: string;
   zip: string;
+  /** The portal the donor is signed in to, so a business donor gets the corporate form. */
+  accountRole: string;
+  /** The business's own record, for the corporate form. Null for other accounts. */
+  business: {
+    businessName: string;
+    ein: string;
+    businessEmail: string;
+    businessPhone: string;
+    addressLine1: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    zip: string;
+  } | null;
 };
 
 function clean(value: string | null | undefined) {
@@ -59,7 +73,17 @@ export async function GET() {
         phone: true,
         parentGuardianProfile: { select: { addressLine1: true, addressLine2: true, city: true, state: true, zip: true } },
         businessDonorProfile: {
-          select: { addressLine1: true, addressLine2: true, city: true, state: true, zip: true, businessPhone: true },
+          select: {
+            addressLine1: true,
+            addressLine2: true,
+            city: true,
+            state: true,
+            zip: true,
+            businessPhone: true,
+            businessName: true,
+            businessEmail: true,
+            ein: true,
+          },
         },
       },
     })
@@ -70,6 +94,7 @@ export async function GET() {
     const empty: DonorPrefill = {
       firstName: "", middleName: "", lastName: "", email: session.email, phone: "",
       addressLine1: "", addressLine2: "", city: "", state: "", zip: "",
+      accountRole: session.role, business: null,
     };
     return NextResponse.json(empty, { headers: { "Cache-Control": "private, no-store" } });
   }
@@ -78,8 +103,14 @@ export async function GET() {
     .findFirst({ where: { userId: profile.id }, orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }] })
     .catch(() => null);
 
+  // A business donor's address is the business's; everyone else's is their own.
+  const isBusiness = session.role === "donor_business";
   const address =
-    [billing, profile.parentGuardianProfile, profile.businessDonorProfile].find((a) => clean(a?.addressLine1)) ?? null;
+    (isBusiness
+      ? [profile.businessDonorProfile, billing, profile.parentGuardianProfile]
+      : [billing, profile.parentGuardianProfile, profile.businessDonorProfile]
+    ).find((a) => clean(a?.addressLine1)) ?? null;
+  const biz = profile.businessDonorProfile;
 
   const fallback = splitName(clean(profile.fullName) || clean(profile.displayName));
   const prefill: DonorPrefill = {
@@ -93,6 +124,21 @@ export async function GET() {
     city: clean(address?.city),
     state: clean(address?.state),
     zip: clean(address?.zip),
+    accountRole: session.role,
+    business:
+      isBusiness && biz
+        ? {
+            businessName: clean(biz.businessName),
+            ein: clean(biz.ein),
+            businessEmail: clean(biz.businessEmail),
+            businessPhone: clean(biz.businessPhone),
+            addressLine1: clean(biz.addressLine1),
+            addressLine2: clean(biz.addressLine2),
+            city: clean(biz.city),
+            state: clean(biz.state),
+            zip: clean(biz.zip),
+          }
+        : null,
   };
 
   return NextResponse.json(prefill, { headers: { "Cache-Control": "private, no-store" } });

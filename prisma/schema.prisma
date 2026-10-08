@@ -343,6 +343,8 @@ model BusinessDonorProfile {
   city                    String?
   state                   String?
   zip                     String?
+  /// Data URL or hosted image, shown on the business dashboard.
+  logoUrl                 String?  @map("logo_url")
   profileStatus           String   @default("incomplete") @map("profile_status")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
@@ -442,6 +444,10 @@ model Student {
   yearEligibility      StudentYearEligibility[]
   donationAllocations  DonationAllocation[]
   donorRecommendations DonorRecommendation[]
+  recommendedIn        DonorRecommendedStudent[]
+  eligibilityFlags     StudentEligibilityFlag[]
+  verifications        StudentVerification[]
+  yearLimits           StudentYearLimit[]
 
   @@map("students")
 }
@@ -503,6 +509,15 @@ model Campaign {
   city                     String?
   state                    String?
   isFeatured               Boolean   @default(false) @map("is_featured")
+  /// Lower shows first among featured campaigns; null is not pinned.
+  featuredRank             Int?      @map("featured_rank")
+  /// School-level campaign: no specific student, money is awarded to students at `school`.
+  isSchoolLevel            Boolean   @default(false) @map("is_school_level")
+  /// Active awards drawn from this campaign's donations, to its students (or,
+  /// school-level, to any student). The public "funded" figure. raisedAmount
+  /// stays as donations received, for admins.
+  awardedAmount            Decimal   @default(0) @map("awarded_amount") @db.Decimal(14, 2)
+  awardedDonorCount        Int       @default(0) @map("awarded_donor_count")
   isPublic                 Boolean   @default(true) @map("is_public")
   /// Families choose whether supporters may review their campaign.
   reviewsEnabled           Boolean   @default(true) @map("reviews_enabled")
@@ -748,9 +763,52 @@ model Donation {
   campaignBackers     CampaignBacker[]
   taxReceipts         TaxReceipt[]
   donorRecommendation DonorRecommendation?
+  recommendedStudents DonorRecommendedStudent[]
+  fundSplits          DonationFundSplit[]
+  awards              ScholarshipAward[]
   invoices            Invoice[]
 
   @@map("donations")
+}
+
+/// Which program a donation's dollars belong to. A gift may span several
+/// (individual Original up to the limit, Overflow after). The dollars follow
+/// this into allocation; once any are awarded it cannot change.
+model DonationFundSplit {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId    String   @map("donation_id") @db.Uuid
+  /// individual_original | individual_overflow | corporate_low_income |
+  /// corporate_disabled_displaced | corporate_other | unrestricted
+  fundingSource String   @map("funding_source")
+  amount        Decimal  @db.Decimal(14, 2)
+  /// confirmed | needs_review
+  status        String   @default("confirmed")
+  setBy         String?  @map("set_by") @db.Uuid
+  setByEmail    String?  @map("set_by_email")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@index([donationId])
+  @@index([fundingSource], map: "donation_fund_splits_source_idx")
+  @@map("donation_fund_splits")
+}
+
+/// Every student a donor recommended. Non-binding: an input to allocation only.
+model DonorRecommendedStudent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId String   @map("donation_id") @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([donationId, studentId], map: "donor_recommended_students_donation_student_key")
+  @@index([studentId])
+  @@map("donor_recommended_students")
 }
 
 model DonationDetail {
@@ -778,6 +836,11 @@ model DonationDetail {
   publicMessage        String?  @map("public_message")
   showNamePublicly     Boolean  @default(true) @map("show_name_publicly")
   showAmountPublicly   Boolean  @default(false) @map("show_amount_publicly")
+  /// Corporate gifts: the business as the donor confirmed it on the form.
+  businessName         String?  @map("business_name")
+  /// EIN — donor and Super Admins only; never shown publicly.
+  businessEin          String?  @map("business_ein")
+  businessContactTitle String?  @map("business_contact_title")
   metadata             Json     @default("{}") @map("metadata")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
@@ -925,6 +988,23 @@ model ScholarshipApplication {
   /// 'yes' | 'no'
   esaPriorYear   String? @map("esa_prior_year")
 
+  // ── Student circumstances (shown on the overflow step) ──────────────────
+  /// 'yes' | 'no'. Independent of the single-select overflow reason, so a
+  /// student who is disabled and also moved from a public school keeps both.
+  hasDisability     String?  @map("has_disability")
+  /// The yes came from picking a disability overflow reason, not from the
+  /// parent answering directly. Only an auto-set yes is ever switched back.
+  disabilityAutoSet Boolean  @default(false) @map("disability_auto_set")
+  /// 'yes' | 'no'. K-12 only.
+  isDisplaced       String?  @map("is_displaced")
+
+  // ── Income proof (low-income eligibility) ───────────────────────────────
+  /// not_provided | submitted | accepted | rejected | needs_more
+  incomeProofStatus    String    @default("not_provided") @map("income_proof_status")
+  incomeProofDecidedBy String?   @map("income_proof_decided_by") @db.Uuid
+  incomeProofDecidedAt DateTime? @map("income_proof_decided_at")
+  incomeProofNote      String?   @map("income_proof_note")
+
   // ── Step 6: submission ──────────────────────────────────────────────────
   status           ApplicationStatus @default(draft) @map("application_status")
   certifiedAt      DateTime?         @map("certified_at")
@@ -1007,17 +1087,21 @@ model HouseholdMember {
   @@map("household_members")
 }
 
-/// Supporting documentation for an overflow qualification claim.
+/// Supporting documentation for an application (overflow claim, disability,
+/// income proof) or for a disability/displacement verification. Exactly one of
+/// applicationId and verificationId is set.
 /// Private bucket, signed URLs only, purged on a schedule.
 model ApplicationDocument {
-  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  applicationId String @map("application_id") @db.Uuid
-  storagePath   String @map("storage_path")
-  fileName      String @map("file_name")
-  fileSize      Int    @map("file_size")
-  mimeType      String @map("mime_type")
-  /// 'iep' | 'military_orders' | 'esa_closure' | 'enrollment' | 'other'
-  documentKind  String @default("other") @map("document_kind")
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId  String? @map("application_id") @db.Uuid
+  verificationId String? @map("verification_id") @db.Uuid
+  storagePath    String  @map("storage_path")
+  fileName       String  @map("file_name")
+  fileSize       Int     @map("file_size")
+  mimeType       String  @map("mime_type")
+  /// 'iep' | 'military_orders' | 'esa_closure' | 'enrollment' | 'income_proof'
+  /// | 'displaced_form' | 'other'
+  documentKind   String  @default("other") @map("document_kind")
 
   uploadedBy String?   @map("uploaded_by") @db.Uuid
   uploadedAt DateTime  @default(now()) @map("uploaded_at")
@@ -1025,19 +1109,27 @@ model ApplicationDocument {
   verifiedAt DateTime? @map("verified_at")
   verifiedBy String?   @map("verified_by") @db.Uuid
 
-  /// Set at upload time from the window's school year. A job purges the object
-  /// and sets purgedAt, keeping the row as an audit trail.
-  purgeAfter DateTime  @map("purge_after") @db.Date
-  purgedAt   DateTime? @map("purged_at")
+  /// Set at upload time from the award year (4-year rule). Null for displaced
+  /// forms until the student's final payout year is known. A job purges the
+  /// object and sets purgedAt, keeping the row as an audit trail.
+  purgeAfter      DateTime? @map("purge_after") @db.Date
+  purgedAt        DateTime? @map("purged_at")
+  /// 'award_year_4y' | 'displaced_final_payout_4y'
+  retentionRule   String    @default("award_year_4y") @map("retention_rule")
+  /// Blocks the purge during an audit or dispute, whatever the date.
+  legalHold       Boolean   @default(false) @map("legal_hold")
+  legalHoldReason String?   @map("legal_hold_reason")
 
   /// When a denied attempt is superseded, documents relink to the same storage
   /// object rather than asking the family to upload an IEP twice.
   importedFromId String? @map("imported_from_id") @db.Uuid
 
-  application ScholarshipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  accessLogs  DocumentAccessLog[]
+  application  ScholarshipApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  verification StudentVerification?    @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  accessLogs   DocumentAccessLog[]
 
   @@index([applicationId])
+  @@index([verificationId])
   @@index([purgeAfter])
   @@index([storagePath])
   @@map("application_documents")
@@ -1141,29 +1233,55 @@ model DocumentAccessLog {
   @@map("document_access_log")
 }
 
+/// An award (allocation) of one fund's money to one student for one school
+/// year. Awards are unlimited; caps and the tuition ceiling apply only to what
+/// is sent to the school (ScholarshipPayment). Never deleted: a reversal sets
+/// status 'reversed' with a reason.
 model ScholarshipAward {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  applicationId String?   @map("application_id") @db.Uuid
-  studentId     String    @map("student_id") @db.Uuid
-  schoolId      String?   @map("school_id") @db.Uuid
-  campaignId    String?   @map("campaign_id") @db.Uuid
-  awardAmount   Decimal   @map("award_amount") @db.Decimal(14, 2)
-  awardDate     DateTime? @map("award_date") @db.Date
-  schoolYear    String?   @map("school_year")
-  status        String    @default("pending")
-  approvedBy    String?   @map("approved_by") @db.Uuid
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId   String?   @map("application_id") @db.Uuid
+  studentId       String    @map("student_id") @db.Uuid
+  schoolId        String?   @map("school_id") @db.Uuid
+  /// The campaign whose donations this draws from (drives the campaign's funded bar).
+  campaignId      String?   @map("campaign_id") @db.Uuid
+  /// A specific donation this draws from, when the allocator chose one.
+  donationId      String?   @map("donation_id") @db.Uuid
+  /// Fund the money comes from — same vocabulary as DonationFundSplit.
+  fundingSource   String?   @map("funding_source")
+  awardAmount     Decimal   @map("award_amount") @db.Decimal(14, 2)
+  awardDate       DateTime? @map("award_date") @db.Date
+  schoolYear      String?   @map("school_year")
+  /// awarded | held_esa | reversed
+  status          String    @default("awarded")
+  note            String?
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  createdBy       String?   @map("created_by") @db.Uuid
+  createdByEmail  String?   @map("created_by_email")
+  heldReason      String?   @map("held_reason")
+  holdReleasedAt  DateTime? @map("hold_released_at")
+  holdReleasedBy  String?   @map("hold_released_by") @db.Uuid
+  holdReleaseNote String?   @map("hold_release_note")
+  reversedAt      DateTime? @map("reversed_at")
+  reversedBy      String?   @map("reversed_by") @db.Uuid
+  reversalReason  String?   @map("reversal_reason")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   application ScholarshipApplication? @relation(fields: [applicationId], references: [id])
   student     Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   school      School?                 @relation(fields: [schoolId], references: [id])
   campaign    Campaign?               @relation(fields: [campaignId], references: [id])
+  donation    Donation?               @relation(fields: [donationId], references: [id])
   payments    ScholarshipPayment[]
 
+  @@index([studentId, schoolYear], map: "scholarship_awards_student_year_idx")
+  @@index([fundingSource, schoolYear], map: "scholarship_awards_source_idx")
+  @@index([campaignId], map: "scholarship_awards_campaign_idx")
   @@map("scholarship_awards")
 }
 
+/// Money sent to the school against an award (a disbursement). Never deleted:
+/// a mistake is voided with a reason.
 model ScholarshipPayment {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   awardId          String    @map("award_id") @db.Uuid
@@ -1172,14 +1290,186 @@ model ScholarshipPayment {
   paymentMethod    String?   @map("payment_method")
   paymentReference String?   @map("payment_reference")
   paidAt           DateTime? @map("paid_at")
+  /// sent | void
   status           String    @default("pending")
+  note             String?
+  recordedBy       String?   @map("recorded_by") @db.Uuid
+  recordedByEmail  String?   @map("recorded_by_email")
+  voidedAt         DateTime? @map("voided_at")
+  voidedBy         String?   @map("voided_by") @db.Uuid
+  voidReason       String?   @map("void_reason")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   award  ScholarshipAward @relation(fields: [awardId], references: [id], onDelete: Cascade)
   school School?          @relation(fields: [schoolId], references: [id])
 
+  @@index([awardId], map: "scholarship_payments_award_id_idx")
   @@map("scholarship_payments")
+}
+
+/// Per-student, per-year limits an admin enters. The tuition ceiling defaults
+/// to the application's tuition after discounts; ddCap is the disabled/
+/// displaced limit (lesser of tuition or 90% of state aid, A.R.S. § 43-1505).
+model StudentYearLimit {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String   @map("student_id") @db.Uuid
+  schoolYear      String   @map("school_year")
+  tuitionCeiling  Decimal? @map("tuition_ceiling") @db.Decimal(12, 2)
+  tuitionReason   String?  @map("tuition_reason")
+  ddCap           Decimal? @map("dd_cap") @db.Decimal(12, 2)
+  ddCapReason     String?  @map("dd_cap_reason")
+  ddCapDocumentId String?  @map("dd_cap_document_id") @db.Uuid
+  updatedBy       String?  @map("updated_by") @db.Uuid
+  updatedByEmail  String?  @map("updated_by_email")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, schoolYear], map: "student_year_limits_student_year_key")
+  @@map("student_year_limits")
+}
+
+/// The low-income income table for one school year (#3). Data, not code:
+/// staff enter next year's figures without a deploy.
+model LowIncomeTable {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolYear     String   @unique @map("school_year")
+  /// [{ householdSize, base185, maxIncome }] for sizes 1–8.
+  rows           Json     @default("[]")
+  additionalBase Decimal  @default(0) @map("additional_base") @db.Decimal(12, 2)
+  additionalMax  Decimal  @default(0) @map("additional_max") @db.Decimal(12, 2)
+  sourceNote     String?  @map("source_note")
+  updatedBy      String?  @map("updated_by") @db.Uuid
+  updatedByEmail String?  @map("updated_by_email")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("low_income_tables")
+}
+
+/// Per-student caps on money SENT TO THE SCHOOL, by fund, year and grade band.
+model ScholarshipCap {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fundingSource  String   @map("funding_source")
+  schoolYear     String   @map("school_year")
+  /// k8 (K-8 and preschool with a disability) | 9_12
+  gradeBand      String   @map("grade_band")
+  amount         Decimal  @db.Decimal(12, 2)
+  updatedBy      String?  @map("updated_by") @db.Uuid
+  updatedByEmail String?  @map("updated_by_email")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([fundingSource, schoolYear, gradeBand], map: "scholarship_caps_source_year_band_key")
+  @@map("scholarship_caps")
+}
+
+/// One eligibility flag for one student and school year ('K-12' for displaced,
+/// which is verified once). Only `approved` makes a student eligible for the
+/// matching restricted fund.
+model StudentEligibilityFlag {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String    @map("student_id") @db.Uuid
+  /// low_income | disabled | displaced | overflow
+  flag                String
+  schoolYear          String    @map("school_year")
+  /// pending_review | awaiting_dcs | info_requested | approved | denied | revoked
+  status              String    @default("pending_review")
+  /// application | verification | admin_override
+  source              String
+  sourceApplicationId String?   @map("source_application_id") @db.Uuid
+  verificationId      String?   @map("verification_id") @db.Uuid
+  documentId          String?   @map("document_id") @db.Uuid
+  /// The income calculation, or what a document showed.
+  details             Json      @default("{}")
+  decidedBy           String?   @map("decided_by") @db.Uuid
+  decidedAt           DateTime? @map("decided_at")
+  reason              String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  student Student                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  events  StudentEligibilityFlagEvent[]
+
+  @@unique([studentId, flag, schoolYear], map: "student_eligibility_flags_student_flag_year_key")
+  @@index([flag, status, schoolYear], map: "student_eligibility_flags_flag_status_idx")
+  @@map("student_eligibility_flags")
+}
+
+/// Append-only history of a flag.
+model StudentEligibilityFlagEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flagId     String   @map("flag_id") @db.Uuid
+  fromStatus String?  @map("from_status")
+  toStatus   String   @map("to_status")
+  actorId    String?  @map("actor_id") @db.Uuid
+  actorEmail String?  @map("actor_email")
+  reason     String?
+  details    Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  flag StudentEligibilityFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@index([flagId, createdAt], map: "student_eligibility_flag_events_flag_id_idx")
+  @@map("student_eligibility_flag_events")
+}
+
+/// A parent's disability or displacement claim made outside an application,
+/// or a displacement claim from one. Reviewed in the same queue as
+/// applications, labelled by type.
+model StudentVerification {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String    @map("student_id") @db.Uuid
+  /// disability | displacement
+  kind                String
+  /// School year for disability; 'K-12' for displacement.
+  schoolYear          String    @map("school_year")
+  /// pending_review | awaiting_dcs | info_requested | approved | denied | withdrawn
+  status              String    @default("pending_review")
+  /// profile | application
+  source              String    @default("profile")
+  sourceApplicationId String?   @map("source_application_id") @db.Uuid
+  requestedBy         String?   @map("requested_by") @db.Uuid
+  parentNote          String?   @map("parent_note")
+  claimedBy           String?   @map("claimed_by") @db.Uuid
+  claimedAt           DateTime? @map("claimed_at")
+  dcsSentAt           DateTime? @map("dcs_sent_at")
+  dcsReference        String?   @map("dcs_reference")
+  /// What the document showed. Kept after the file itself is purged.
+  documentSummary     String?   @map("document_summary")
+  decidedBy           String?   @map("decided_by") @db.Uuid
+  decidedAt           DateTime? @map("decided_at")
+  parentMessage       String?   @map("parent_message")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  student   Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  documents ApplicationDocument[]
+  reviews   VerificationReview[]
+
+  @@index([studentId])
+  @@index([status])
+  @@map("student_verifications")
+}
+
+/// Append-only decision log for a verification.
+model VerificationReview {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  verificationId String   @map("verification_id") @db.Uuid
+  reviewerId     String?  @map("reviewer_id") @db.Uuid
+  reviewerEmail  String?  @map("reviewer_email")
+  /// submit | claim | send_to_dcs | approve | deny | request_info | note | parent_upload
+  action         String
+  internalNote   String?  @map("internal_note")
+  parentMessage  String?  @map("parent_message")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  verification StudentVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@index([verificationId, createdAt], map: "verification_reviews_verification_id_idx")
+  @@map("verification_reviews")
 }
 
 // ============================================================

@@ -92,10 +92,16 @@ export default async function RootLayout({
   ]);
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} flex min-h-full flex-col bg-background text-foreground antialiased`}
-      >
+    // The font variables live on <html> because globals.css applies font-sans
+    // there. Defined only on <body>, var(--font-geist-sans) was undefined where
+    // it was used, the whole font stack was dropped, and pages rendered in the
+    // browser's default serif (Times New Roman).
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable}`}
+    >
+      <body className="flex min-h-full flex-col bg-background font-sans text-foreground antialiased">
         <ThemeProvider>
           <PwaProvider>
             <ConditionalSiteChrome

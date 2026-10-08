@@ -33,6 +33,8 @@ export type TaxReceiptPdfData = {
   isVoid: boolean;
   /** Tax-credit gifts only. */
   breakdown?: TaxCreditBreakdown | null;
+  /** Corporate gifts: the business, its EIN, the contact, and the program. */
+  corporate?: { ein: string | null; contact: string | null; program: string | null } | null;
 };
 
 const ORG = {
@@ -135,6 +137,8 @@ export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; lo
           <View style={s.column}>
             <Text style={s.sectionLabel}>Donor</Text>
             <Text style={[s.line, { fontWeight: 700 }]}>{data.donorName}</Text>
+            {data.corporate?.ein ? <Text style={s.line}>EIN {data.corporate.ein}</Text> : null}
+            {data.corporate?.contact ? <Text style={s.line}>Attn: {data.corporate.contact}</Text> : null}
             {data.donorAddress.map((line, i) => (
               <Text key={i} style={s.line}>
                 {line}
@@ -163,6 +167,12 @@ export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; lo
             <Text style={s.label}>Tax year</Text>
             <Text style={s.value}>{data.taxYear}</Text>
           </View>
+          {data.corporate?.program ? (
+            <View style={s.row}>
+              <Text style={s.label}>Program</Text>
+              <Text style={s.value}>{data.corporate.program}</Text>
+            </View>
+          ) : null}
           <View style={s.row}>
             <Text style={s.label}>Designation</Text>
             <Text style={s.value}>{data.designation}</Text>
@@ -213,6 +223,13 @@ export function TaxReceiptDocument({ data, logo }: { data: TaxReceiptPdfData; lo
               and, for amounts above the original credit, Form 348. A donor may recommend a student but may not
               designate a contribution for the direct benefit of their own dependent (A.R.S. § 43-1603(C)).
               Consult your tax advisor about your eligibility.
+            </Text>
+          ) : data.corporate ? (
+            <Text>
+              This contribution may qualify for the Arizona corporate tax credit for contributions to a certified School
+              Tuition Organization (A.R.S. § 43-1183 for low-income scholarships, § 43-1184 for disabled or displaced
+              student scholarships), within the amount pre-approved by the Arizona Department of Revenue. A business may
+              recommend a school but not a specific student. Consult your tax advisor about your eligibility.
             </Text>
           ) : (
             <Text>

@@ -10,10 +10,19 @@ export type AdminCampaign = {
   tagline: string | null;
   status: string;
   isFeatured: boolean;
+  /** Lower shows first among featured campaigns; null is unranked. */
+  featuredRank: number | null;
+  isSchoolLevel: boolean;
+  schoolId: string | null;
+  schoolName: string | null;
   isPublic: boolean;
   goalAmount: number;
+  /** Paid gifts received through the campaign (counter kept by checkout). */
   raisedAmount: number;
   donorCount: number;
+  /** Awarded to the campaign's students from its gifts — the public "funded" figure. */
+  awardedAmount: number;
+  awardedDonorCount: number;
   city: string | null;
   state: string | null;
   featuredImageUrl: string | null;
@@ -30,9 +39,11 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const campaigns = await prisma.campaign.findMany({
-    orderBy: [{ isFeatured: "desc" }, { updatedAt: "desc" }],
+    orderBy: [{ isFeatured: "desc" }, { featuredRank: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
     select: {
       id: true, title: true, slug: true, tagline: true, status: true, isFeatured: true, isPublic: true,
+      featuredRank: true, isSchoolLevel: true, schoolId: true, school: { select: { name: true } },
+      awardedAmount: true, awardedDonorCount: true,
       goalAmount: true, raisedAmount: true, donorCount: true, city: true, state: true, featuredImageUrl: true,
       startsAt: true, endsAt: true, submittedAt: true, createdAt: true, createdByUserId: true,
     },
@@ -53,10 +64,16 @@ export async function GET() {
       tagline: c.tagline,
       status: c.status,
       isFeatured: c.isFeatured,
+      featuredRank: c.featuredRank,
+      isSchoolLevel: c.isSchoolLevel,
+      schoolId: c.schoolId,
+      schoolName: c.school?.name ?? null,
       isPublic: c.isPublic,
       goalAmount: Number(c.goalAmount),
       raisedAmount: Number(c.raisedAmount),
       donorCount: c.donorCount,
+      awardedAmount: Number(c.awardedAmount),
+      awardedDonorCount: c.awardedDonorCount,
       city: c.city,
       state: c.state,
       featuredImageUrl: c.featuredImageUrl,

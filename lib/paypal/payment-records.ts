@@ -219,8 +219,10 @@ async function getBackerDisplayForDonation(donationId: string) {
   if (!donation) return { displayName: "Supporter", avatarUrl: null as string | null };
   if (donation.anonymous) return { displayName: "Anonymous", avatarUrl: null as string | null };
 
+  // A corporate gift is credited to the business on the campaign page.
   const detailName = donation.donationDetail
-    ? [donation.donationDetail.donorFirstName, donation.donationDetail.donorLastName]
+    ? donation.donationDetail.businessName?.trim() ||
+      [donation.donationDetail.donorFirstName, donation.donationDetail.donorLastName]
         .filter(Boolean)
         .join(" ")
         .trim()
@@ -259,11 +261,14 @@ export async function ensureTaxReceiptForDonation(donationId: string, amountUsd?
 
   const taxYear = donation.taxYear ?? donation.createdAt.getFullYear();
   const receiptNumber = `ACT-${taxYear}-${donation.id.slice(0, 8).toUpperCase()}`;
+  // A corporate gift is receipted to the business, not the person who paid.
   const issuedToName = donation.donationDetail
-    ? [donation.donationDetail.donorFirstName, donation.donationDetail.donorLastName]
+    ? donation.donationDetail.businessName ||
+      [donation.donationDetail.donorFirstName, donation.donationDetail.donorLastName]
         .filter(Boolean)
         .join(" ")
-        .trim() || null
+        .trim() ||
+      null
     : null;
 
   const created = await prisma.taxReceipt.create({

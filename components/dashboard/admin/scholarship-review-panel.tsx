@@ -27,6 +27,7 @@ export function ReviewPanel({
   actorProfileId,
   needsInfoDueAt,
   hasOverflowClaim,
+  hasDisabilityClaim = false,
   qualificationTitle,
   documentCount,
   canDecide,
@@ -39,6 +40,8 @@ export function ReviewPanel({
   actorProfileId: string | null;
   needsInfoDueAt: string | null;
   hasOverflowClaim: boolean;
+  /** The family answered Yes to "Does your student have a disability?". */
+  hasDisabilityClaim?: boolean;
   qualificationTitle: string | null;
   documentCount: number;
   canDecide: boolean;
@@ -51,6 +54,7 @@ export function ReviewPanel({
   const [parentMessage, setParentMessage] = useState("");
   const [sections, setSections] = useState<string[]>([]);
   const [overflowVerified, setOverflowVerified] = useState(false);
+  const [disabilityVerified, setDisabilityVerified] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,11 +200,26 @@ export function ReviewPanel({
               </div>
             ) : null}
 
+            {hasDisabilityClaim ? (
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="disability-verified"
+                  checked={disabilityVerified}
+                  onCheckedChange={(checked) => setDisabilityVerified(checked === true)}
+                />
+                <Label htmlFor="disability-verified" className="font-normal leading-snug">
+                  I&apos;ve checked the MET, IEP or 504 plan and the student has a disability. Ticking this approves the
+                  disabled flag for this school year (eligible for the disabled/displaced corporate scholarship).
+                  Leave it unticked to keep the flag under review.
+                </Label>
+              </div>
+            ) : null}
+
             <InternalNoteField value={internalNote} onChange={setInternalNote} />
 
             <Button
               type="button"
-              onClick={() => void send("approve", { overflowVerified })}
+              onClick={() => void send("approve", { overflowVerified, disabilityVerified })}
               disabled={pending}
             >
               {pending ? "Recording…" : "Record approval"}

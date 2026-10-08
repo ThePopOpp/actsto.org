@@ -150,7 +150,7 @@ export function AdminSiteContentForm() {
         <CardContent className="p-4 text-sm text-muted-foreground">
           Site Content saves to Supabase through the admin API. Homepage Hero also updates the
           connected <strong className="text-foreground">home-hero-v1</strong> CTA block used on the
-          live homepage. Maintenance mode and registration toggles live under{" "}
+          live homepage. Other site settings are listed under{" "}
           <Link href="/dashboard/admin/settings" className="text-primary underline-offset-4 hover:underline">
             Settings
           </Link>

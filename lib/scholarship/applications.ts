@@ -3,13 +3,19 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { OVERFLOW_SLUGS, schoolYearCode, type ApplicationStepId } from "@/lib/scholarship/constants";
+import {
+  DISABILITY_OVERFLOW_SLUGS,
+  OVERFLOW_SLUGS,
+  schoolYearCode,
+  type ApplicationStepId,
+} from "@/lib/scholarship/constants";
 import {
   documentWarnings,
   validateApplication,
   type ValidatableApplication,
   type ValidationIssue,
 } from "@/lib/scholarship/validation";
+import { ensureDisplacementFromApplication } from "@/lib/eligibility/verifications-server";
 import { purgeAfterFor } from "@/lib/scholarship/documents";
 import { listHouseholdMembers } from "@/lib/scholarship/household";
 import { buildIncomeSnapshot } from "@/lib/scholarship/income";
@@ -95,6 +101,8 @@ type ApplicationPatch = {
   overflowComments?: string | null;
   esaCurrentYear?: string | null;
   esaPriorYear?: string | null;
+  hasDisability?: string | null;
+  isDisplaced?: string | null;
 };
 
 /** Which step owns which fields — used to enforce partial reopening. */
@@ -111,6 +119,9 @@ const FIELD_SECTION: Record<keyof ApplicationPatch, ApplicationStepId> = {
   overflowComments: "overflow",
   esaCurrentYear: "esa",
   esaPriorYear: "esa",
+  // Student circumstances sit on the overflow step, beside the reason list.
+  hasDisability: "overflow",
+  isDisplaced: "overflow",
 };
 
 export function parseApplicationPatch(
@@ -185,6 +196,15 @@ export function parseApplicationPatch(
     }
     patch.esaCurrentYear = value ? String(value) : null;
   }
+  for (const key of ["hasDisability", "isDisplaced"] as const) {
+    if (key in raw) {
+      const value = raw[key];
+      if (value !== null && value !== "" && !["yes", "no"].includes(String(value))) {
+        return { ok: false, error: "Answer yes or no." };
+      }
+      patch[key] = value ? String(value) : null;
+    }
+  }
   if ("esaPriorYear" in raw) {
     const value = raw.esaPriorYear;
     if (value !== null && value !== "" && !["yes", "no"].includes(String(value))) {
@@ -251,6 +271,24 @@ export async function patchApplication(
   if (patch.overflowComments !== undefined) data.overflowComments = patch.overflowComments;
   if (patch.esaCurrentYear !== undefined) data.esaCurrentYear = patch.esaCurrentYear;
   if (patch.esaPriorYear !== undefined) data.esaPriorYear = patch.esaPriorYear;
+
+  // The disability yes/no and the overflow reason write one value. Picking a
+  // disability reason sets Yes automatically; moving to another reason clears
+  // that Yes only if it was set automatically. A parent's own answer always wins.
+  if (patch.hasDisability !== undefined) {
+    data.hasDisability = patch.hasDisability;
+    data.disabilityAutoSet = false;
+  } else if (patch.overflowQualification !== undefined) {
+    const picksDisability = DISABILITY_OVERFLOW_SLUGS.includes(patch.overflowQualification);
+    if (picksDisability && application.hasDisability !== "yes") {
+      data.hasDisability = "yes";
+      data.disabilityAutoSet = true;
+    } else if (!picksDisability && application.disabilityAutoSet && application.hasDisability === "yes") {
+      data.hasDisability = "no";
+      data.disabilityAutoSet = false;
+    }
+  }
+  if (patch.isDisplaced !== undefined) data.isDisplaced = patch.isDisplaced;
 
   // Moving the school year moves the window the application belongs to.
   if (patch.schoolYear !== undefined) {
@@ -326,7 +364,10 @@ function validatable(application: {
   overflowOrg: string | null;
   esaCurrentYear: string | null;
   esaPriorYear: string | null;
-  documents?: { id: string; purgedAt: Date | null }[];
+  hasDisability: string | null;
+  isDisplaced: string | null;
+  incomeProofStatus?: string;
+  documents?: { id: string; purgedAt: Date | null; documentKind?: string }[];
 }): ValidatableApplication {
   return {
     ...application,
@@ -444,6 +485,12 @@ export async function submitApplication(
     esaHold: application.esaCurrentYear === "yes",
   });
 
+  // A displaced answer starts the one-time DCS verification (lasts all of
+  // K-12). Its outcome never blocks the application itself.
+  await ensureDisplacementFromApplication(applicationId, parent).catch((error) =>
+    console.error("[scholarship] displacement verification not opened", error),
+  );
+
   return {
     confirmationCode,
     warnings: documentWarnings(validatable({ ...application, documents: application.documents })),
@@ -528,8 +575,8 @@ export async function createResubmission(deniedId: string, parent: ParentActor) 
         mimeType: doc.mimeType,
         documentKind: doc.documentKind,
         uploadedBy: doc.uploadedBy,
-        // A fresh retention clock for the new attempt.
-        purgeAfter: purgeAfterFor(),
+        // Same award year, so the same four-year retention date.
+        purgeAfter: purgeAfterFor(denied.schoolYear),
         importedFromId: doc.id,
       })),
     });

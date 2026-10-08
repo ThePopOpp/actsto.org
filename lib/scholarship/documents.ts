@@ -6,6 +6,7 @@ import {
   DOCUMENT_MAX_BYTES,
   DOCUMENT_MIME_TYPES,
 } from "@/lib/scholarship/constants";
+import { retainUntilForSchoolYear } from "@/lib/scholarship/retention-copy";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
@@ -28,31 +29,27 @@ export const SIGNED_URL_TTL_SECONDS = 10 * 60;
 /**
  * Retention for the *file*. The verification metadata on the row outlives it.
  *
- * A floor of 12 months past submission, and long enough to clear the annual STO
- * audit for the award year. ACT's CPA gives the binding date — override this
- * with RETENTION_MONTHS once they have.
+ * ADOR requires STO records be kept at least four years, counted from the later
+ * of the annual report filing date or its September 30 due date. The report for
+ * an award year is due the September 30 after that year ends, so a 2026/2027
+ * file is kept until September 30, 2031. Displaced-student verification forms
+ * follow their own rule (four years after the final fiscal year of payout) and
+ * carry no date until that is known. A legal hold on the row blocks the purge
+ * regardless of date.
  *
- * Never purge before the audit covering that award year is complete.
+ * SCHOLARSHIP_DOC_RETENTION_YEARS lets compliance lengthen the period without a
+ * code change. It never goes below four.
  */
-const RETENTION_MONTHS = Number(process.env.SCHOLARSHIP_DOC_RETENTION_MONTHS ?? 24);
+const RETENTION_YEARS = Math.max(4, Number(process.env.SCHOLARSHIP_DOC_RETENTION_YEARS ?? 4) || 4);
 
-/** Denied and withdrawn applications hold their files for a shorter period. */
-const RETENTION_MONTHS_CLOSED = Number(
-  process.env.SCHOLARSHIP_DOC_RETENTION_MONTHS_CLOSED ?? 12,
-);
-
-export function purgeAfterFor(from: Date = new Date(), months = RETENTION_MONTHS): Date {
-  const d = new Date(from);
-  d.setMonth(d.getMonth() + months);
-  d.setHours(0, 0, 0, 0);
-  return d;
+/**
+ * Purge date for a document filed against `schoolYear` ("2026/2027"). Without a
+ * school year, the award year is taken to be the one starting this calendar
+ * year, which is never earlier than the real one.
+ */
+export function purgeAfterFor(schoolYear?: string | null, now: Date = new Date()): Date {
+  return retainUntilForSchoolYear(schoolYear, now, RETENTION_YEARS);
 }
-
-export function purgeAfterForClosedApplication(from: Date = new Date()): Date {
-  return purgeAfterFor(from, RETENTION_MONTHS_CLOSED);
-}
-
-export const RETENTION_SUMMARY = `We keep these files for ${RETENTION_MONTHS} months after your application is decided, then delete them. What we keep permanently is the record that a member of our team reviewed the document and what it showed — not the document itself.`;
 
 // ── Bucket ───────────────────────────────────────────────────────────────────
 
@@ -120,6 +117,8 @@ function safeExtension(fileName: string, mimeType: string): string {
 export async function uploadApplicationDocument(
   applicationId: string,
   file: File,
+  /** "verifications" for disability/displacement verification files. */
+  folder: "applications" | "verifications" = "applications",
 ): Promise<UploadResult> {
   const invalid = validateUpload(file);
   if (invalid) return { ok: false, error: invalid };
@@ -131,7 +130,7 @@ export async function uploadApplicationDocument(
     return { ok: false, error: error instanceof Error ? error.message : "Storage unavailable." };
   }
 
-  const storagePath = `applications/${applicationId}/${crypto.randomUUID()}.${safeExtension(
+  const storagePath = `${folder}/${applicationId}/${crypto.randomUUID()}.${safeExtension(
     file.name,
     file.type,
   )}`;

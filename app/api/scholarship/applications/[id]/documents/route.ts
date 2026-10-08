@@ -19,7 +19,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
 
     const application = await requireOwnedApplication(id, parent.profileId);
-    assertWritable(application, "overflow");
 
     const formData = await request.formData().catch(() => null);
     const file = formData?.get("file");
@@ -29,6 +28,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const kindRaw = String(formData?.get("documentKind") ?? "other");
     const documentKind = VALID_KINDS.includes(kindRaw) ? kindRaw : "other";
+    // Income proof is part of the financial step; everything else, of the
+    // overflow step (qualification, disability and displacement).
+    assertWritable(application, documentKind === "income_proof" ? "financial" : "overflow");
+    const displacedForm = documentKind === "displaced_form";
 
     const uploaded = await uploadApplicationDocument(id, file);
     if (!uploaded.ok) {
@@ -44,11 +47,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         mimeType: file.type,
         documentKind,
         uploadedBy: parent.profileId,
-        // Retention starts at upload. A job purges the object later and keeps
-        // the row as the audit trail.
-        purgeAfter: purgeAfterFor(),
+        // Retention: four years after the award year's annual report is due.
+        // A displaced-student form is kept four years after the student's final
+        // payout year instead, which isn't known yet, so it has no date.
+        purgeAfter: displacedForm ? null : purgeAfterFor(application.schoolYear),
+        retentionRule: displacedForm ? "displaced_final_payout_4y" : "award_year_4y",
       },
     });
+
+    if (documentKind === "income_proof" && application.incomeProofStatus !== "accepted") {
+      await prisma.scholarshipApplication.update({
+        where: { id },
+        data: { incomeProofStatus: "submitted" },
+      });
+    }
 
     await logDocumentAccess({
       documentId: document.id,

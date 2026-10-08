@@ -6,6 +6,7 @@ import { getActSession } from "@/lib/auth/session-server";
 import type { ActSession } from "@/lib/auth/types";
 import type { CampaignFormStudent, CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { getCampaignFormStudents, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
+import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
 import { notifyStudentsMissingFromCampaigns } from "@/lib/students/notifications";
@@ -337,7 +338,7 @@ export async function POST(request: Request) {
             firstName: formStudent.firstName || undefined,
             lastName: formStudent.lastName || null,
             nickname: formStudent.nickname || null,
-            grade: formStudent.grade || null,
+            grade: normalizeGradeInput(formStudent.grade),
             profilePhotoUrl: formStudent.photo || null,
           },
         });

@@ -58,8 +58,25 @@ async function getProfileIdentity() {
   return { session, profile };
 }
 
+/**
+ * First/last for an account that only ever stored one name. A starting point
+ * the person confirms on save — "Mary Ann Smith" → Mary / Ann / Smith — never
+ * written back on its own.
+ */
+function splitDisplayName(full: string): { first: string; middle: string; last: string } {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "", middle: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], middle: "", last: "" };
+  return { first: parts[0], middle: parts.slice(1, -1).join(" "), last: parts[parts.length - 1] };
+}
+
 function profilePayload(profile: NonNullable<Awaited<ReturnType<typeof getProfileIdentity>>>["profile"]) {
+  const hasStructured = Boolean(profile?.firstName || profile?.lastName);
+  const fallback = hasStructured ? null : splitDisplayName(profile?.fullName ?? profile?.displayName ?? "");
   return {
+    firstName: profile?.firstName ?? fallback?.first ?? "",
+    middleName: profile?.middleName ?? fallback?.middle ?? "",
+    lastName: profile?.lastName ?? fallback?.last ?? "",
     name: profile?.displayName ?? profile?.fullName ?? "",
     phone: profile?.phone ?? "",
     avatarUrl: profile?.avatarUrl ?? "",
@@ -167,7 +184,12 @@ export async function PUT(request: Request) {
     );
   }
 
-  const name = text(body.name).trim();
+  const firstName = text(body.firstName).trim();
+  const middleName = text(body.middleName).trim();
+  const lastName = text(body.lastName).trim();
+  const structuredName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+  // The display name is optional; without one, the person's own name is used.
+  const name = text(body.name).trim() || [firstName, lastName].filter(Boolean).join(" ");
   const phone = text(body.phone).trim();
   const phoneNormalized = phone ? normalizePhone(phone) : null;
   const address = text(body.address).trim();
@@ -182,7 +204,10 @@ export async function PUT(request: Request) {
     where: { id: identity.profile.id },
     data: {
       displayName: name || identity.profile.displayName,
-      fullName: name || identity.profile.fullName,
+      fullName: structuredName || name || identity.profile.fullName,
+      ...("firstName" in body ? { firstName: firstName || null } : {}),
+      ...("middleName" in body ? { middleName: middleName || null } : {}),
+      ...("lastName" in body ? { lastName: lastName || null } : {}),
       phone,
       phoneNormalized,
       avatarUrl,
@@ -238,9 +263,10 @@ export async function PUT(request: Request) {
   }
 
   if (identity.session.role === "donor_individual") {
-    const nameParts = name.split(/\s+/).filter(Boolean);
-    const firstName = nameParts[0] ?? null;
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+    const fallbackName = splitDisplayName(name);
+    const billingFirst = firstName || fallbackName.first || null;
+    const billingMiddle = firstName ? middleName || null : fallbackName.middle || null;
+    const billingLast = lastName || fallbackName.last || null;
     const existing = await prisma.donorBillingProfile.findFirst({
       where: { userId: profile.id, isDefault: true },
       orderBy: { updatedAt: "desc" },
@@ -250,8 +276,9 @@ export async function PUT(request: Request) {
       await prisma.donorBillingProfile.update({
         where: { id: existing.id },
         data: {
-          firstName,
-          lastName,
+          firstName: billingFirst,
+          middleName: billingMiddle,
+          lastName: billingLast,
           email: profile.email,
           phone,
           phoneNormalized,
@@ -266,8 +293,9 @@ export async function PUT(request: Request) {
       await prisma.donorBillingProfile.create({
         data: {
           userId: profile.id,
-          firstName,
-          lastName,
+          firstName: billingFirst,
+          middleName: billingMiddle,
+          lastName: billingLast,
           email: profile.email,
           phone,
           phoneNormalized,

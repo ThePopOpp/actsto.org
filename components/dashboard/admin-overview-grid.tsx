@@ -82,7 +82,7 @@ const tiles = [
   {
     href: "/dashboard/admin/settings",
     title: "Settings",
-    desc: "Feature flags, domains, integrations",
+    desc: "Eligibility rules and every settings screen",
     icon: Settings,
   },
 ] as const;

@@ -92,8 +92,24 @@ export type Campaign = {
   excerpt: string;
   description: string;
   goal: number;
+  /**
+   * Funded: gifts made through this campaign that have been awarded to its
+   * students (or, school-level, to students at its school). The one figure
+   * every progress bar, card, page and email shows.
+   */
   raised: number;
+  /** Donors whose gifts through the campaign have been awarded. */
   donorCount: number;
+  /** Paid gifts received through the campaign, awarded or not. Staff views show both. */
+  received?: number;
+  receivedDonorCount?: number;
+  /** No specific student: money is awarded to students at the school. */
+  isSchoolLevel?: boolean;
+  isFeatured?: boolean;
+  /** Lower first among featured campaigns. */
+  featuredRank?: number | null;
+  /** When the campaign was created, for "newest" ordering. */
+  createdAt?: string;
   daysLeft: number;
   endDate: string;
   /** "yyyy-MM-dd" when the campaign has a scheduled start. */

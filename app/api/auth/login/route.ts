@@ -107,6 +107,7 @@ export async function POST(req: Request) {
 
     if (!error && data.user) {
       const supaUser = data.user;
+      await markInvitedAccountActive(emailLower, supaUser.id);
       const meta = supaUser.user_metadata as Record<string, string> | undefined;
       const displayName = (meta?.full_name ?? meta?.name ?? displayNameBase).trim();
 
@@ -220,6 +221,7 @@ export async function POST(req: Request) {
     }
 
     await prisma.user.update({ where: { id: dbUser.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
+    await markInvitedAccountActive(emailLower, null);
 
     const assignedPortals = portalRolesFromUser(dbUser);
     const displayName = (dbUser.name ?? displayNameBase).trim();
@@ -274,4 +276,25 @@ export async function POST(req: Request) {
   const res = NextResponse.json({ ok: true, redirect });
   res.cookies.set(SESSION_COOKIE_NAME, encodeSession(session), COOKIE_OPTS);
   return res;
+}
+
+/**
+ * An invited account becomes active the first time its owner signs in. Admin
+ * Users kept showing "Invited" for people who had been using the site for weeks
+ * because nothing ever moved the status on.
+ */
+async function markInvitedAccountActive(email: string, profileId: string | null) {
+  await Promise.all([
+    prisma.profile
+      .updateMany({
+        where: profileId
+          ? { id: profileId, status: "invited" }
+          : { email: { equals: email, mode: "insensitive" }, status: "invited" },
+        data: { status: "active" },
+      })
+      .catch(() => undefined),
+    prisma.user
+      .updateMany({ where: { email, accountStatus: "invited" }, data: { accountStatus: "active" } })
+      .catch(() => undefined),
+  ]);
 }

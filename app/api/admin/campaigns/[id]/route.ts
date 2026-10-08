@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
 import { campaignEndDateError } from "@/lib/campaign-dates";
+import { logAdminActivity } from "@/lib/admin/audit";
+import { recomputeCampaignAwarded } from "@/lib/allocation/server";
 
 const ALLOWED_STATUS = ["draft", "pending_review", "active", "paused", "completed", "rejected", "archived"];
 
@@ -11,7 +13,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const body = (await request.json().catch(() => null)) as
-    | { status?: string; isFeatured?: boolean; isPublic?: boolean; startsAt?: string | null; endsAt?: string | null }
+    | {
+        status?: string;
+        isFeatured?: boolean;
+        isPublic?: boolean;
+        startsAt?: string | null;
+        endsAt?: string | null;
+        featuredRank?: number | null;
+        isSchoolLevel?: boolean;
+        schoolId?: string | null;
+      }
     | null;
   if (!body) return NextResponse.json({ error: "Invalid body." }, { status: 400 });
 
@@ -30,6 +41,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
   if (body.isFeatured !== undefined) data.isFeatured = body.isFeatured;
+  if (body.featuredRank !== undefined) {
+    const rank = body.featuredRank === null ? null : Number(body.featuredRank);
+    if (rank !== null && (!Number.isInteger(rank) || rank < 1 || rank > 999)) {
+      return NextResponse.json({ error: "Featured rank must be a whole number from 1 to 999, or blank." }, { status: 400 });
+    }
+    data.featuredRank = rank;
+  }
+  if (body.schoolId !== undefined) {
+    if (body.schoolId) {
+      const school = await prisma.school.findUnique({ where: { id: body.schoolId }, select: { id: true } });
+      if (!school) return NextResponse.json({ error: "School not found." }, { status: 400 });
+    }
+    data.schoolId = body.schoolId || null;
+  }
+  if (body.isSchoolLevel !== undefined) {
+    // A school-level campaign raises money for students at one school, so it
+    // needs that school, and it has no students of its own.
+    const schoolId = body.schoolId !== undefined ? body.schoolId : (await prisma.campaign.findUnique({ where: { id }, select: { schoolId: true } }))?.schoolId;
+    if (body.isSchoolLevel && !schoolId) {
+      return NextResponse.json({ error: "Choose the school for a school-level campaign." }, { status: 400 });
+    }
+    data.isSchoolLevel = body.isSchoolLevel;
+  }
   if (body.isPublic !== undefined) data.isPublic = body.isPublic;
   if (body.startsAt !== undefined || body.endsAt !== undefined) {
     const current = await prisma.campaign.findUnique({ where: { id }, select: { startsAt: true, endsAt: true, createdAt: true } });
@@ -44,6 +78,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     await prisma.campaign.update({ where: { id }, data });
+    if (body.isSchoolLevel !== undefined || body.schoolId !== undefined) {
+      await recomputeCampaignAwarded(id);
+    }
+    await logAdminActivity({
+      actorEmail: auth.email,
+      action: "campaign.update",
+      entityType: "campaign",
+      entityId: id,
+      after: data,
+    });
 
     if (body.status === "active") {
       try {

@@ -53,8 +53,9 @@ const KANBAN_COLUMNS = ["draft", "pending_review", "active", "completed", "archi
 function money(v: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v || 0);
 }
+/** Funded % — awarded money, the same figure the public bar shows. */
 function pct(c: AdminCampaign) {
-  return c.goalAmount > 0 ? Math.min(100, Math.round((c.raisedAmount / c.goalAmount) * 100)) : 0;
+  return c.goalAmount > 0 ? Math.min(100, Math.round((c.awardedAmount / c.goalAmount) * 100)) : 0;
 }
 function fmtDate(v: string | null) {
   if (!v) return "—";
@@ -341,7 +342,8 @@ function TableView({ campaigns, controls }: { campaigns: AdminCampaign[]; contro
             <th className="px-3 py-2 font-semibold">Campaign</th>
             <th className="px-3 py-2 font-semibold">Owner</th>
             <th className="px-3 py-2 font-semibold">Status</th>
-            <th className="px-3 py-2 text-right font-semibold">Raised</th>
+            <th className="px-3 py-2 text-right font-semibold" title="Paid gifts received through the campaign">Received</th>
+            <th className="px-3 py-2 text-right font-semibold" title="Awarded to students from those gifts — the public funded figure">Awarded</th>
             <th className="px-3 py-2 text-right font-semibold">Goal</th>
             <th className="px-3 py-2 text-right font-semibold">Donors</th>
             <th className="px-3 py-2 font-semibold">Ends</th>
@@ -366,6 +368,7 @@ function TableView({ campaigns, controls }: { campaigns: AdminCampaign[]; contro
               <td className="px-3 py-2 text-muted-foreground">{c.ownerName ?? c.ownerEmail ?? "—"}</td>
               <td className="px-3 py-2"><Badge className={cn("border-0", statusChip(c.status))}>{statusLabel(c.status)}</Badge></td>
               <td className="px-3 py-2 text-right tabular-nums">{money(c.raisedAmount)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{money(c.awardedAmount)}</td>
               <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{money(c.goalAmount)}</td>
               <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{c.donorCount}</td>
               <td className="px-3 py-2 text-muted-foreground">{fmtDate(c.endsAt)}</td>
@@ -713,11 +716,32 @@ function ManageDialog({
 }) {
   const [busy, setBusy] = useState(false);
   const [startsAt, setStartsAt] = useState(campaign.startsAt ? campaign.startsAt.slice(0, 10) : "");
+  const [rank, setRank] = useState(campaign.featuredRank != null ? String(campaign.featuredRank) : "");
+  const [schoolLevel, setSchoolLevel] = useState(campaign.isSchoolLevel);
+  const [schoolId, setSchoolId] = useState(campaign.schoolId ?? "");
+  const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/campaigns/donation-options")
+      .then((res) => res.json() as Promise<{ schools?: { id: string; name: string }[] }>)
+      .then((data) => mounted && setSchools(data.schools ?? []))
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [endsAt, setEndsAt] = useState(campaign.endsAt ? campaign.endsAt.slice(0, 10) : "");
 
   async function run(body: Record<string, unknown>) {
     setBusy(true);
-    await onPatch(body);
+    setError(null);
+    try {
+      await onPatch(body);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That change was not saved.");
+    }
     setBusy(false);
   }
 
@@ -766,6 +790,83 @@ function ManageDialog({
               Public
             </label>
           </div>
+
+          {/* Money: received versus awarded (spec #6) */}
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 p-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Gifts received</p>
+              <p className="font-semibold tabular-nums">{money(campaign.raisedAmount)}</p>
+              <p className="text-xs text-muted-foreground">{campaign.donorCount} donors</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Awarded (public funded bar)</p>
+              <p className="font-semibold tabular-nums">{money(campaign.awardedAmount)}</p>
+              <p className="text-xs text-muted-foreground">{campaign.awardedDonorCount} donors</p>
+            </div>
+          </div>
+
+          {/* Home page placement (spec #7) */}
+          <div className="rounded-lg border border-border/60 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Home page</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <Label htmlFor="feat-rank" className="text-xs text-muted-foreground">Featured rank (1 shows first)</Label>
+                <input
+                  id="feat-rank"
+                  inputMode="numeric"
+                  value={rank}
+                  onChange={(e) => setRank(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                  placeholder="Unranked"
+                  className="mt-1 h-9 w-28 rounded-md border border-input bg-background px-2 text-sm"
+                />
+              </div>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run({ featuredRank: rank ? Number(rank) : null })}>
+                Save rank
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Featured campaigns are pinned first in Featured and Gaining Momentum, in rank order.{" "}
+              <a href="/dashboard/admin/campaigns/home-order" className="text-primary underline-offset-4 hover:underline">Preview the home page order</a>
+            </p>
+          </div>
+
+          {/* Campaign type (spec #9) */}
+          <div className="rounded-lg border border-border/60 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Campaign type</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={schoolLevel} disabled={busy} onChange={(e) => setSchoolLevel(e.target.checked)} className="size-4" />
+              School-level campaign (no specific student)
+            </label>
+            <div className="mt-2">
+              <Label htmlFor="camp-school" className="text-xs text-muted-foreground">School</Label>
+              <select
+                id="camp-school"
+                value={schoolId}
+                onChange={(e) => setSchoolId(e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="">No school</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              disabled={busy}
+              onClick={() => void run({ isSchoolLevel: schoolLevel, schoolId: schoolId || null })}
+            >
+              Save type
+            </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              School-level campaigns show no student and ask donors nothing about students. Their gifts are awarded to
+              eligible students at the school.
+            </p>
+          </div>
+          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
 
           {/* Schedule */}
           <div className="rounded-lg border border-border/60 p-3">

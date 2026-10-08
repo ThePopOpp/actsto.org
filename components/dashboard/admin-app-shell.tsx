@@ -71,6 +71,7 @@ const nav: NavEntry[] = [
     icon: Megaphone,
     children: [
       { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/dashboard/admin/campaigns/home-order", label: "Home page order", icon: LayoutDashboard },
       { href: "/dashboard/admin/backers", label: "Donors", icon: UserRoundCheck },
     ],
   },
@@ -79,6 +80,11 @@ const nav: NavEntry[] = [
     icon: GraduationCap,
     children: [
       { href: "/dashboard/admin/scholarships", label: "Review queue", icon: GraduationCap },
+      { href: "/dashboard/admin/scholarships/allocation", label: "Allocation", icon: Wallet },
+      { href: "/dashboard/admin/scholarships/eligibility", label: "Eligibility", icon: ShieldCheck },
+      { href: "/dashboard/admin/scholarships/income-table", label: "Low-income table", icon: Scale },
+      { href: "/dashboard/admin/scholarships/caps", label: "Scholarship caps", icon: ClipboardList },
+      { href: "/dashboard/admin/scholarships/retention", label: "Records retention", icon: FileText },
       { href: "/dashboard/admin/scholarships/windows", label: "Application windows", icon: CalendarClock },
     ],
   },
@@ -145,12 +151,16 @@ function NavLinks({
   const overviewHref = adminHrefForBase("/dashboard/admin", basePath);
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  const leafActive = (href: string) => {
+  const matches = (href: string) => {
     const mapped = adminHrefForBase(href, basePath);
     return mapped === overviewHref
       ? pathname === overviewHref
       : pathname === mapped || pathname.startsWith(`${mapped}/`);
   };
+  // Only the most specific match lights up: Review queue (/scholarships) must
+  // not stay highlighted on /scholarships/allocation.
+  const leafActive = (href: string) =>
+    matches(href) && !flatNav.some((other) => other.href.length > href.length && other.href.startsWith(href) && matches(other.href));
   const groupActive = (group: NavGroup) => group.children.some((c) => leafActive(c.href));
 
   const leafClasses = (active: boolean, indented: boolean) =>

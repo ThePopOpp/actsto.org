@@ -1,72 +1,85 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
 import { DashboardSectionPlaceholder } from "@/components/dashboard/dashboard-section-placeholder";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { getActSession } from "@/lib/auth/session-server";
+import { getBusinessAccount } from "@/lib/donors/business-account";
 
-const TAX_ROWS = [
-  { id: "t1", year: "2025", creditType: "Corporate STO", amount: 12500, status: "Filed" },
-  { id: "t2", year: "2026", creditType: "Corporate STO", amount: 5000, status: "In progress" },
-];
+export const dynamic = "force-dynamic";
 
-export default function BusinessTaxesPage() {
+/**
+ * Corporate gifts grouped by tax year. ACT doesn't file a company's return, so
+ * there is no "filed" status here — only what was given and what was receipted.
+ */
+export default async function BusinessTaxesPage() {
+  const session = await getActSession();
+  if (!session) redirect("/login?next=/dashboard/business/taxes");
+  const account = await getBusinessAccount(session);
+  const year = new Date().getFullYear();
+
   return (
     <div className="space-y-6">
       <DashboardSectionPlaceholder
         title="Taxes"
-        description="Track tax-credit totals and filing status for your business donor account."
+        description="Your company's gifts to ACT by tax year, for your corporate tax-credit claim. Corporate credits require ADOR pre-approval before the gift; your tax advisor files the claim."
       />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card className="border-border/80">
           <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">YTD credit-eligible gifts</p>
-            <p className="mt-2 text-2xl font-semibold text-primary tabular-nums">$5,000</p>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Given in {year}</p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-primary">
+              ${account.totalThisTaxYear.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-border/80">
           <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Last filed year</p>
-            <p className="mt-2 text-2xl font-semibold text-primary">2025</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/80">
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Pending documents</p>
-            <p className="mt-2 text-2xl font-semibold text-primary">2</p>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Gifts without a receipt yet</p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-primary">
+              {account.gifts.filter((gift) => !gift.receiptNumber).length}
+            </p>
           </CardContent>
         </Card>
       </div>
-      <Card className="overflow-hidden border-border/80">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase text-muted-foreground">
-                <th className="px-4 py-3">Tax year</th>
-                <th className="px-4 py-3">Credit type</th>
-                <th className="px-4 py-3 text-right">Amount</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {TAX_ROWS.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-4 py-3">{r.year}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.creditType}</td>
-                  <td className="px-4 py-3 text-right font-medium tabular-nums">${r.amount.toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={r.status === "Filed" ? "secondary" : "outline"}>{r.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Button variant="ghost" size="sm" className="h-8 text-primary">
-                      Open docs
-                    </Button>
-                  </td>
+
+      {account.byTaxYear.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nothing to report yet. Completed gifts are grouped here by tax year.
+        </p>
+      ) : (
+        <Card className="overflow-hidden border-border/80">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase text-muted-foreground">
+                  <th className="px-4 py-3">Tax year</th>
+                  <th className="px-4 py-3 text-right">Gifts</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Receipts</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              </thead>
+              <tbody>
+                {account.byTaxYear.map((row) => (
+                  <tr key={row.taxYear} className="border-b border-border/60 last:border-0">
+                    <td className="px-4 py-3">{row.taxYear}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{row.count}</td>
+                    <td className="px-4 py-3 text-right font-medium tabular-nums">${row.total.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{row.receipts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+      <p className="text-sm text-muted-foreground">
+        Receipt PDFs are on{" "}
+        <Link href="/dashboard/business/invoices" className="text-primary underline-offset-4 hover:underline">
+          Invoices &amp; receipts
+        </Link>
+        .
+      </p>
     </div>
   );
 }

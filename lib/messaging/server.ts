@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
 import { createServerClient } from "@/lib/supabase/server";
 import {
@@ -35,17 +36,34 @@ function resolveRole(profile: { isAdmin: boolean; isSuperAdmin: boolean; userRol
   return primaryMessagingRole(roles);
 }
 
-/** The signed-in user, resolved to their messaging role. Null if not signed in / no role. */
+/**
+ * The signed-in user, resolved to their messaging role. Null if not signed in / no role.
+ *
+ * Supabase Auth first; then the signed act_session cookie, matched to a profile
+ * by email. Reading only Supabase sent everyone signed in through the cookie
+ * from Messages to the login page, on every dashboard.
+ */
 export async function getMessagingUser(): Promise<MessagingUser | null> {
   const supabase = await createServerClient();
-  const { data } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   const authUser = data.user;
-  if (!authUser) return null;
 
-  const profile = await prisma.profile.findUnique({
-    where: { id: authUser.id },
-    include: { userRoles: { where: { status: "active" } } },
-  });
+  let profile = authUser
+    ? await prisma.profile.findUnique({
+        where: { id: authUser.id },
+        include: { userRoles: { where: { status: "active" } } },
+      })
+    : null;
+
+  if (!profile) {
+    const session = await getActSession().catch(() => null);
+    if (session?.email) {
+      profile = await prisma.profile.findFirst({
+        where: { email: { equals: session.email, mode: "insensitive" } },
+        include: { userRoles: { where: { status: "active" } } },
+      });
+    }
+  }
   if (!profile) return null;
 
   const messagingRole = resolveRole(profile);

@@ -4,6 +4,12 @@ import { AlertTriangle } from "lucide-react";
 
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { ReviewPanel } from "@/components/dashboard/admin/scholarship-review-panel";
+import { OverrideFlagButton } from "@/components/dashboard/admin/eligibility/eligibility-controls";
+import { IncomeProofDecision } from "@/components/dashboard/admin/eligibility/income-proof-decision";
+import { HoldToggle } from "@/components/dashboard/admin/eligibility/hold-toggle";
+import { DISPLACED_SCOPE, FLAG_LABEL, FLAG_STATUS_LABEL, isEligibilityFlag, isFlagStatus } from "@/lib/eligibility/flags";
+import { lowIncomeCalculationFor } from "@/lib/eligibility/flags-server";
+import { isK12 } from "@/lib/grades";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +114,37 @@ export default async function AdminScholarshipDetailPage({
     [application.student.firstName, application.student.lastName].filter(Boolean).join(" ") ||
     "Student";
 
+  const [lowIncome, flags, verifications] = await Promise.all([
+    lowIncomeCalculationFor(application),
+    prisma.studentEligibilityFlag.findMany({
+      where: {
+        studentId: application.studentId,
+        schoolYear: { in: [application.schoolYear ?? "", DISPLACED_SCOPE] },
+      },
+      orderBy: { flag: "asc" },
+    }),
+    prisma.studentVerification.findMany({
+      where: { studentId: application.studentId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, kind: true, status: true, schoolYear: true },
+    }),
+  ]);
+  // A family that resubmitted after a request for information has two dates:
+  // when they first submitted, and when they last certified (which is when the
+  // income was frozen). Label both rather than show two unexplained dates.
+  const resubmitted = Boolean(
+    application.submittedAt &&
+      application.certifiedAt &&
+      application.certifiedAt.getTime() - application.submittedAt.getTime() > 60_000,
+  );
+  const proofLabel: Record<string, string> = {
+    not_provided: "not provided",
+    submitted: "submitted, waiting for review",
+    accepted: "accepted",
+    rejected: "rejected",
+    needs_more: "more needed",
+  };
+
   return (
     <>
       <AdminPageHeader
@@ -188,9 +225,15 @@ export default async function AdminScholarshipDetailPage({
                 }
               />
               <Row
-                label="Submitted"
+                label={resubmitted ? "Originally submitted" : "Submitted"}
                 value={application.submittedAt ? formatWindowDate(application.submittedAt) : null}
               />
+              {resubmitted ? (
+                <Row
+                  label="Resubmitted"
+                  value={application.certifiedAt ? formatWindowDate(application.certifiedAt) : null}
+                />
+              ) : null}
               <Row
                 label="Income confirmed for this year"
                 value={
@@ -256,11 +299,86 @@ export default async function AdminScholarshipDetailPage({
                     </tbody>
                   </table>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Frozen at submission on {formatWindowDate(new Date(snapshot.captured_at))}. The
-                    family may have edited their household since; this is what they certified.
+                    Frozen when {resubmitted ? "last submitted" : "submitted"} on{" "}
+                    {formatWindowDate(new Date(snapshot.captured_at))}. The family may have edited their household
+                    since; this is what they certified.
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/80">
+            <CardHeader>
+              <CardTitle className="font-heading text-base text-primary">Eligibility</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <p className="font-medium text-foreground">Low-income calculation</p>
+                {lowIncome.calculation ? (
+                  <p className="mt-1 text-muted-foreground">
+                    Household of {lowIncome.calculation.householdSize}, certified income{" "}
+                    {formatCurrency(lowIncome.calculation.annualIncome)} against the{" "}
+                    {lowIncome.calculation.schoolYear} limit of {formatCurrency(lowIncome.calculation.limit)}:{" "}
+                    <span
+                      className={
+                        lowIncome.calculation.qualifies
+                          ? "font-medium text-emerald-700 dark:text-emerald-400"
+                          : "font-medium text-foreground"
+                      }
+                    >
+                      {lowIncome.calculation.qualifies ? "within the limit" : "above the limit"}
+                    </span>
+                    .{" "}
+                    <Link href="/dashboard/admin/scholarships/income-table" className="text-primary underline-offset-4 hover:underline">
+                      Income table
+                    </Link>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-muted-foreground">{lowIncome.problem}</p>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-foreground">
+                  Income proof:{" "}
+                  <span className="font-normal">
+                    {proofLabel[application.incomeProofStatus] ?? application.incomeProofStatus}
+                  </span>
+                </p>
+                {application.incomeProofNote ? (
+                  <p className="text-xs text-muted-foreground">{application.incomeProofNote}</p>
+                ) : null}
+                <p className="mb-2 text-xs text-muted-foreground">
+                  The low-income flag is approved only when the income is within the limit, proof is accepted and the
+                  application is approved.
+                </p>
+                <IncomeProofDecision applicationId={application.id} canDecide={can(actor.staffRole, "review.decide")} />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Flags for this student</p>
+                {flags.length === 0 ? (
+                  <p className="text-muted-foreground">None yet. Flags are set on approval and by verification reviews.</p>
+                ) : (
+                  <ul className="mt-1 space-y-1">
+                    {flags.map((f) => (
+                      <li key={f.id} className="flex flex-wrap items-center gap-2">
+                        <span>{isEligibilityFlag(f.flag) ? FLAG_LABEL[f.flag] : f.flag}</span>
+                        <span className="text-xs text-muted-foreground">{f.schoolYear}</span>
+                        <Badge variant={f.status === "approved" ? "secondary" : "outline"}>
+                          {isFlagStatus(f.status) ? FLAG_STATUS_LABEL[f.status] : f.status}
+                        </Badge>
+                        {f.reason ? <span className="text-xs text-muted-foreground">{f.reason}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <OverrideFlagButton
+                  studentId={application.studentId}
+                  studentName={studentName}
+                  schoolYear={application.schoolYear ?? undefined}
+                  label="Set a flag by hand"
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -291,6 +409,44 @@ export default async function AdminScholarshipDetailPage({
               ) : null}
               {application.overflowComments ? (
                 <Row label="Family comments" value={application.overflowComments} />
+              ) : null}
+              <Row
+                label="Student has a disability"
+                value={
+                  application.hasDisability === "yes"
+                    ? application.disabilityAutoSet
+                      ? "Yes (from the overflow reason)"
+                      : "Yes"
+                    : application.hasDisability === "no"
+                      ? "No"
+                      : null
+                }
+              />
+              <Row
+                label="Displaced student"
+                value={
+                  !isK12(application.grade)
+                    ? "Not asked (preschool)"
+                    : application.isDisplaced === "yes"
+                      ? "Yes, verified with DCS separately"
+                      : application.isDisplaced === "no"
+                        ? "No"
+                        : null
+                }
+              />
+              {verifications.length > 0 ? (
+                <div className="py-2">
+                  {verifications.map((v) => (
+                    <Link
+                      key={v.id}
+                      href={"/dashboard/admin/scholarships/verifications/" + v.id}
+                      className="block text-primary underline-offset-4 hover:underline"
+                    >
+                      {v.kind === "disability" ? "Disability" : "Displacement"} verification · {v.schoolYear} ·{" "}
+                      {v.status.replace("_", " ")}
+                    </Link>
+                  ))}
+                </div>
               ) : null}
               <Row label="ESA this year" value={esaLabel(application.esaCurrentYear)} />
               <Row label="ESA prior year" value={esaLabel(application.esaPriorYear)} />
@@ -350,6 +506,7 @@ export default async function AdminScholarshipDetailPage({
             actorProfileId={actor.profileId}
             needsInfoDueAt={application.needsInfoDueAt?.toISOString() ?? null}
             hasOverflowClaim={application.overflowQualification !== "none"}
+            hasDisabilityClaim={application.hasDisability === "yes"}
             qualificationTitle={qualification?.title ?? null}
             documentCount={application.documents.filter((d) => !d.purgedAt).length}
             canDecide={can(actor.staffRole, "review.decide")}
@@ -372,9 +529,14 @@ export default async function AdminScholarshipDetailPage({
                       {document.documentKind} ·{" "}
                       {document.purgedAt
                         ? `deleted ${formatWindowDate(document.purgedAt)} under our retention policy`
-                        : `kept until ${formatWindowDate(document.purgeAfter)}`}
+                        : document.legalHold
+                          ? "on hold, not purged"
+                          : document.purgeAfter
+                            ? `kept until ${formatWindowDate(document.purgeAfter)}`
+                            : "kept until 4 years after the final payout year"}
                       {document.verifiedAt ? " · verified" : ""}
                     </p>
+                    {!document.purgedAt ? <HoldToggle documentId={document.id} held={document.legalHold} /> : null}
                     {!document.purgedAt && can(actor.staffRole, "documents.view") ? (
                       // Plain <a>: these are API redirects, not pages Next should prefetch.
                       <div className="flex flex-wrap gap-2">

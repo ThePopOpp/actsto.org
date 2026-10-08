@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { ImageUp, Plus, Trash2, UserPlus, X } from "lucide-react";
 
 import { useFamilyStudents, type SavedStudent } from "@/components/campaigns/use-family-students";
+import { GradeSelect } from "@/components/grade-select";
 import { Badge } from "@/components/ui/badge";
 
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
@@ -247,7 +248,7 @@ export function CampaignFormPanelCampaign({
           onChange={(e) => onPatch({ image: e.target.value })}
         />
         <p className="mt-1 text-xs text-muted-foreground">
-          Or use upload when storage is connected — same layout as campaign creation.
+          Paste an image link, or upload a photo below.
         </p>
         <CampaignImageUpload
           value={values.image}
@@ -554,12 +555,11 @@ export function CampaignFormPanelStudent({
           </div>
           <div>
             <Label htmlFor={`cf-student-grade-${index}`}>Grade</Label>
-            <Input
+            <GradeSelect
               id={`cf-student-grade-${index}`}
               className="mt-1.5"
-              placeholder="e.g. 5th Grade"
               value={student.grade}
-              onChange={(e) => patchStudent(index, { grade: e.target.value })}
+              onChange={(grade) => patchStudent(index, { grade })}
             />
           </div>
           <div>

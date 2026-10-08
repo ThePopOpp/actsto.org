@@ -21,6 +21,31 @@ async function getProfileId(email: string) {
   return profile?.id ?? null;
 }
 
+/** Each portal's dashboard root, to tell whose notice a notification is. */
+const ROLE_DASHBOARD: Record<string, string> = {
+  parent: "/dashboard/parent",
+  student: "/dashboard/student",
+  donor_individual: "/dashboard/donor",
+  donor_business: "/dashboard/business",
+};
+
+/**
+ * Notifications belong to the account, but a hybrid account reads them one
+ * portal at a time: a business donor's inbox listed "Application approved,
+ * pending award decision" because the same login is also a parent. A notice
+ * that links into another portal's dashboard shows only in that portal;
+ * account-wide notices (messages, broadcasts) show everywhere.
+ */
+function belongsToPortal(actionUrl: string | null, role: string): boolean {
+  if (!actionUrl?.startsWith("/dashboard/")) return true;
+  const own = ROLE_DASHBOARD[role];
+  if (!own) return true;
+  const other = Object.values(ROLE_DASHBOARD).find(
+    (root) => root !== own && (actionUrl === root || actionUrl.startsWith(`${root}/`)),
+  );
+  return !other;
+}
+
 export async function GET() {
   const session = await getActSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,12 +55,15 @@ export async function GET() {
     return NextResponse.json({ preferences: DEFAULT_PREFS, notifications: [] });
   }
 
-  const [prefs, notifications] = await Promise.all([
+  const [prefs, allNotifications] = await Promise.all([
     prisma.communicationPreference.findUnique({ where: { userId } }).catch(() => null),
     prisma.dashboardNotification
-      .findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 50 })
+      .findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 })
       .catch(() => []),
   ]);
+  const notifications = allNotifications
+    .filter((n) => belongsToPortal(n.actionUrl, session.role))
+    .slice(0, 50);
 
   return NextResponse.json({
     preferences: prefs

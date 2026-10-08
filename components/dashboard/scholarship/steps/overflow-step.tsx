@@ -19,14 +19,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { isK12 } from "@/lib/grades";
 import {
   AWARDING_ORGANIZATIONS,
   COPY,
+  DISPLACED_FORM_URL,
+  DOCUMENT_KINDS,
   DOCUMENT_MAX_BYTES,
   OVERFLOW_QUALIFICATIONS,
   overflowBySlug,
 } from "@/lib/scholarship/constants";
-import { RETENTION_NOTICE } from "@/lib/scholarship/retention-copy";
+import { DISPLACED_RETENTION_NOTICE, RETENTION_NOTICE } from "@/lib/scholarship/retention-copy";
 import type { ValidationIssue } from "@/lib/scholarship/validation";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +42,8 @@ export function OverflowStep({
   missingImportedDocuments,
   issues,
   readOnly,
+  disabilityAutoSet = false,
+  displacedDefinition = "",
 }: {
   applicationId: string;
   values: WizardValues;
@@ -48,9 +53,12 @@ export function OverflowStep({
   missingImportedDocuments: string[];
   issues: ValidationIssue[];
   readOnly: boolean;
+  disabilityAutoSet?: boolean;
+  displacedDefinition?: string;
 }) {
   const issueFor = useFieldIssue(issues);
   const selected = overflowBySlug(values.overflowQualification);
+  const askDisplaced = isK12(values.grade);
 
   return (
     <div className="space-y-5">
@@ -166,35 +174,176 @@ export function OverflowStep({
         </CardContent>
       </Card>
 
+      {/* Student circumstances: on the same step as the reasons above, so a
+          parent sees the disability answer change when they pick a disability
+          reason. Independent of the reason: any combination is allowed. */}
+      <Card className="border-border/80">
+        <CardHeader>
+          <CardTitle className="font-heading text-primary">Student circumstances</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            These are separate from the situation you picked above, so answer both even if one already covers it.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <fieldset className="space-y-2">
+            <legend className="font-medium text-foreground">Does your student have a disability?</legend>
+            <p className="text-sm text-muted-foreground">
+              A MET, IEP or 504 plan from an Arizona public school, or preschool services documentation for a
+              preschooler. Upload it below.
+            </p>
+            <YesNo
+              name="has-disability"
+              value={values.hasDisability}
+              onChange={(v) => onPatch({ hasDisability: v })}
+              disabled={readOnly}
+              invalid={Boolean(issueFor("hasDisability"))}
+            />
+            {values.hasDisability === "yes" && disabilityAutoSet ? (
+              <p className="text-xs text-muted-foreground">
+                Set to Yes because you chose a disability option above. One document covers both.
+              </p>
+            ) : null}
+            <FieldError id="err-hasDisability" issue={issueFor("hasDisability")} />
+          </fieldset>
+
+          {askDisplaced ? (
+            <fieldset className="space-y-2">
+              <legend className="font-medium text-foreground">Is your student a displaced student?</legend>
+              <p className="text-sm text-muted-foreground">{displacedDefinition}</p>
+              <YesNo
+                name="is-displaced"
+                value={values.isDisplaced}
+                onChange={(v) => onPatch({ isDisplaced: v })}
+                disabled={readOnly}
+                invalid={Boolean(issueFor("isDisplaced"))}
+              />
+              {values.isDisplaced === "yes" ? (
+                <Alert>
+                  <Info className="size-4" />
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      <a href={DISPLACED_FORM_URL} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">
+                        Download the Displaced Student Verification Form
+                      </a>
+                      , sign it, and upload it below as &ldquo;Signed Displaced Student Verification Form&rdquo;. We
+                      confirm placement with the Arizona Department of Child Safety. Displaced status is verified once
+                      and lasts through 12th grade.
+                    </p>
+                    <p className="font-medium">
+                      Do not upload court documents, case files or emails with caseworkers.
+                    </p>
+                    <p className="text-xs">{DISPLACED_RETENTION_NOTICE}</p>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <FieldError id="err-isDisplaced" issue={issueFor("isDisplaced")} />
+            </fieldset>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Displaced-student scholarships apply from Kindergarten through 12th grade, so we don&apos;t ask for
+              preschool.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <DocumentUploader
         applicationId={applicationId}
-        documents={documents}
+        documents={documents.filter((d) => d.documentKind !== "income_proof")}
+        allDocuments={documents}
         onDocumentsChanged={onDocumentsChanged}
         missingImportedDocuments={missingImportedDocuments}
         readOnly={readOnly}
         needsDocs={selected?.needsDocs === true}
+        kinds={DOCUMENT_KINDS.filter((k) => k.value !== "income_proof")}
+        defaultKind={
+          values.isDisplaced === "yes" && !documents.some((d) => d.documentKind === "displaced_form")
+            ? "displaced_form"
+            : values.hasDisability === "yes"
+              ? "iep"
+              : selected?.slug === "military"
+                ? "military_orders"
+                : selected?.slug === "esa-prior"
+                  ? "esa_closure"
+                  : "other"
+        }
       />
     </div>
   );
 }
 
+function YesNo({
+  name,
+  value,
+  onChange,
+  disabled,
+  invalid,
+}: {
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  invalid: boolean;
+}) {
+  return (
+    <RadioGroup
+      value={value}
+      onValueChange={(v) => onChange(String(v ?? ""))}
+      disabled={disabled}
+      className="flex gap-6"
+      data-field-error={invalid ? "true" : undefined}
+    >
+      {[
+        { v: "yes", label: "Yes" },
+        { v: "no", label: "No" },
+      ].map((option) => (
+        <div key={option.v} className="flex items-center gap-2">
+          <RadioGroupItem value={option.v} id={name + "-" + option.v} />
+          <Label htmlFor={name + "-" + option.v} className="font-normal">
+            {option.label}
+          </Label>
+        </div>
+      ))}
+    </RadioGroup>
+  );
+}
+
 // ── Uploads ──────────────────────────────────────────────────────────────────
 
-function DocumentUploader({
+/**
+ * Upload and list supporting files. `documents` is what this list shows;
+ * `allDocuments` (default: the same) is the full set changes are applied to, so
+ * two uploaders on different steps don't drop each other's files.
+ */
+export function DocumentUploader({
   applicationId,
   documents,
+  allDocuments,
   onDocumentsChanged,
   missingImportedDocuments,
   readOnly,
   needsDocs,
+  kinds = DOCUMENT_KINDS,
+  defaultKind = "other",
+  title = "Supporting documents",
+  emptyText,
 }: {
   applicationId: string;
   documents: WizardDocument[];
+  allDocuments?: WizardDocument[];
   onDocumentsChanged: (documents: WizardDocument[]) => void;
   missingImportedDocuments: string[];
   readOnly: boolean;
   needsDocs: boolean;
+  kinds?: { value: string; label: string }[];
+  defaultKind?: string;
+  title?: string;
+  emptyText?: string;
 }) {
+  const everything = allDocuments ?? documents;
+  const [kind, setKind] = useState(defaultKind);
+  const [kindTouched, setKindTouched] = useState(false);
+  const effectiveKind = kindTouched ? kind : defaultKind;
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState<string[]>([]);
@@ -216,6 +365,7 @@ function DocumentUploader({
       try {
         const body = new FormData();
         body.append("file", file);
+        body.append("documentKind", effectiveKind);
         const res = await fetch(`/api/scholarship/applications/${applicationId}/documents`, {
           method: "POST",
           body,
@@ -226,7 +376,7 @@ function DocumentUploader({
         if (!res.ok || !data?.document) {
           throw new Error(data?.error ?? `Could not upload ${file.name}.`);
         }
-        onDocumentsChanged([...documents, { ...data.document, verifiedAt: null }]);
+        onDocumentsChanged([...everything, { ...data.document, verifiedAt: null }]);
       } catch (err) {
         setError(err instanceof Error ? err.message : `Could not upload ${file.name}.`);
       } finally {
@@ -243,7 +393,7 @@ function DocumentUploader({
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "Could not remove that file.");
       }
-      onDocumentsChanged(documents.filter((d) => d.id !== document.id));
+      onDocumentsChanged(everything.filter((d) => d.id !== document.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove that file.");
     }
@@ -252,7 +402,7 @@ function DocumentUploader({
   return (
     <Card className="border-border/80">
       <CardHeader>
-        <CardTitle className="font-heading text-base text-primary">Supporting documents</CardTitle>
+        <CardTitle className="font-heading text-base text-primary">{title}</CardTitle>
         <p className="text-sm text-muted-foreground">{COPY.documentsHint}</p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -267,6 +417,30 @@ function DocumentUploader({
               twice.
             </AlertDescription>
           </Alert>
+        ) : null}
+
+        {!readOnly && kinds.length > 1 ? (
+          <div className="max-w-md space-y-1.5">
+            <Label htmlFor={"doc-kind-" + title}>What are you uploading?</Label>
+            <Select
+              value={effectiveKind}
+              onValueChange={(v) => {
+                setKind(String(v ?? "other"));
+                setKindTouched(true);
+              }}
+            >
+              <SelectTrigger id={"doc-kind-" + title} className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {kinds.map((k) => (
+                  <SelectItem key={k.value} value={k.value}>
+                    {k.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : null}
 
         {!readOnly ? (
@@ -331,6 +505,7 @@ function DocumentUploader({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{document.fileName}</p>
                   <p className="text-xs text-muted-foreground">
+                    {DOCUMENT_KINDS.find((k) => k.value === document.documentKind)?.label ?? "Document"} ·{" "}
                     {formatBytes(document.fileSize)}
                     {document.verifiedAt ? " · verified by our team" : ""}
                   </p>
@@ -350,10 +525,10 @@ function DocumentUploader({
               </li>
             ))}
           </ul>
-        ) : needsDocs ? (
+        ) : needsDocs || emptyText ? (
           <p className="text-sm text-muted-foreground">
-            Nothing attached yet. You can still submit and send documentation later — we just
-            can&apos;t count the Overflow qualification until it&apos;s on file.
+            {emptyText ??
+              "Nothing attached yet. You can still submit and send documentation later — we just can't count the Overflow qualification until it's on file."}
           </p>
         ) : null}
 

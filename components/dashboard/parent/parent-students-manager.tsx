@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CheckCircle2, Copy, Link2, Plus, Send, Trash2, UserPlus, X } from "lucide-react";
 
 import { StudentHowToDialog } from "@/components/dashboard/parent/student-howto-dialog";
+import { GradeSelect } from "@/components/grade-select";
 import {
   STUDENT_VIEW_TABS,
   StudentCalendarView,
@@ -142,13 +143,7 @@ function AddStudentForm({
           </div>
           <div>
             <Label htmlFor="new-student-grade">Grade</Label>
-            <Input
-              id="new-student-grade"
-              className="mt-1.5"
-              placeholder="e.g. 5th Grade"
-              value={grade}
-              onChange={(event) => setGrade(event.target.value)}
-            />
+            <GradeSelect id="new-student-grade" className="mt-1.5" value={grade} onChange={setGrade} />
           </div>
           <div>
             <Label htmlFor="new-student-dob">Date of birth (optional)</Label>

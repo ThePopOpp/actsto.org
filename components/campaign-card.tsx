@@ -53,7 +53,10 @@ export function CampaignCard({
         </div>
         <div>
           {variant === "home" && (
-            <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <div
+              className="mb-2 flex items-center justify-between text-xs text-muted-foreground"
+              title="Gifts count toward this once they are awarded to students."
+            >
               <span>Funded</span>
               <span className="tabular-nums">{pct}%</span>
             </div>
@@ -75,7 +78,7 @@ export function CampaignCard({
                 ${campaign.raised.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </p>
               <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-                raised of ${campaign.goal.toLocaleString(undefined, { minimumFractionDigits: 2 })}{" "}
+                awarded of ${campaign.goal.toLocaleString(undefined, { minimumFractionDigits: 2 })}{" "}
                 goal
               </p>
             </div>
@@ -83,7 +86,7 @@ export function CampaignCard({
             <p className="mt-2 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{pct}%</span> funded ·{" "}
               <span className="tabular-nums">
-                ${campaign.raised.toLocaleString()} raised of ${campaign.goal.toLocaleString()} goal
+                ${campaign.raised.toLocaleString()} awarded of ${campaign.goal.toLocaleString()} goal
               </span>
             </p>
           )}

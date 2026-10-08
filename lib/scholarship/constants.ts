@@ -154,22 +154,8 @@ export const ESA_PRIOR_YEAR_QUESTION =
 
 // ── Grades ───────────────────────────────────────────────────────────────────
 
-export const GRADE_OPTIONS = [
-  "Preschool",
-  "Kindergarten",
-  "1st grade",
-  "2nd grade",
-  "3rd grade",
-  "4th grade",
-  "5th grade",
-  "6th grade",
-  "7th grade",
-  "8th grade",
-  "9th grade",
-  "10th grade",
-  "11th grade",
-  "12th grade",
-];
+// One list for the whole site — see lib/grades.ts.
+export { GRADE_OPTIONS } from "@/lib/grades";
 
 // ── Documents ────────────────────────────────────────────────────────────────
 
@@ -178,8 +164,16 @@ export const DOCUMENT_KINDS = [
   { value: "military_orders", label: "Military orders" },
   { value: "esa_closure", label: "ESA closure or lapse notice" },
   { value: "enrollment", label: "Enrollment or residency record" },
+  { value: "income_proof", label: "Proof of income (tax return, W-2, pay stubs, WIC/AHCCCS/SNAP letter)" },
+  { value: "displaced_form", label: "Signed Displaced Student Verification Form" },
   { value: "other", label: "Something else" },
 ];
+
+/** Overflow reasons that mean the student has a disability. */
+export const DISABILITY_OVERFLOW_SLUGS = ["disability", "preschool"];
+
+/** Where the Displaced Student Verification Form is published. */
+export const DISPLACED_FORM_URL = "/forms/displaced-student-verification";
 
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 

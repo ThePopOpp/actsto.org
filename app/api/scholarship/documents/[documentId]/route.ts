@@ -29,14 +29,22 @@ export async function DELETE(
     const document = await getOwnedDocument(documentId, parent.profileId);
     if (!document) throw new ScopeError("That file wasn't found.", 404);
 
-    const application = await prisma.scholarshipApplication.findUniqueOrThrow({
-      where: { id: document.applicationId },
-      select: { status: true, lockedAt: true, fieldsRequested: true },
-    });
-    const state = writableState(application);
-    if (!state.writable) {
+    if (document.applicationId) {
+      const application = await prisma.scholarshipApplication.findUniqueOrThrow({
+        where: { id: document.applicationId },
+        select: { status: true, lockedAt: true, fieldsRequested: true },
+      });
+      const state = writableState(application);
+      if (!state.writable) {
+        throw new ScopeError(
+          "This application is locked. Contact our team to remove a file from it.",
+          409,
+        );
+      }
+    } else {
+      // A verification file is evidence the moment it is sent for review.
       throw new ScopeError(
-        "This application is locked. Contact our team to remove a file from it.",
+        "Files sent for verification can't be removed. Contact our team if one was sent by mistake.",
         409,
       );
     }

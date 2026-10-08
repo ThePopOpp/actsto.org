@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { getStudentActor } from "@/lib/students/parent-session";
 import { notifyStudentsMissingFromCampaigns } from "@/lib/students/notifications";
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
       firstName,
       lastName: text(body?.lastName),
       nickname: text(body?.nickname),
-      grade: text(body?.grade),
+      grade: normalizeGradeInput(text(body?.grade)),
       birthDate: birthDate(body?.birthDate),
       profilePhotoUrl: text(body?.photo),
       schoolId,

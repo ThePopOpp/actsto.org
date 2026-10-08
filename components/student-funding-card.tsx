@@ -101,7 +101,7 @@ export function StudentFundingCard({
             />
           </div>
           <p className="mt-2 text-sm text-slate-500 tabular-nums dark:text-slate-400">
-            ${individualRaised.toLocaleString()} raised toward this student&apos;s portion
+            ${individualRaised.toLocaleString()} awarded to {firstName || "this student"} so far
           </p>
         </div>
       </CardContent>

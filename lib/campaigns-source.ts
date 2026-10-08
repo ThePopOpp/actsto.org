@@ -51,32 +51,64 @@ async function ownerProfilesFor(
   return new Map(profiles.map((p) => [p.id, p]));
 }
 
+/**
+ * "Street, City, ST ZIP". A street line that already ends in a city, state and
+ * ZIP is used as entered rather than having the city fields appended again —
+ * that is how Valley Christian read "Chandler, AZ 85226, Tempe, AZ".
+ */
+function formatSchoolAddress(
+  school: { addressLine1: string | null; city: string | null; state: string | null; zip: string | null } | null,
+): string {
+  if (!school) return "";
+  const line1 = (school.addressLine1 ?? "").trim();
+  if (/\b[A-Z]{2}\s*\d{5}(-\d{4})?\s*$/.test(line1)) return line1;
+  const cityLine = [school.city, [school.state, school.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  return [line1, cityLine].filter(Boolean).join(", ");
+}
+
 function prismaCampaignToSiteCampaign(
   campaign: PrismaCampaignForDisplay,
   owner?: OwnerProfile | null,
 ): Campaign {
   const firstStudent = campaign.campaignStudents[0]?.student;
   const goal = Number(campaign.goalAmount ?? 0);
-  const raised = Number(campaign.raisedAmount ?? 0);
   const title = campaign.title || "Untitled campaign";
   const schoolName = campaign.school?.name ?? firstStudent?.school?.name ?? "School";
   const startDate = campaign.startsAt?.toISOString().slice(0, 10);
   const endDate = campaign.endsAt?.toISOString().slice(0, 10) ?? defaultCampaignEndDate(startDate ?? campaign.createdAt);
+  const schoolLevel = campaign.isSchoolLevel;
+  // Draft placeholder copy only while the campaign is a draft. A live
+  // campaign without a summary uses its own story, or a plain line about who
+  // it helps, never "being prepared by the family".
+  const isDraft = campaign.status === "draft" || campaign.status === "pending_review";
+  const whoItHelps = schoolLevel ? `Help students at ${schoolName}.` : `Help send students to ${schoolName}.`;
 
   return {
     slug: campaign.slug,
     title,
-    tagline: campaign.tagline ?? "Help this student continue growing in faith and education.",
+    tagline:
+      campaign.tagline ??
+      (schoolLevel
+        ? `Help students at ${schoolName}.`
+        : "Help this student continue growing in faith and education."),
     excerpt:
       campaign.shortExcerpt ??
       campaign.story?.slice(0, 220) ??
-      "This campaign is being prepared by the family. More details are coming soon.",
+      (isDraft ? "This campaign is being prepared by the family. More details are coming soon." : whoItHelps),
     description:
       campaign.story ??
-      "This campaign draft is being prepared by the family. Please check back soon for more details.",
+      (isDraft
+        ? "This campaign draft is being prepared by the family. Please check back soon for more details."
+        : whoItHelps),
     goal: goal > 0 ? goal : 1000,
-    raised,
-    donorCount: campaign.donorCount,
+    // Funded = awarded, kept current by recomputeCampaignAwarded whenever an
+    // award changes. Donations received are added by applyLiveCampaignDonationTotals.
+    raised: Number(campaign.awardedAmount ?? 0),
+    donorCount: campaign.awardedDonorCount,
+    isSchoolLevel: schoolLevel,
+    isFeatured: campaign.isFeatured,
+    featuredRank: campaign.featuredRank,
+    createdAt: campaign.createdAt.toISOString(),
     daysLeft: daysLeft(campaign.endsAt),
     endDate,
     startDate,
@@ -103,7 +135,7 @@ function prismaCampaignToSiteCampaign(
     })),
     school: {
       name: schoolName,
-      address: [campaign.school?.addressLine1, campaign.school?.city, campaign.school?.state].filter(Boolean).join(", "),
+      address: formatSchoolAddress(campaign.school),
       website: campaign.school?.website ?? "",
       logo: campaign.school?.logoUrl ?? undefined,
     },
@@ -114,8 +146,8 @@ function prismaCampaignToSiteCampaign(
       phone: owner?.phone ?? "",
       photo: owner?.avatarUrl ?? undefined,
     },
-    breadcrumbCategory: "Families",
-    tags: campaign.status === "draft" ? ["Draft"] : ["Family campaign", "Tax credit"],
+    breadcrumbCategory: schoolLevel ? "Schools" : "Families",
+    tags: campaign.status === "draft" ? ["Draft"] : [schoolLevel ? "School campaign" : "Family campaign", "Tax credit"],
     updatesCount: campaign.campaignUpdates.length,
     status: campaign.status,
     completionPercent: campaign.completionPercent,

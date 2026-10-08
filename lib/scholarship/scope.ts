@@ -179,11 +179,23 @@ export async function getLiveApplication(profileId: string, schoolYear: string, 
   });
 }
 
-/** One document, only if this parent owns the application it belongs to. */
+/**
+ * One document, only if this parent owns the application — or the student, for
+ * a disability/displacement verification file — it belongs to.
+ */
 export async function getOwnedDocument(documentId: string, profileId: string) {
   return prisma.applicationDocument.findFirst({
-    where: { id: documentId, application: parentApplicationWhere(profileId) },
-    include: { application: { select: { id: true, lockedAt: true, status: true } } },
+    where: {
+      id: documentId,
+      OR: [
+        { application: parentApplicationWhere(profileId) },
+        { verification: { student: parentStudentWhere(profileId) } },
+      ],
+    },
+    include: {
+      application: { select: { id: true, lockedAt: true, status: true } },
+      verification: { select: { id: true, status: true } },
+    },
   });
 }
 

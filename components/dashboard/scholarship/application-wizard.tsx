@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import {
   APPLICATION_STEPS,
   COPY,
+  DISABILITY_OVERFLOW_SLUGS,
   isStepId,
   STEP_IDS,
   type ApplicationStepId,
@@ -56,6 +57,8 @@ export type WizardValues = {
   overflowComments: string;
   esaCurrentYear: string;
   esaPriorYear: string;
+  hasDisability: string;
+  isDisplaced: string;
 };
 
 type SaveState =
@@ -86,7 +89,12 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
     overflowComments: data.application.overflowComments ?? "",
     esaCurrentYear: data.application.esaCurrentYear ?? "",
     esaPriorYear: data.application.esaPriorYear ?? "",
+    hasDisability: data.application.hasDisability ?? "",
+    isDisplaced: data.application.isDisplaced ?? "",
   }));
+  // Mirrors the server rule: a Yes set by picking a disability reason may be
+  // switched back; a Yes the parent chose never is.
+  const [disabilityAutoSet, setDisabilityAutoSet] = useState(data.application.disabilityAutoSet);
 
   const [household, setHousehold] = useState<HouseholdMemberView[]>(data.household);
   const [incomeConfirmedAt, setIncomeConfirmedAt] = useState<string | null>(
@@ -144,7 +152,13 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
       for (const [key, value] of Object.entries(patch)) {
         if (key === "tuitionAfterDiscounts") {
           payload[key] = value === "" ? null : value;
-        } else if (key === "schoolId" || key === "grade" || key === "schoolNameOther") {
+        } else if (
+          key === "schoolId" ||
+          key === "grade" ||
+          key === "schoolNameOther" ||
+          key === "hasDisability" ||
+          key === "isDisplaced"
+        ) {
           payload[key] = value === "" ? null : value;
         } else {
           payload[key] = value;
@@ -224,6 +238,8 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           overflowOrg: values.overflowOrg || null,
           esaCurrentYear: values.esaCurrentYear || null,
           esaPriorYear: values.esaPriorYear || null,
+          hasDisability: values.hasDisability || null,
+          isDisplaced: values.isDisplaced || null,
         },
         household.length,
       ),
@@ -336,6 +352,11 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
         {step === "financial" ? (
           <FinancialStep
             applicationId={data.application.id}
+            documents={documents}
+            onDocumentsChanged={setDocuments}
+            incomeProofStatus={data.application.incomeProofStatus}
+            incomeProofNote={data.application.incomeProofNote}
+            incomeProofGuidance={data.eligibilityText.incomeProofGuidance}
             schoolYear={values.schoolYear}
             household={household}
             householdLastUpdated={data.householdLastUpdated}
@@ -355,7 +376,26 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           <OverflowStep
             applicationId={data.application.id}
             values={values}
-            onPatch={patchValues}
+            onPatch={(patch) => {
+              // The disability yes/no follows the overflow reason only while it
+              // was set that way; the parent's own answer always stands.
+              const next = { ...patch };
+              if ("hasDisability" in patch) {
+                setDisabilityAutoSet(false);
+              } else if (patch.overflowQualification !== undefined) {
+                const picksDisability = DISABILITY_OVERFLOW_SLUGS.includes(patch.overflowQualification);
+                if (picksDisability && values.hasDisability !== "yes") {
+                  setValues((state) => ({ ...state, hasDisability: "yes" }));
+                  setDisabilityAutoSet(true);
+                } else if (!picksDisability && disabilityAutoSet && values.hasDisability === "yes") {
+                  setValues((state) => ({ ...state, hasDisability: "no" }));
+                  setDisabilityAutoSet(false);
+                }
+              }
+              patchValues(next);
+            }}
+            disabilityAutoSet={disabilityAutoSet}
+            displacedDefinition={data.eligibilityText.displacedDefinition}
             documents={documents}
             onDocumentsChanged={setDocuments}
             missingImportedDocuments={data.missingImportedDocuments}

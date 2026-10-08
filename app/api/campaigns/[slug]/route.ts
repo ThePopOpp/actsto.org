@@ -6,6 +6,7 @@ import type { Campaign } from "@/lib/campaigns";
 import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
 import { notifyIncompleteCampaignDraft } from "@/lib/campaigns/notifications";
 import { campaignToFormValues, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
+import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import {
   createFamilyStudent,
@@ -205,7 +206,7 @@ async function updateNormalizedCampaign({
             ...(firstName ? { firstName } : {}),
             lastName: formStudent.lastName || null,
             nickname: formStudent.nickname || null,
-            grade: formStudent.gradeDisplay === "-" ? null : formStudent.gradeDisplay || null,
+            grade: normalizeGradeInput(formStudent.gradeDisplay),
             profilePhotoUrl: photo,
             phone: normalizePhone(campaign.parent.phone) || current?.phone || null,
             phoneNormalized: normalizePhone(campaign.parent.phone) || current?.phoneNormalized || null,
@@ -217,7 +218,7 @@ async function updateNormalizedCampaign({
           firstName,
           lastName: formStudent.lastName || null,
           nickname: formStudent.nickname || null,
-          grade: formStudent.gradeDisplay === "-" ? null : formStudent.gradeDisplay || null,
+          grade: normalizeGradeInput(formStudent.gradeDisplay),
           profilePhotoUrl: photo,
           schoolId,
           phone: normalizePhone(campaign.parent.phone),

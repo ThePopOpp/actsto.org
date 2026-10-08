@@ -8,6 +8,7 @@
  * Client validation is a courtesy. Every submission is treated as untrusted.
  */
 
+import { isK12 } from "@/lib/grades";
 import {
   countWords,
   NARRATIVE_MIN_WORDS,
@@ -36,7 +37,11 @@ export type ValidatableApplication = {
   overflowOrg: string | null;
   esaCurrentYear: string | null;
   esaPriorYear: string | null;
-  documents?: { id: string; purgedAt: Date | null }[];
+  /** 'yes' | 'no'. Undefined for callers that predate the question. */
+  hasDisability?: string | null;
+  isDisplaced?: string | null;
+  incomeProofStatus?: string;
+  documents?: { id: string; purgedAt: Date | null; documentKind?: string }[];
 };
 
 export function validateApplication(
@@ -118,6 +123,24 @@ export function validateApplication(
     });
   }
 
+  // Student circumstances (on the overflow step). Independent of the reason
+  // above: a student can be disabled and also have moved from a public school.
+  if (application.hasDisability !== undefined && !application.hasDisability) {
+    issues.push({
+      section: "overflow",
+      field: "hasDisability",
+      message: "Tell us whether your student has a disability.",
+    });
+  }
+  // Displaced funding is K-12 only, so preschool students aren't asked.
+  if (application.isDisplaced !== undefined && !application.isDisplaced && isK12(application.grade)) {
+    issues.push({
+      section: "overflow",
+      field: "isDisplaced",
+      message: "Tell us whether your student is a displaced student.",
+    });
+  }
+
   // Step 5 — ESA. Both required.
   if (!application.esaCurrentYear) {
     issues.push({ section: "esa", field: "esaCurrentYear", message: "Pick an answer to continue." });
@@ -137,11 +160,28 @@ export function validateApplication(
  */
 export function documentWarnings(application: ValidatableApplication): string[] {
   const warnings: string[] = [];
-  const liveDocs = (application.documents ?? []).filter((d) => !d.purgedAt).length;
+  const live = (application.documents ?? []).filter((d) => !d.purgedAt);
+  const liveDocs = live.length;
+  const has = (kind: string) => live.some((d) => d.documentKind === kind);
   if (overflowNeedsDocs(application.overflowQualification) && liveDocs === 0) {
     const label = overflowBySlug(application.overflowQualification)?.title ?? "this qualification";
     warnings.push(
       `You haven't attached documentation for “${label}”. You can still submit, but we can't count the Overflow qualification until proof is on file.`,
+    );
+  }
+  if (application.hasDisability === "yes" && application.documents && !has("iep")) {
+    warnings.push(
+      "You said your student has a disability but haven't attached a MET, IEP or 504 plan. We can't count the disability until it's on file.",
+    );
+  }
+  if (application.isDisplaced === "yes" && !has("displaced_form")) {
+    warnings.push(
+      "You said your student is displaced. Download, sign and upload the Displaced Student Verification Form so we can confirm placement with DCS.",
+    );
+  }
+  if (application.documents && !has("income_proof") && application.incomeProofStatus !== "accepted") {
+    warnings.push(
+      "No proof of income is attached. It's needed for the low-income scholarship; you can send it later.",
     );
   }
   return warnings;

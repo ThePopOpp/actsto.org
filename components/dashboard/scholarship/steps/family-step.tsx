@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { buttonVariants } from "@/lib/button-variants";
 import { COPY, GRADE_OPTIONS } from "@/lib/scholarship/constants";
+import { formatCurrency } from "@/lib/scholarship/income";
 import type { ValidationIssue } from "@/lib/scholarship/validation";
 import { cn } from "@/lib/utils";
 
@@ -263,6 +264,15 @@ export function FamilyStep({
               Tuition owed after every discount is applied{" "}
               <span className="text-destructive">*</span>
             </Label>
+            {/* Locked: show the saved figure as text. A disabled, faded input
+                read as blank to families looking at a submitted application. */}
+            {readOnly ? (
+              <p id="f-tuition" className="mt-1.5 text-base font-medium tabular-nums text-foreground">
+                {values.tuitionAfterDiscounts.trim() !== "" && Number.isFinite(Number(values.tuitionAfterDiscounts))
+                  ? formatCurrency(Number(values.tuitionAfterDiscounts), { cents: true })
+                  : "Not answered"}
+              </p>
+            ) : (
             <div className="relative mt-1.5 max-w-xs">
               <span
                 aria-hidden
@@ -286,6 +296,7 @@ export function FamilyStep({
                 data-field-error={issueFor("tuitionAfterDiscounts") ? "true" : undefined}
               />
             </div>
+            )}
             {/* This label matters — it is not the school's published rate. */}
             <p id="help-tuition" className="mt-1.5 text-sm text-muted-foreground">
               {COPY.tuitionHelper}

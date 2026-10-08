@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminPaypalReceiptBackfillButton } from "@/components/dashboard/admin/admin-paypal-receipt-backfill-button";
+import { ExpirePendingButton, FundingSourceCell } from "@/components/dashboard/admin/funding-source-cell";
 import { prisma } from "@/lib/prisma";
 
 function money(value: unknown) {
@@ -43,10 +44,11 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
     prisma.donation.findMany({
       where: { paymentProvider: "paypal" },
       orderBy: { createdAt: "desc" },
-      take: 12,
+      take: 50,
       include: {
         campaign: { select: { title: true, slug: true } },
         taxReceipts: { orderBy: { createdAt: "desc" }, take: 1 },
+        fundSplits: { select: { fundingSource: true, amount: true, status: true } },
       },
     }),
     prisma.paymentEvent.findMany({
@@ -103,7 +105,13 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
       <Card className="border-border/80">
         <CardHeader>
           <CardTitle className="font-heading text-primary">Recent PayPal donations</CardTitle>
-          <CardDescription>Capture status, receipt generation, and campaign association.</CardDescription>
+          <CardDescription>
+            Capture status, funding source, receipt and campaign for the latest 50 checkouts. Gifts marked Review were
+            recorded before funding sources existed, or are quick gifts with an Overflow part; confirm or correct them.
+          </CardDescription>
+          <div className="pt-2">
+            <ExpirePendingButton pendingCount={summary.pendingCount} />
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
@@ -112,6 +120,7 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
                 <th className="py-2 pr-4">Created</th>
                 <th className="py-2 pr-4">Status</th>
                 <th className="py-2 pr-4 text-right">Amount</th>
+                <th className="py-2 pr-4">Funding source</th>
                 <th className="py-2 pr-4">Campaign</th>
                 <th className="py-2 pr-4">Receipt</th>
                 <th className="py-2 pr-4">PayPal order</th>
@@ -124,6 +133,17 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
                   <td className="py-3 pr-4 text-muted-foreground">{dt(donation.createdAt)}</td>
                   <td className="py-3 pr-4">{statusBadge(donation.status)}</td>
                   <td className="py-3 pr-4 text-right tabular-nums">{money(donation.totalAmount ?? donation.amount)}</td>
+                  <td className="py-3 pr-4">
+                    <FundingSourceCell
+                      donationId={donation.id}
+                      total={Number(donation.totalAmount ?? donation.amount)}
+                      splits={donation.fundSplits.map((split) => ({
+                        fundingSource: split.fundingSource,
+                        amount: Number(split.amount),
+                        status: split.status,
+                      }))}
+                    />
+                  </td>
                   <td className="py-3 pr-4">
                     {donation.campaign?.title ??
                       (typeof donation.metadata === "object" &&

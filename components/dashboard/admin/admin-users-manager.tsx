@@ -291,9 +291,8 @@ export function AdminUsersManager() {
               · {filteredRows.length} match{filteredRows.length === 1 ? "" : "es"}
             </>
           ) : null}{" "}
-          · Create, edit, or delete accounts stored in the database. Super Admin sign-in still requires{" "}
-          <code className="rounded bg-muted px-1 font-mono text-xs">ADMIN_EMAILS</code> (or temp bootstrap credentials)
-          for that role.
+          · Create, edit, or delete accounts stored in the database. Super Admin sign-in also requires the
+          email to be on the server&apos;s Super Admin allowlist.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" className="gap-1.5" onClick={handleCreateClick}>

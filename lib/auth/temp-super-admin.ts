@@ -1,7 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 
-/** True when both temporary bootstrap env vars are set. */
+/**
+ * True when both temporary bootstrap env vars are set — and, in production,
+ * only when ALLOW_TEMP_SUPER_ADMIN=true as well. A forgotten pair of env vars
+ * on the live server would otherwise be a standing Super Admin password, so
+ * production ignores them by default.
+ */
 export function isTempSuperAdminConfigured(): boolean {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_TEMP_SUPER_ADMIN !== "true") {
+    return false;
+  }
   const e = process.env.TEMP_SUPER_ADMIN_EMAIL?.trim();
   const p = process.env.TEMP_SUPER_ADMIN_PASSWORD;
   return Boolean(e && p !== undefined && p !== "");
@@ -32,6 +40,7 @@ export function isTempSuperAdminCredentials(
   email: string,
   password: string
 ): boolean {
+  if (!isTempSuperAdminConfigured()) return false;
   const envEmail = process.env.TEMP_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
   const envPass = process.env.TEMP_SUPER_ADMIN_PASSWORD;
   if (!envEmail || envPass === undefined || envPass === "") {

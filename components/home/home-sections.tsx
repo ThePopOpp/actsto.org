@@ -22,6 +22,7 @@ import { buttonVariants } from "@/lib/button-variants";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
 import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
+import { orderHomeCampaigns } from "@/lib/campaigns/home-order";
 import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +114,7 @@ const whoWeServe = [
       { href: "/register/parent", label: "Apply Now" },
       { href: "/how-it-works", label: "How It Works" },
       { href: "/faq", label: "Parent FAQ" },
-      { href: "/resources", label: "Award Year Timeline" },
+      { href: "/resources#timeline", label: "Award Year Timeline" },
       { href: "/login", label: "Parent Portal Login" },
     ],
   },
@@ -124,7 +125,7 @@ const whoWeServe = [
       "Partner with Arizona Christian Tuition to connect your institution with scholarship funds and support more families.",
     links: [
       { href: "/contact", label: "Partner With Us" },
-      { href: "/resources", label: "Award Year Timeline" },
+      { href: "/resources#timeline", label: "Award Year Timeline" },
       { href: "/login", label: "School Portal Login" },
     ],
   },
@@ -304,7 +305,7 @@ export function HomeGainingMomentum({ campaigns = [] }: { campaigns?: Campaign[]
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
           title="🔥 Gaining Momentum"
-          subtitle="Most active campaigns this week"
+          subtitle="Featured campaigns, then the most gifts received this week"
           action={
             <Link
               href="/campaigns"
@@ -314,7 +315,7 @@ export function HomeGainingMomentum({ campaigns = [] }: { campaigns?: Campaign[]
             </Link>
           }
         />
-        <HomeCampaignSlider campaigns={campaigns} keyPrefix="mom-" reverse />
+        <HomeCampaignSlider campaigns={campaigns} keyPrefix="mom-" />
       </div>
     </section>
   );
@@ -547,22 +548,24 @@ export function HomePreFooterCta({
 }
 
 export async function HomeBelowHero({ campaigns = [] }: { campaigns?: Campaign[] }) {
-  const [newCampaignsCta, preFooterCta, taxLimits] = await Promise.all([
+  const [newCampaignsCta, preFooterCta, taxLimits, ordering] = await Promise.all([
     getCtaBlockByPlacement("home_new_campaigns"),
     getCtaBlockByPlacement("home_pre_footer"),
     getTaxCreditLimitConfig(),
+    // Each section has its own documented rule — see lib/campaigns/home-order.ts.
+    orderHomeCampaigns(campaigns),
   ]);
 
   return (
     <>
       <HomeImpactStats />
       <HomeBrowseSchoolTypes />
-      <HomeNewCampaigns campaigns={campaigns} cta={newCampaignsCta} />
+      <HomeNewCampaigns campaigns={ordering.newest} cta={newCampaignsCta} />
       <HomeHowTaxCreditWorks />
       <HomeHowItWorksSplit taxLimits={taxLimits} />
-      <HomeFeaturedCampaigns campaigns={campaigns} />
+      <HomeFeaturedCampaigns campaigns={ordering.featured} />
       <HomeWhoWeServe />
-      <HomeGainingMomentum campaigns={campaigns} />
+      <HomeGainingMomentum campaigns={ordering.momentum} />
       <HomePreFooterCta cta={preFooterCta} taxLimits={taxLimits} />
     </>
   );

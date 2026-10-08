@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { ensureRoleScaffold, syncAccountSetupProgress } from "@/lib/auth/account-types";
 import { decodeSession, SESSION_COOKIE_NAME } from "@/lib/auth/cookie";
+import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
 import { createServerClient } from "@/lib/supabase/server";
@@ -112,7 +113,7 @@ export async function PATCH(request: Request) {
         firstName,
         lastName,
         nickname: (body?.nickname ?? "").trim() || null,
-        grade: (body?.grade ?? "").trim() || null,
+        grade: normalizeGradeInput(body?.grade),
         schoolId,
         bio: (body?.bio ?? "").trim() || null,
         profilePhotoUrl: (body?.profilePhotoUrl ?? "").trim() || null,

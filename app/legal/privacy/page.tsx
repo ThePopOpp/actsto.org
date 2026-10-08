@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Privacy policy" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPageShell title="Privacy policy" lastUpdated="April 1, 2026">
+    <LegalPageShell title="Privacy policy" lastUpdated="October 7, 2026">
       <div className={LEGAL_BODY_CLASS}>
         <PrivacyDocumentBody />
       </div>

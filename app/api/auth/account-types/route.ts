@@ -110,7 +110,21 @@ export async function GET() {
       .findFirst({ where: { email: { equals: session.email, mode: "insensitive" } }, select: { id: true } })
       .catch(() => null);
     if (profile) {
-      const accountTypes = await getAccountTypeSummaries(profile.id).catch(() => null);
+      let accountTypes = await getAccountTypeSummaries(profile.id).catch(() => null);
+      // The signed session says this login uses a portal that has no user_roles
+      // row, so the page showed that portal as both "Current" and "Not added".
+      // The cookie is signed, so it is trusted: add the missing role records.
+      const missing = accountTypes
+        ? session.roles.filter((role) => !accountTypes!.some((a) => a.role === role && a.isActive))
+        : [];
+      if (missing.length > 0) {
+        for (const role of missing) {
+          if (role === "student") continue; // students join only through a parent's invite
+          await ensureRoleScaffold(profile.id, role).catch(() => undefined);
+          await syncAccountSetupProgress(profile.id, role).catch(() => undefined);
+        }
+        accountTypes = await getAccountTypeSummaries(profile.id).catch(() => accountTypes);
+      }
       if (accountTypes) return NextResponse.json({ accountTypes });
     }
   }

@@ -28,6 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       parentMessage?: string;
       fieldsRequested?: string[];
       overflowVerified?: boolean;
+      disabilityVerified?: boolean;
       dueAt?: string;
     } | null;
 
@@ -57,6 +58,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           internalNote: body?.internalNote,
           parentMessage: body?.parentMessage,
           overflowVerified: body?.overflowVerified === true,
+          disabilityVerified: body?.disabilityVerified === true,
         });
         break;
       case "deny":

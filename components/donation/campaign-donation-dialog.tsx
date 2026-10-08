@@ -573,6 +573,10 @@ export function CampaignDonationDialog({
               to <span className="font-semibold text-foreground">{campaignTitle}</span> was received.
               You&apos;ll receive a confirmation by email.
             </p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              Our team awards gifts to eligible students, so the campaign&apos;s progress bar moves once your gift is
+              awarded.
+            </p>
             <Button
               type="button"
               className="mt-2"

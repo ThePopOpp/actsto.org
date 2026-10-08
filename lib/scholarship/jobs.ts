@@ -211,7 +211,7 @@ export async function sendDraftDeadlineWarnings(now = new Date()) {
  */
 export async function purgeExpiredDocuments(now = new Date(), limit = 200) {
   const due = await prisma.applicationDocument.findMany({
-    where: { purgedAt: null, purgeAfter: { lte: now } },
+    where: { purgedAt: null, legalHold: false, purgeAfter: { not: null, lte: now } },
     take: limit,
     select: { id: true, storagePath: true, fileName: true },
   });

@@ -86,12 +86,20 @@ async function buildBreakdown(args: {
   };
 }
 
+function corporateProgramLabel(metadata: Record<string, unknown>): string | null {
+  const business = metadata.business && typeof metadata.business === "object" ? (metadata.business as Record<string, unknown>) : null;
+  const program = typeof business?.program === "string" ? business.program : null;
+  if (program === "corporate_low_income") return "Low-income scholarships";
+  if (program === "corporate_disabled_displaced") return "Disabled or displaced student scholarships";
+  return null;
+}
+
 function giftTypeLabel(donationType: string) {
   switch (donationType) {
     case "tax_credit":
       return "Arizona individual tax credit";
     case "business":
-      return "Business contribution";
+      return "Arizona corporate tax credit";
     case "manual_check":
       return "Check";
     default:
@@ -181,7 +189,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     issuedAt: phoenixDate(receipt.issuedAt ?? receipt.createdAt),
     giftDate: phoenixDate(donation.createdAt),
     donorName:
-      receipt.issuedToName || detailName || ownerProfile?.fullName || ownerProfile?.displayName || "Donor",
+      detail?.businessName ||
+      receipt.issuedToName ||
+      detailName ||
+      ownerProfile?.fullName ||
+      ownerProfile?.displayName ||
+      "Donor",
     donorEmail: receipt.issuedToEmail ?? detail?.donorEmail ?? ownerProfile?.email ?? "",
     donorAddress: [detail?.billingAddressLine1, detail?.billingAddressLine2, cityLine].filter(
       (line): line is string => Boolean(line && line.trim()),
@@ -194,6 +207,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     paymentReference: donation.paymentProviderCaptureId ?? donation.paymentProviderOrderId ?? "",
     isVoid: receipt.status === "void",
     breakdown,
+    corporate:
+      donation.donationType === "business"
+        ? {
+            ein: detail?.businessEin ?? null,
+            contact: [detailName, detail?.businessContactTitle].filter(Boolean).join(", ") || null,
+            program: corporateProgramLabel(metadata),
+          }
+        : null,
   };
 
   const buffer = await streamToBuffer(await pdf(TaxReceiptDocument({ data, logo: await receiptLogo() })).toBuffer());

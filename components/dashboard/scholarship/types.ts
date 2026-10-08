@@ -27,6 +27,15 @@ export type WizardApplication = {
   overflowComments: string | null;
   esaCurrentYear: string | null;
   esaPriorYear: string | null;
+  /** 'yes' | 'no' | null. Separate from the overflow reason. */
+  hasDisability: string | null;
+  /** The yes came from picking a disability overflow reason. */
+  disabilityAutoSet: boolean;
+  /** 'yes' | 'no' | null. Asked for K-12 only. */
+  isDisplaced: string | null;
+  /** not_provided | submitted | accepted | rejected | needs_more */
+  incomeProofStatus: string;
+  incomeProofNote: string | null;
   status: string;
   lockedAt: string | null;
   confirmationCode: string | null;
@@ -93,4 +102,6 @@ export type WizardData = {
   } | null;
   /** Files that were purged before a resubmission and must be re-supplied. */
   missingImportedDocuments: string[];
+  /** Staff-editable guidance shown beside the displaced and income-proof questions. */
+  eligibilityText: { displacedDefinition: string; incomeProofGuidance: string };
 };

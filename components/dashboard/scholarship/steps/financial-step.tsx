@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Clock, Info } from "lucide-react";
 
 import { HouseholdIncomeLedger } from "@/components/dashboard/scholarship/household-income-ledger";
+import { DocumentUploader } from "@/components/dashboard/scholarship/steps/overflow-step";
+import type { WizardDocument } from "@/components/dashboard/scholarship/types";
 import { FieldError, useFieldIssue } from "@/components/dashboard/scholarship/steps/field-error";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +21,21 @@ import type { ValidationIssue } from "@/lib/scholarship/validation";
  * autopilot, and the data they are certifying at submission — so the friction
  * here is deliberate.
  */
+const PROOF_STATUS: Record<string, string> = {
+  not_provided: "Not provided yet",
+  submitted: "Received, waiting for review",
+  accepted: "Accepted",
+  rejected: "Not accepted",
+  needs_more: "We need more",
+};
+
 export function FinancialStep({
   applicationId,
+  documents,
+  onDocumentsChanged,
+  incomeProofStatus,
+  incomeProofNote,
+  incomeProofGuidance,
   schoolYear,
   household,
   householdLastUpdated,
@@ -31,6 +46,11 @@ export function FinancialStep({
   readOnly,
 }: {
   applicationId: string;
+  documents: WizardDocument[];
+  onDocumentsChanged: (documents: WizardDocument[]) => void;
+  incomeProofStatus: string;
+  incomeProofNote: string | null;
+  incomeProofGuidance: string;
   schoolYear: string;
   household: HouseholdMemberView[];
   householdLastUpdated: string | null;
@@ -167,6 +187,30 @@ export function FinancialStep({
           ) : null}
         </CardContent>
       </Card>
+
+      {/* Low-income eligibility needs proof, not just the figures above. It can
+          follow later, so it never blocks submitting. */}
+      <Alert>
+        <Info className="size-4" />
+        <AlertDescription className="space-y-1">
+          <p className="font-medium text-foreground">Proof of income: {PROOF_STATUS[incomeProofStatus] ?? incomeProofStatus}</p>
+          <p>{incomeProofGuidance}</p>
+          {incomeProofNote && incomeProofStatus !== "accepted" ? <p>Our note: {incomeProofNote}</p> : null}
+        </AlertDescription>
+      </Alert>
+      <DocumentUploader
+        applicationId={applicationId}
+        documents={documents.filter((d) => d.documentKind === "income_proof")}
+        allDocuments={documents}
+        onDocumentsChanged={onDocumentsChanged}
+        missingImportedDocuments={[]}
+        readOnly={readOnly}
+        needsDocs={false}
+        kinds={[{ value: "income_proof", label: "Proof of income" }]}
+        defaultKind="income_proof"
+        title="Proof of income"
+        emptyText="Nothing attached yet. You can submit without it and send it later, but low-income scholarships need it."
+      />
     </div>
   );
 }

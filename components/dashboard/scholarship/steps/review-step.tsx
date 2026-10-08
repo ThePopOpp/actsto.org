@@ -15,7 +15,6 @@ import { buttonVariants } from "@/lib/button-variants";
 import {
   COPY,
   countWords,
-  GRADE_OPTIONS,
   overflowBySlug,
   type ApplicationStepId,
 } from "@/lib/scholarship/constants";
@@ -195,7 +194,7 @@ export function ApplicationReviewStep({
         <ReviewRow label="School year" value={values.schoolYear} missing="No school year selected" />
         <ReviewRow
           label="Grade"
-          value={GRADE_OPTIONS.includes(values.grade) ? values.grade : values.grade}
+          value={values.grade}
           missing="No grade selected"
         />
         <ReviewRow

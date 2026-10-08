@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { GRADE_OPTIONS } from "@/lib/grades";
 
 type SchoolOption = {
   id: string;
@@ -42,22 +43,6 @@ type StudentPayload = {
   };
   schools: SchoolOption[];
 };
-
-const GRADE_OPTIONS = [
-  "Kindergarten",
-  "1st Grade",
-  "2nd Grade",
-  "3rd Grade",
-  "4th Grade",
-  "5th Grade",
-  "6th Grade",
-  "7th Grade",
-  "8th Grade",
-  "9th Grade",
-  "10th Grade",
-  "11th Grade",
-  "12th Grade",
-];
 
 const NO_SCHOOL = "__none__";
 

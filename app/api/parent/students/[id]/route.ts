@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recomputeCampaignCompletion } from "@/lib/campaigns/recompute-completion";
+import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { getStudentActor } from "@/lib/students/parent-session";
 import {
@@ -53,7 +54,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ...(firstName ? { firstName } : {}),
       ...("lastName" in body ? { lastName: text(body.lastName) || null } : {}),
       ...("nickname" in body ? { nickname: text(body.nickname) || null } : {}),
-      ...("grade" in body ? { grade: text(body.grade) || null } : {}),
+      ...("grade" in body ? { grade: normalizeGradeInput(text(body.grade)) } : {}),
       ...("birthDate" in body ? { birthDate: birthDate(body.birthDate) } : {}),
       ...("photo" in body ? { profilePhotoUrl: text(body.photo) || null } : {}),
       ...("schoolId" in body ? { schoolId } : {}),

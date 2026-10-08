@@ -6,7 +6,6 @@ import {
   ClipboardList,
   Contact,
   CreditCard,
-  FileText,
   Heart,
   Images,
   LayoutDashboard,
@@ -98,7 +97,6 @@ export function getRoleNavItems(role: UserRole, basePath: string): RoleNavItem[]
         businessCards,
         messages,
         notifications,
-        { href: `${b}/compliance`, label: "Compliance docs", icon: FileText },
       ];
     default:
       return [{ href: b, label: "Overview", icon: LayoutDashboard }];

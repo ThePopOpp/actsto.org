@@ -87,8 +87,9 @@ export default async function CampaignDetailPage({ params }: Props) {
   const studentNames = c.students
     .map((student) => [student.firstName, student.lastName].filter(Boolean).join(" "))
     .filter(Boolean);
-  const donationSubtitle =
-    studentNames.length > 0
+  const donationSubtitle = c.isSchoolLevel
+    ? `students at ${c.school.name}`
+    : studentNames.length > 0
       ? `${new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(studentNames)} at ${
           c.students[0].school || c.school.name
         }`
@@ -171,7 +172,8 @@ export default async function CampaignDetailPage({ params }: Props) {
 
             <CampaignPeopleSection
               parent={c.parent}
-              students={c.students}
+              // A school-level campaign has no specific student to show.
+              students={c.isSchoolLevel ? [] : c.students}
               campaignSlug={c.slug}
               reviewsEnabled={reviewsEnabled}
             />

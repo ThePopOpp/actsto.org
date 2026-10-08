@@ -265,6 +265,14 @@ export function PrivacyDocumentBody() {
             <strong className="text-foreground">Scholarship application records:</strong> 7 years (Arizona STO compliance).
           </li>
           <li>
+            <strong className="text-foreground">Scholarship supporting documents</strong> (such as IEP, MET or 504
+            plans, military orders, income proof and ESA records): at least 4 years, counted from the later of the
+            date our annual report to the Arizona Department of Revenue is filed or its September 30 due date, then
+            securely deleted. Displaced-student verification forms are kept 4 years after the last fiscal year in
+            which we pay a scholarship for that student. Files under an audit or dispute hold are kept until the hold
+            ends. The record that a document was reviewed, and what it showed, is kept with the application record.
+          </li>
+          <li>
             <strong className="text-foreground">SMS message logs and opt-in records:</strong> 24–48 months (TCPA/CTIA
             compliance).
           </li>

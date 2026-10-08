@@ -10,6 +10,7 @@ import {
   notifyApplicationReopened,
   notifyInformationRequested,
 } from "@/lib/scholarship/notifications";
+import { evaluateLowIncomeFlag, setFlag } from "@/lib/eligibility/flags-server";
 import { ScopeError, type StaffActor } from "@/lib/scholarship/scope";
 import { getWindowForYear, resolveWindowState } from "@/lib/scholarship/windows";
 
@@ -39,6 +40,8 @@ export type ReviewInput = {
   dueAt?: Date | null;
   /** approve only: did staff verify the claimed Overflow qualification? */
   overflowVerified?: boolean;
+  /** approve only: did staff verify the disability documentation? */
+  disabilityVerified?: boolean;
 };
 
 async function recipientFor(applicationId: string) {
@@ -51,6 +54,7 @@ async function recipientFor(applicationId: string) {
       studentId: true,
       overflowQualification: true,
       esaCurrentYear: true,
+      hasDisability: true,
       student: { select: { firstName: true, lastName: true } },
     },
   });
@@ -257,6 +261,41 @@ export async function approveApplication(actor: StaffActor, input: ReviewInput) 
       revokedBy: null,
     },
   });
+
+  // Eligibility flags for the restricted funds, each with its own evidence.
+  // Overflow mirrors the finding above; a claim not yet verified stays pending.
+  const flagActor = { id: actor.profileId, email: actor.email };
+  if (claimed) {
+    await setFlag({
+      studentId: application.studentId,
+      flag: "overflow",
+      schoolYear: application.schoolYear,
+      status: verified ? "approved" : "pending_review",
+      source: "application",
+      actor: flagActor,
+      sourceApplicationId: input.applicationId,
+      reason: verified ? null : "Qualification claimed; documentation not yet verified.",
+      details: { qualification: application.overflowQualification },
+    });
+  }
+  // The disability answer is reviewed with the application — not twice.
+  if (application.hasDisability === "yes") {
+    await setFlag({
+      studentId: application.studentId,
+      flag: "disabled",
+      schoolYear: application.schoolYear,
+      status: input.disabilityVerified ? "approved" : "pending_review",
+      source: "application",
+      actor: flagActor,
+      sourceApplicationId: input.applicationId,
+      reason: input.disabilityVerified ? null : "Disability documentation not yet verified.",
+    });
+  }
+  // Low-income: calculated from the certified income; approved only once
+  // income proof is accepted.
+  await evaluateLowIncomeFlag(input.applicationId, flagActor).catch((error) =>
+    console.error("[scholarship] low-income evaluation failed", error),
+  );
 
   if (recipient) {
     await notifyApplicationApproved({

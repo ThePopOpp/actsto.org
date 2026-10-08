@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -101,7 +102,7 @@ export async function createFamilyStudent(
       firstName: input.firstName,
       lastName: input.lastName || null,
       nickname: input.nickname || null,
-      grade: input.grade || null,
+      grade: normalizeGradeInput(input.grade),
       birthDate: input.birthDate ?? null,
       profilePhotoUrl: input.profilePhotoUrl || null,
       phone: input.phone || null,

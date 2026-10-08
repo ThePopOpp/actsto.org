@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
-import { ChevronRight, CreditCard } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import { DonationFormStepper, StepBanner } from "@/components/donate/form-stepper";
 import { SmsConsentCheckbox } from "@/components/sms-consent-checkbox";
@@ -40,25 +40,18 @@ import {
   type TaxYear,
 } from "@/lib/tax-credit";
 import { cn, formatCheckoutUsd } from "@/lib/utils";
+import { CORPORATE_PROGRAMS, type CorporateProgram } from "@/lib/funding-sources";
 import type { DonorPrefill } from "@/app/api/donate/prefill/route";
+import type {
+  DonationOptionCampaign,
+  DonationOptionSchool,
+} from "@/app/api/campaigns/donation-options/route";
 
 type StoRow = { id: string; organization: string; amount: number };
 type PaypalConfig = { clientId: string; environment: string };
-type DonationCampaignOption = {
-  slug: string;
-  title: string;
-  campaignId: string | null;
-  studentId: string | null;
-  schoolId: string | null;
-  studentFirstName: string;
-  studentLastName: string;
-  schoolName: string;
-  grade: string;
-};
 
 const CAMP_NONE = "__none__";
-const GRADE_NONE = "__none__";
-const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
+const SCHOOL_NONE = "__none__";
 
 function TogglePair({
   value,
@@ -441,18 +434,162 @@ function LiabilityWaiverBlock() {
   );
 }
 
+/**
+ * Step 2 of the corporate form. A business chooses the program (required),
+ * may recommend a school (default Valley Christian Schools), and never sees a
+ * student question, a filing status or the individual credit limits.
+ */
+function CorporateProgramPanel({
+  program,
+  onProgram,
+  programError,
+  schools,
+  schoolChoice,
+  onSchoolChoice,
+  campaignTitle,
+  taxYear,
+  offeredTaxYears,
+  onTaxYear,
+  donationRaw,
+  onDonationRaw,
+  adorPreApproval,
+  onAdorPreApproval,
+  relaxed,
+}: {
+  program: CorporateProgram | "";
+  onProgram: (value: CorporateProgram) => void;
+  programError: string | null;
+  schools: DonationOptionSchool[];
+  schoolChoice: string;
+  onSchoolChoice: (value: string) => void;
+  campaignTitle: string | null;
+  taxYear: TaxYear;
+  offeredTaxYears: TaxYear[];
+  onTaxYear: (value: TaxYear) => void;
+  donationRaw: string;
+  onDonationRaw: (value: string) => void;
+  adorPreApproval: string;
+  onAdorPreApproval: (value: string) => void;
+  relaxed: boolean;
+}) {
+  return (
+    <div className="space-y-8">
+      <div id="corp-program" className="space-y-3">
+        <ChoiceLegend>Which program does this gift support?</ChoiceLegend>
+        <div role="radiogroup" aria-label="Corporate program" className="grid gap-3">
+          {CORPORATE_PROGRAMS.map((option) => {
+            const on = program === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => onProgram(option.value)}
+                className={cn(
+                  "rounded-lg border px-4 py-3 text-left text-sm transition-colors",
+                  on ? "border-primary bg-primary/5 ring-2 ring-primary/60" : "border-border/70 hover:bg-muted/40",
+                )}
+              >
+                <span className="block font-semibold text-foreground">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{option.detail}</span>
+              </button>
+            );
+          })}
+        </div>
+        {programError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {programError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <FormField label="Recommend a school (optional)" htmlFor="corp-school">
+          <Select value={schoolChoice} onValueChange={(v) => onSchoolChoice(v ?? SCHOOL_NONE)}>
+            <SelectTrigger id="corp-school" className="h-10 w-full min-w-0">
+              <SelectValue placeholder="No preference" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SCHOOL_NONE}>No preference</SelectItem>
+              {schools.map((school) => (
+                <SelectItem key={school.id} value={school.id}>
+                  {school.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <p className="text-xs text-muted-foreground">
+          Corporate gifts can recommend a school but never a specific student. A recommendation is not binding;
+          our team awards the gift to eligible students under Arizona law.
+          {campaignTitle ? ` Your gift still counts toward ${campaignTitle}.` : ""}
+        </p>
+      </div>
+
+      {offeredTaxYears.length > 1 ? (
+        <div className="space-y-3">
+          <ChoiceLegend>Tax year</ChoiceLegend>
+          <TogglePair
+            value={taxYear === offeredTaxYears[1]}
+            onChange={(v) => onTaxYear(v ? offeredTaxYears[1] : offeredTaxYears[0])}
+            left
+            right={false}
+            leftLabel={`${offeredTaxYears[1]} tax year`}
+            rightLabel={`${offeredTaxYears[0]} tax year`}
+            relaxed={relaxed}
+          />
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Gift amount" htmlFor="corp-amt">
+          <div className="relative">
+            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">$</span>
+            <Input
+              id="corp-amt"
+              className="pl-7"
+              inputMode="decimal"
+              value={donationRaw}
+              onChange={(e) => onDonationRaw(e.target.value)}
+            />
+          </div>
+        </FormField>
+        <FormField label="ADOR pre-approval number (optional)" htmlFor="corp-ador">
+          <Input id="corp-ador" value={adorPreApproval} onChange={(e) => onAdorPreApproval(e.target.value)} />
+        </FormField>
+      </div>
+
+      <Alert>
+        <AlertDescription>
+          Arizona corporate tax credits (A.R.S. §§ 43-1183 and 43-1184) need pre-approval from the Arizona
+          Department of Revenue before you give, and the credit can&apos;t exceed the approved amount. Individual
+          filing status and limits don&apos;t apply. Your tax advisor can confirm the credit for your business.
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
 export function TaxCreditWizard({
   embedInDialog = false,
   initialCampaignSlug,
   supportSubtitle,
   onBackToChoose,
   onExitFlow,
+  mode,
 }: {
   embedInDialog?: boolean;
   initialCampaignSlug?: string;
   supportSubtitle?: string;
   onBackToChoose?: () => void;
   onExitFlow?: () => void;
+  /**
+   * "business" is the corporate form: business name, EIN, a program choice and
+   * a school recommendation, with no student fields and no individual limits.
+   * Left unset, a signed-in business donor gets the corporate form.
+   */
+  mode?: "individual" | "business";
 } = {}) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [taxLimits, setTaxLimits] = useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
@@ -469,9 +606,22 @@ export function TaxCreditWizard({
   const [phone, setPhone] = useState("");
   const [prefilledFromAccount, setPrefilledFromAccount] = useState(false);
 
-  // Designation is optional, so it starts at No everywhere. The full donation
-  // page used to start at Yes, which silently required the relationship box
-  // and failed only at payment.
+  // Corporate form. Set by the prop, or by a signed-in business account.
+  const [isBusiness, setIsBusiness] = useState(mode === "business");
+  const [businessName, setBusinessName] = useState("");
+  const [ein, setEin] = useState("");
+  const [contactTitle, setContactTitle] = useState("");
+  const [program, setProgram] = useState<CorporateProgram | "">("");
+  const [programError, setProgramError] = useState<string | null>(null);
+  const [schools, setSchools] = useState<DonationOptionSchool[]>([]);
+  // A corporate donor may recommend a school (never a student); Valley
+  // Christian Schools is the default until they choose otherwise.
+  const [schoolChoice, setSchoolChoice] = useState<string | null>(null);
+  const [adorPreApproval, setAdorPreApproval] = useState("");
+
+  // Through a campaign with students, recommending them is the default (Yes,
+  // every student preselected). Elsewhere it starts at No. A Yes still needs
+  // the relationship box, which step 2 checks before moving on.
   const [designateStudent, setDesignateStudent] = useState(false);
   // No preselected campaign. This used to default to the first sample campaign,
   // so a donor who never touched the picker could send a tax-credit gift toward
@@ -479,12 +629,10 @@ export function TaxCreditWizard({
   const [campaignSlug, setCampaignSlug] = useState(initialCampaignSlug ?? "");
   // Real campaigns only, loaded from /api/campaigns/donation-options. If that
   // request fails the picker stays empty rather than offering sample campaigns.
-  const [campaignOptions, setCampaignOptions] = useState<DonationCampaignOption[]>([]);
+  const [campaignOptions, setCampaignOptions] = useState<DonationOptionCampaign[]>([]);
   const [campaignOptionsError, setCampaignOptionsError] = useState<string | null>(null);
-  const [studentFirst, setStudentFirst] = useState("");
-  const [studentLast, setStudentLast] = useState("");
-  const [schoolName, setSchoolName] = useState("");
-  const [grade, setGrade] = useState("");
+  // Students picked from the campaign's own list — never typed names.
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [relationshipAck, setRelationshipAck] = useState(false);
   const [relationshipAckError, setRelationshipAckError] = useState<string | null>(null);
 
@@ -510,9 +658,6 @@ export function TaxCreditWizard({
   const [terms, setTerms] = useState(false);
   const [gdpr, setGdpr] = useState(false);
   const [smsConsent, setSmsConsent] = useState(false);
-
-  /** Embedded step 4: PayPal row vs inline card form (must not call onExitFlow until checkout completes). */
-  const [embedPaymentView, setEmbedPaymentView] = useState<"methods" | "card">("methods");
   const [paypalConfig, setPaypalConfig] = useState<PaypalConfig | null>(null);
   const [paypalConfigError, setPaypalConfigError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -577,11 +722,21 @@ export function TaxCreditWizard({
         // State starts as "AZ"; replace that default only, never a choice.
         if (p.state) setState((current) => (current === "AZ" || !current ? p.state.toUpperCase().slice(0, 2) : current));
         if (p.firstName || p.email || p.addressLine1) setPrefilledFromAccount(true);
+        // A business account gives as the business unless the page asked for
+        // the individual form.
+        if (p.accountRole === "donor_business" && mode !== "individual") setIsBusiness(true);
+        if (p.business) {
+          fill(setBusinessName, p.business.businessName);
+          fill(setEin, p.business.ein);
+          if (p.business.businessEmail) setEmail((current) => current || p.business!.businessEmail);
+          if (p.business.businessPhone) setPhone((current) => current || p.business!.businessPhone);
+        }
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount; `mode` is fixed for the page
   }, []);
 
   useEffect(() => {
@@ -598,13 +753,17 @@ export function TaxCreditWizard({
   }, []);
 
   useEffect(() => {
-    if (step !== 4) setEmbedPaymentView("methods");
-  }, [step]);
-
-  useEffect(() => {
     let cancelled = false;
     fetch("/api/campaigns/donation-options")
-      .then((res) => res.json() as Promise<{ campaigns?: DonationCampaignOption[]; error?: string }>)
+      .then(
+        (res) =>
+          res.json() as Promise<{
+            campaigns?: DonationOptionCampaign[];
+            schools?: DonationOptionSchool[];
+            defaultSchoolId?: string | null;
+            error?: string;
+          }>,
+      )
       .then((data) => {
         if (cancelled) return;
         if (Array.isArray(data.campaigns) && data.campaigns.length > 0) {
@@ -613,22 +772,48 @@ export function TaxCreditWizard({
         } else if (data.error) {
           setCampaignOptionsError(data.error);
         }
+        if (Array.isArray(data.schools)) setSchools(data.schools);
+        setSchoolChoice((current) => current ?? data.defaultSchoolId ?? SCHOOL_NONE);
       })
       .catch(() => {
-        if (!cancelled) setCampaignOptionsError("Live campaign list could not load. Showing fallback campaigns.");
+        if (!cancelled) setCampaignOptionsError("The campaign list could not load. You can still give without choosing one.");
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // A new campaign starts from its defaults: every one of its students picked,
+  // and, for a campaign that has students, the recommendation set to Yes.
+  const campaignKey = selectedCampaign?.slug ?? "";
   useEffect(() => {
-    if (!designateStudent || !selectedCampaign) return;
-    setStudentFirst(selectedCampaign.studentFirstName);
-    setStudentLast(selectedCampaign.studentLastName);
-    setSchoolName(selectedCampaign.schoolName);
-    setGrade(selectedCampaign.grade);
-  }, [designateStudent, selectedCampaign]);
+    if (!selectedCampaign) {
+      setSelectedStudentIds([]);
+      return;
+    }
+    setSelectedStudentIds(selectedCampaign.students.map((s) => s.id));
+    if (selectedCampaign.students.length > 0 && !selectedCampaign.isSchoolLevel) setDesignateStudent(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the campaign itself changes
+  }, [campaignKey, selectedCampaign?.students.length]);
+
+  const campaignHasStudents = Boolean(selectedCampaign && !selectedCampaign.isSchoolLevel && selectedCampaign.students.length > 0);
+  // Through a campaign, the campaign decides who can be recommended; there is
+  // nothing to ask on a school-level campaign or one with no students.
+  const askAboutStudents = !isBusiness && (selectedCampaign ? campaignHasStudents : true);
+  const recommendedStudentIds = designateStudent && campaignHasStudents ? selectedStudentIds : [];
+  const needsRelationshipAck = recommendedStudentIds.length > 0;
+
+  const programLabel = CORPORATE_PROGRAMS.find((p) => p.value === program)?.label ?? "Not chosen";
+  const recommendationSummary = isBusiness
+    ? schoolChoice && schoolChoice !== SCHOOL_NONE
+      ? `School: ${schools.find((s) => s.id === schoolChoice)?.name ?? "Selected school"}`
+      : "No school preference"
+    : recommendedStudentIds.length > 0 && selectedCampaign
+      ? selectedCampaign.students
+          .filter((s) => recommendedStudentIds.includes(s.id))
+          .map((s) => [s.firstName, s.lastName].filter(Boolean).join(" "))
+          .join(", ")
+      : "No student recommendation";
 
   useEffect(() => {
     if (step !== 4) return;
@@ -657,13 +842,49 @@ export function TaxCreditWizard({
     setStoRows((r) => (r.length <= 1 ? r : r.filter((x) => x.id !== id)));
   }
 
-  function createTaxCreditOrderPayload() {
+  // The campaign the gift counts toward. Through a campaign's own page that is
+  // always the campaign, whatever the donor answers about students; on the
+  // general donation page a campaign is chosen only to recommend its students.
+  const attributedCampaign = initialCampaignSlug || designateStudent ? selectedCampaign : null;
+
+  function createOrderPayload() {
+    if (isBusiness) {
+      return {
+        amount: donationAmount.toFixed(2),
+        donationType: "business",
+        campaignId: attributedCampaign?.campaignId ?? null,
+        campaignSlug: attributedCampaign?.slug ?? null,
+        campaignTitle: attributedCampaign?.title ?? null,
+        anonymous: false,
+        business: {
+          businessName,
+          ein,
+          contactFirstName: firstName,
+          contactLastName: lastName,
+          contactTitle,
+          email,
+          phone,
+          addressLine1: billingAddress,
+          addressLine2: unit,
+          city,
+          state,
+          zip,
+          taxYear,
+          program,
+          schoolId: schoolChoice && schoolChoice !== SCHOOL_NONE ? schoolChoice : null,
+          adorPreApproval,
+          termsAccepted: terms,
+          privacyConsent: gdpr,
+          smsConsent,
+        },
+      };
+    }
     return {
       amount: donationAmount.toFixed(2),
       donationType: "tax_credit",
-      campaignId: selectedCampaign?.campaignId ?? null,
-      campaignSlug: designateStudent ? campaignSlug || null : null,
-      campaignTitle: selectedCampaign?.title ?? null,
+      campaignId: attributedCampaign?.campaignId ?? null,
+      campaignSlug: attributedCampaign?.slug ?? null,
+      campaignTitle: attributedCampaign?.title ?? null,
       anonymous: false,
       taxCredit: {
         donorFirstName: firstName,
@@ -678,17 +899,13 @@ export function TaxCreditWizard({
         billingZip: zip,
         taxYear,
         filingStatus: filing,
-        designateStudent,
-        campaignId: selectedCampaign?.campaignId ?? null,
-        campaignSlug: designateStudent ? campaignSlug || null : null,
-        campaignTitle: selectedCampaign?.title ?? null,
-        studentId: designateStudent ? selectedCampaign?.studentId ?? null : null,
-        schoolId: designateStudent ? selectedCampaign?.schoolId ?? null : null,
-        studentFirstName: designateStudent ? studentFirst : "",
-        studentLastName: designateStudent ? studentLast : "",
-        schoolName: designateStudent ? schoolName : "",
-        grade: designateStudent ? grade : "",
-        relationshipAck: designateStudent && relationshipAck,
+        // NO clears the students here and again on the server.
+        designateStudent: recommendedStudentIds.length > 0,
+        campaignId: attributedCampaign?.campaignId ?? null,
+        campaignSlug: attributedCampaign?.slug ?? null,
+        campaignTitle: attributedCampaign?.title ?? null,
+        recommendedStudentIds,
+        relationshipAck: needsRelationshipAck && relationshipAck,
         termsAccepted: terms,
         privacyConsent: gdpr,
         smsConsent,
@@ -702,9 +919,19 @@ export function TaxCreditWizard({
 
   /** Step 2 to 3. Catches the relationship box here, not at PayPal two steps later. */
   function continueFromTaxes() {
-    if (designateStudent && !relationshipAck) {
+    if (isBusiness) {
+      if (!program) {
+        setProgramError("Choose the program your gift supports.");
+        document.getElementById("corp-program")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      setProgramError(null);
+      setStep(3);
+      return;
+    }
+    if (needsRelationshipAck && !relationshipAck) {
       setRelationshipAckError(
-        "Check the relationship policy to designate a student, or choose No above.",
+        "Check the relationship policy to recommend these students, or choose No above.",
       );
       document.getElementById("rel-ack")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
@@ -713,8 +940,24 @@ export function TaxCreditWizard({
     setStep(3);
   }
 
+  /** Step 1 to 2. The corporate form needs the business's legal name and EIN. */
+  const [businessError, setBusinessError] = useState<string | null>(null);
+  function continueFromDonor() {
+    if (isBusiness) {
+      if (!businessName.trim() || ein.replace(/\D/g, "").length !== 9) {
+        setBusinessError("Enter the business's legal name and its 9-digit EIN.");
+        return;
+      }
+      setBusinessError(null);
+    }
+    setStep(2);
+  }
+
+  function toggleStudent(id: string, on: boolean) {
+    setSelectedStudentIds((ids) => (on ? Array.from(new Set([...ids, id])) : ids.filter((x) => x !== id)));
+  }
+
   const campaignSelectValue = campaignSlug || CAMP_NONE;
-  const gradeSelectValue = grade || GRADE_NONE;
 
   return (
     <div
@@ -726,7 +969,7 @@ export function TaxCreditWizard({
         <div className="space-y-2 border-b border-border/60 pb-4">
           <div className="min-w-0">
             <h2 className="font-heading text-xl font-semibold text-primary sm:text-2xl">
-              Tax Credit Donation
+              {isBusiness ? "Corporate Tax Credit Donation" : "Tax Credit Donation"}
             </h2>
             {supportSubtitle ? (
               <p className="mt-1 text-sm text-muted-foreground">{supportSubtitle}</p>
@@ -749,19 +992,23 @@ export function TaxCreditWizard({
       {step === 1 && (
         <WizardShell
           step={1}
-          title="Donors"
-          description="Enter the billing contact for this Arizona tax-credit donation."
+          title={isBusiness ? "Business" : "Donors"}
+          description={
+            isBusiness
+              ? "The business making this Arizona corporate tax-credit gift, and who we should contact."
+              : "Enter the billing contact for this Arizona tax-credit donation."
+          }
           footerLayout="end"
           embedInDialog={embedInDialog}
-          stepBannerLabel={embedInDialog ? "Donor Information" : undefined}
+          stepBannerLabel={embedInDialog ? (isBusiness ? "Business Information" : "Donor Information") : undefined}
           footer={
             embedInDialog ? (
-              <Button type="button" onClick={() => setStep(2)} className="gap-1">
+              <Button type="button" onClick={continueFromDonor} className="gap-1">
                 Next
                 <ChevronRight className="size-4" aria-hidden />
               </Button>
             ) : (
-              <Button type="button" onClick={() => setStep(2)}>
+              <Button type="button" onClick={continueFromDonor}>
                 Continue
               </Button>
             )
@@ -775,9 +1022,31 @@ export function TaxCreditWizard({
               </p>
             ) : embedInDialog ? (
               <p className="text-sm text-muted-foreground">
-                Enter your personal information below.
+                {isBusiness ? "Enter your business information below." : "Enter your personal information below."}
               </p>
             ) : null}
+            {isBusiness ? (
+              <div className={cn("grid gap-4 sm:grid-cols-12", embedInDialog && "sm:gap-x-6 sm:gap-y-3")}>
+                <FormField label="Legal business name" htmlFor="biz-name" className="sm:col-span-8">
+                  <Input id="biz-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+                </FormField>
+                <FormField label="EIN" htmlFor="biz-ein" className="sm:col-span-4">
+                  <Input
+                    id="biz-ein"
+                    inputMode="numeric"
+                    placeholder="12-3456789"
+                    value={ein}
+                    onChange={(e) => setEin(e.target.value)}
+                  />
+                </FormField>
+                {businessError ? (
+                  <p role="alert" className="text-sm text-destructive sm:col-span-12">
+                    {businessError}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {isBusiness ? <p className="text-sm font-medium text-foreground">Contact person</p> : null}
             <div
               className={cn(
                 "grid gap-4 sm:grid-cols-12",
@@ -803,6 +1072,16 @@ export function TaxCreditWizard({
               <FormField label="Last name" htmlFor="ln" className="sm:col-span-4">
                 <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               </FormField>
+              {isBusiness ? (
+                <FormField label="Title (optional)" htmlFor="biz-title" className="sm:col-span-12">
+                  <Input
+                    id="biz-title"
+                    placeholder="e.g. Controller"
+                    value={contactTitle}
+                    onChange={(e) => setContactTitle(e.target.value)}
+                  />
+                </FormField>
+              ) : null}
             </div>
             <div
               className={cn(
@@ -810,7 +1089,7 @@ export function TaxCreditWizard({
                 embedInDialog && "sm:gap-x-6 sm:gap-y-3"
               )}
             >
-              <FormField label="Billing address" htmlFor="addr" className="sm:col-span-8">
+              <FormField label={isBusiness ? "Business address" : "Billing address"} htmlFor="addr" className="sm:col-span-8">
                 <Input
                   id="addr"
                   value={billingAddress}
@@ -902,16 +1181,50 @@ export function TaxCreditWizard({
           }
         >
           <div className="space-y-8">
+            {isBusiness ? (
+              <CorporateProgramPanel
+                program={program}
+                onProgram={(value) => {
+                  setProgram(value);
+                  setProgramError(null);
+                }}
+                programError={programError}
+                schools={schools}
+                schoolChoice={schoolChoice ?? SCHOOL_NONE}
+                onSchoolChoice={setSchoolChoice}
+                campaignTitle={attributedCampaign?.title ?? null}
+                taxYear={taxYear}
+                offeredTaxYears={offeredTaxYears}
+                onTaxYear={setTaxYear}
+                donationRaw={donationRaw}
+                onDonationRaw={setDonationRaw}
+                adorPreApproval={adorPreApproval}
+                onAdorPreApproval={setAdorPreApproval}
+                relaxed={embedInDialog}
+              />
+            ) : (
+            <>
+            {selectedCampaign && !campaignHasStudents && initialCampaignSlug ? (
+              <p className="rounded-lg bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground ring-1 ring-border/60">
+                {selectedCampaign.isSchoolLevel
+                  ? `Your gift supports students at ${selectedCampaign.schoolName || "this school"}. Our team awards it to eligible students there.`
+                  : "Your gift supports this campaign. Our team awards it to eligible students."}
+              </p>
+            ) : null}
+
+            {askAboutStudents ? (
             <div className="space-y-3">
               <ChoiceLegend>
-                {embedInDialog
-                  ? "Would you like to designate this donation for a specific student?"
-                  : "Designate this donation for a specific student?"}
+                {campaignHasStudents && initialCampaignSlug
+                  ? `Would you like to recommend ${selectedCampaign!.students.length === 1 ? "this campaign's student" : "this campaign's students"} for your gift?`
+                  : "Would you like to recommend students through one of our campaigns?"}
               </ChoiceLegend>
               <TogglePair
                 value={designateStudent}
                 onChange={(v) => {
                   setDesignateStudent(v);
+                  // Back to Yes starts from the defaults again: every student picked.
+                  if (v && selectedCampaign) setSelectedStudentIds(selectedCampaign.students.map((s) => s.id));
                   if (!v) setRelationshipAckError(null);
                 }}
                 left
@@ -920,85 +1233,104 @@ export function TaxCreditWizard({
                 rightLabel="No"
                 relaxed={embedInDialog}
               />
+              <p className="text-xs text-muted-foreground">
+                A recommendation is not binding. Our team decides every award under Arizona law, and your gift
+                {attributedCampaign ? " still counts toward this campaign" : " is received"} either way.
+              </p>
             </div>
+            ) : null}
 
-            {designateStudent && (
+            {askAboutStudents && designateStudent && (
               <Card size="sm" className="bg-muted/20 shadow-none ring-1 ring-border/60">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Student designation</CardTitle>
-                  <CardDescription>Optional scholarship recommendation details.</CardDescription>
+                  <CardTitle className="text-base">Recommended students</CardTitle>
+                  <CardDescription>
+                    {initialCampaignSlug
+                      ? "Every student on this campaign is selected. Uncheck anyone you don't want to recommend."
+                      : "Choose a campaign, then the students you'd like to recommend."}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField label="Campaign">
-                    <Select
-                      value={campaignSelectValue}
-                      onValueChange={(v) => {
-                        const s = v ?? "";
-                        setCampaignSlug(s === CAMP_NONE ? "" : s);
-                      }}
-                    >
-                      <SelectTrigger id="camp" className="h-10 w-full min-w-0">
-                        <SelectValue placeholder="Select a campaign…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={CAMP_NONE}>Select a campaign…</SelectItem>
-                        {campaignOptions.map((c) => (
-                          <SelectItem key={c.slug} value={c.slug}>
-                            {c.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {campaignOptionsError ? (
-                      <p className="text-xs text-muted-foreground">{campaignOptionsError}</p>
-                    ) : null}
-                  </FormField>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField label="Student first name">
-                      <Input value={studentFirst} onChange={(e) => setStudentFirst(e.target.value)} />
-                    </FormField>
-                    <FormField label="Student last name">
-                      <Input value={studentLast} onChange={(e) => setStudentLast(e.target.value)} />
-                    </FormField>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField label="School name">
-                      <Input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} />
-                    </FormField>
-                    <FormField label="Grade level">
+                  {!initialCampaignSlug ? (
+                    <FormField label="Campaign">
                       <Select
-                        value={gradeSelectValue}
+                        value={campaignSelectValue}
                         onValueChange={(v) => {
                           const s = v ?? "";
-                          setGrade(s === GRADE_NONE ? "" : s);
+                          setCampaignSlug(s === CAMP_NONE ? "" : s);
                         }}
                       >
-                        <SelectTrigger className="h-10 w-full min-w-0">
-                          <SelectValue placeholder="Select grade…" />
+                        <SelectTrigger id="camp" className="h-10 w-full min-w-0">
+                          <SelectValue placeholder="Select a campaign…" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={GRADE_NONE}>Select grade…</SelectItem>
-                          {GRADES.map((g) => (
-                            <SelectItem key={g} value={g}>
-                              {g === "K" ? "Kindergarten" : `Grade ${g}`}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value={CAMP_NONE}>Select a campaign…</SelectItem>
+                          {campaignOptions
+                            .filter((c) => !c.isSchoolLevel && c.students.length > 0)
+                            .map((c) => (
+                              <SelectItem key={c.slug} value={c.slug}>
+                                {c.title}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
+                      {campaignOptionsError ? (
+                        <p className="text-xs text-muted-foreground">{campaignOptionsError}</p>
+                      ) : null}
                     </FormField>
-                  </div>
-                  <CheckField
-                    id="rel-ack"
-                    checked={relationshipAck}
-                    onCheckedChange={(v) => {
-                      setRelationshipAck(v);
-                      if (v) setRelationshipAckError(null);
-                    }}
-                    error={relationshipAckError}
-                  >
-                    Relationship policy: I understand that I may not designate or direct this
-                    donation to benefit my own dependent or family member.
-                  </CheckField>
+                  ) : null}
+                  {campaignHasStudents ? (
+                    <fieldset className="space-y-2">
+                      <legend className="sr-only">Students</legend>
+                      {selectedCampaign!.students.map((student) => {
+                        const checked = selectedStudentIds.includes(student.id);
+                        return (
+                          <label
+                            key={student.id}
+                            htmlFor={`rec-${student.id}`}
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm",
+                              checked ? "border-primary/50 bg-primary/5" : "border-border/60 bg-background",
+                            )}
+                          >
+                            <Checkbox
+                              id={`rec-${student.id}`}
+                              checked={checked}
+                              onCheckedChange={(v) => toggleStudent(student.id, v === true)}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="font-medium text-foreground">
+                                {[student.firstName, student.lastName].filter(Boolean).join(" ")}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {[student.grade, student.schoolName].filter(Boolean).join(" · ")}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                      {selectedStudentIds.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No students selected, so your gift will count toward the campaign without a student
+                          recommendation.
+                        </p>
+                      ) : null}
+                    </fieldset>
+                  ) : null}
+                  {needsRelationshipAck ? (
+                    <CheckField
+                      id="rel-ack"
+                      checked={relationshipAck}
+                      onCheckedChange={(v) => {
+                        setRelationshipAck(v);
+                        if (v) setRelationshipAckError(null);
+                      }}
+                      error={relationshipAckError}
+                    >
+                      Relationship policy: I understand that I may not designate or direct this
+                      donation to benefit my own dependent or family member.
+                    </CheckField>
+                  ) : null}
                 </CardContent>
               </Card>
             )}
@@ -1289,6 +1621,8 @@ export function TaxCreditWizard({
                 </Card>
               </div>
             ) : null}
+            </>
+            )}
           </div>
         </WizardShell>
       )}
@@ -1297,7 +1631,7 @@ export function TaxCreditWizard({
         <WizardShell
           step={3}
           title="Billing Address"
-          description="Billing preferences and checkout (PayPal in production)."
+          description="The address for this gift's receipt and payment."
           embedInDialog={embedInDialog}
           stepBannerLabel={embedInDialog ? "Billing Address" : undefined}
           footer={
@@ -1367,7 +1701,7 @@ export function TaxCreditWizard({
               <div className="space-y-4">
                 <div className="rounded-lg bg-act-banner/50 p-4 text-sm ring-1 ring-border/60">
                   <p className="font-semibold text-primary">
-                    {firstName} {lastName}
+                    {isBusiness ? businessName : `${firstName} ${lastName}`}
                   </p>
                   <p className="mt-1 text-muted-foreground">{billingAddress}</p>
                   <p className="text-muted-foreground">
@@ -1380,6 +1714,13 @@ export function TaxCreditWizard({
                     <span>Total Donation</span>
                     <span className="tabular-nums">{formatCheckoutUsd(donationAmount)}</span>
                   </div>
+                  {isBusiness ? (
+                    <div className="mt-2 flex justify-between text-act-action">
+                      <span className="font-semibold">Program</span>
+                      <span className="font-semibold">{programLabel}</span>
+                    </div>
+                  ) : (
+                  <>
                   <div className="mt-2 flex justify-between text-act-action">
                     <span className="font-semibold">{taxYear} Tax Credit</span>
                     <span className="font-semibold tabular-nums">
@@ -1394,28 +1735,17 @@ export function TaxCreditWizard({
                       </span>
                     </div>
                   ) : null}
+                  </>
+                  )}
                 </div>
               </div>
             ) : null}
 
             {!embedInDialog ? (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium">Card &amp; wallet</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    PayPal Smart Payment Buttons (vaulting, 3DS, webhooks) plug in here for production.
-                  </p>
-                </div>
-                <Separator />
-                <div className="flex max-w-md flex-col gap-2">
-                  <Button type="button" variant="paypal" className="h-11 w-full">
-                    PayPal
-                  </Button>
-                  <Button type="button" variant="paypalCard" className="h-11 w-full">
-                    Debit or credit card
-                  </Button>
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                You&apos;ll pay with PayPal, or a debit or credit card through PayPal, after reviewing your gift on the
+                next step.
+              </p>
             ) : null}
           </div>
         </WizardShell>
@@ -1446,8 +1776,20 @@ export function TaxCreditWizard({
                   Review Your Donation
                 </p>
                 <div className="grid gap-2 rounded-lg border border-border/60 bg-card p-4">
+                  {isBusiness ? (
+                    <>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Business</span>
+                        <span className="text-right font-medium text-foreground">{businessName}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">EIN</span>
+                        <span className="text-right font-medium tabular-nums text-foreground">{ein}</span>
+                      </div>
+                    </>
+                  ) : null}
                   <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">First Name</span>
+                    <span className="text-muted-foreground">{isBusiness ? "Contact first name" : "First Name"}</span>
                     <span className="text-right font-medium text-foreground">{firstName}</span>
                   </div>
                   <div className="flex justify-between gap-4">
@@ -1476,11 +1818,31 @@ export function TaxCreditWizard({
                 </div>
               </div>
 
-              <div className="flex justify-between border-b border-border/60 py-2">
-                <span className="text-muted-foreground">Designating for specific student</span>
-                <span className="font-medium text-foreground">{designateStudent ? "Yes" : "No"}</span>
+              <div className="flex justify-between gap-4 border-b border-border/60 py-2">
+                <span className="text-muted-foreground">Recommendation (non-binding)</span>
+                <span className="max-w-[60%] text-right font-medium text-foreground">{recommendationSummary}</span>
               </div>
 
+              {isBusiness ? (
+                <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-4">
+                  <p className="text-xs font-semibold tracking-wide text-primary uppercase">Corporate Tax Credit</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Program</span>
+                    <span className="max-w-[60%] text-right font-medium">{programLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax Year</span>
+                    <span className="font-medium tabular-nums">{taxYear}</span>
+                  </div>
+                  {adorPreApproval ? (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">ADOR pre-approval</span>
+                      <span className="font-medium">{adorPreApproval}</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+              <>
               <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-4">
                 <p className="text-xs font-semibold tracking-wide text-primary uppercase">
                   Tax Credit Information
@@ -1519,6 +1881,8 @@ export function TaxCreditWizard({
               />
 
               <TaxCreditLimitsSummaryCard taxYear={taxYear} filing={filing} taxLimits={taxLimits} />
+              </>
+              )}
 
               <p className="text-center text-muted-foreground">
                 Please review your donation information above before completing.
@@ -1545,8 +1909,7 @@ export function TaxCreditWizard({
 
               <LiabilityWaiverBlock />
 
-              {embedPaymentView === "methods" ? (
-                <>
+              <>
                   <p className="text-center text-sm font-medium text-foreground">
                     Complete your {formatCheckoutUsd(donationAmount)} donation via PayPal
                   </p>
@@ -1557,7 +1920,7 @@ export function TaxCreditWizard({
                   ) : null}
                   {taxPaymentComplete ? (
                     <div className="rounded-lg border border-act-action/30 bg-act-action/10 p-4 text-center text-sm text-act-action">
-                      Thank you. Your tax credit donation has been received and your receipt is being generated.
+                      Thank you. Your gift has been received and your receipt is on its way by email. Our team awards gifts to eligible students, so a campaign&apos;s progress bar moves once your gift is awarded.
                     </div>
                   ) : paypalConfigError ? (
                     <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1581,7 +1944,7 @@ export function TaxCreditWizard({
                           const res = await fetch("/api/paypal/create-order", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(createTaxCreditOrderPayload()),
+                            body: JSON.stringify(createOrderPayload()),
                           });
                           const data = (await res.json()) as {
                             orderId?: string;
@@ -1642,95 +2005,29 @@ export function TaxCreditWizard({
                     Payments processed securely by PayPal.
                   </p>
                 </>
-              ) : (
-                <>
-                  <div className="rounded-lg bg-act-charcoal px-4 py-3 text-center text-sm font-semibold text-white">
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <CreditCard className="size-4" aria-hidden />
-                      Debit or Credit Card
-                    </span>
-                  </div>
-                  <div className="space-y-3 rounded-lg border border-border/80 p-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="tax-card-email">Email</Label>
-                      <Input
-                        id="tax-card-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        defaultValue={email}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="tax-card-num">Card number</Label>
-                      <Input
-                        id="tax-card-num"
-                        inputMode="numeric"
-                        placeholder="1234 5678 9012 3456"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="tax-card-exp">Expires</Label>
-                        <Input id="tax-card-exp" placeholder="MM / YY" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="tax-card-csc">CSC</Label>
-                        <Input id="tax-card-csc" placeholder="CVC" />
-                      </div>
-                    </div>
-                    <p className="text-xs font-medium text-muted-foreground">Billing address</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="tax-card-fn">First name</Label>
-                        <Input id="tax-card-fn" defaultValue={firstName} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="tax-card-ln">Last name</Label>
-                        <Input id="tax-card-ln" defaultValue={lastName} />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="tax-card-zip">ZIP code</Label>
-                      <Input id="tax-card-zip" defaultValue={zip} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="tax-card-mobile">Mobile (+1)</Label>
-                      <Input id="tax-card-mobile" type="tel" defaultValue={phone} />
-                    </div>
-                  </div>
-                  <p className="text-center text-xs text-muted-foreground">
-                    By continuing, you confirm you&apos;re 18 years or older.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="checkoutPay"
-                    className="mt-4"
-                    onClick={() => onExitFlow?.()}
-                  >
-                    Pay {formatCheckoutUsd(donationAmount)}
-                  </Button>
-                  <p className="mt-3 text-center text-[10px] text-muted-foreground">
-                    Powered by PayPal — connect keys in production.
-                  </p>
-                  <button
-                    type="button"
-                    className="w-full text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
-                    onClick={() => setEmbedPaymentView("methods")}
-                  >
-                    ← Back to payment methods
-                  </button>
-                </>
-              )}
+              
             </div>
           ) : (
             <div className="space-y-6 text-sm">
               <Card size="sm" className="shadow-none ring-1 ring-border/60">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Donor</CardTitle>
+                  <CardTitle className="text-base">{isBusiness ? "Business" : "Donor"}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-muted-foreground">
+                  {isBusiness ? (
+                    <>
+                      <div className="flex justify-between gap-4">
+                        <span>Business</span>
+                        <span className="text-right text-foreground">{businessName}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span>EIN</span>
+                        <span className="text-right tabular-nums text-foreground">{ein}</span>
+                      </div>
+                    </>
+                  ) : null}
                   <div className="flex justify-between gap-4">
-                    <span>Name</span>
+                    <span>{isBusiness ? "Contact" : "Name"}</span>
                     <span className="text-right text-foreground">
                       {firstName} {middleName} {lastName}
                     </span>
@@ -1755,15 +2052,43 @@ export function TaxCreditWizard({
 
               <Card size="sm" className="shadow-none ring-1 ring-border/60">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Scholarship designation</CardTitle>
+                  <CardTitle className="text-base">Recommendation</CardTitle>
                 </CardHeader>
-                <CardContent className="text-muted-foreground">
-                  {designateStudent
-                    ? `${campaignSlug || "—"} · ${studentFirst} ${studentLast} · ${schoolName} · Grade ${grade}`
-                    : "No specific student designation."}
+                <CardContent className="space-y-1 text-muted-foreground">
+                  <p className="text-foreground">{recommendationSummary}</p>
+                  {attributedCampaign ? <p>Counts toward: {attributedCampaign.title}</p> : null}
+                  <p className="text-xs">Recommendations are not binding; our team decides every award.</p>
                 </CardContent>
               </Card>
 
+              {isBusiness ? (
+                <Card size="sm" className="shadow-none ring-1 ring-border/60">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Corporate tax credit</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-muted-foreground">
+                    <div className="flex justify-between gap-4">
+                      <span>Program</span>
+                      <span className="text-right text-foreground">{programLabel}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Gift</span>
+                      <span className="tabular-nums text-foreground">{formatCheckoutUsd(donationAmount)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Tax year</span>
+                      <span className="tabular-nums text-foreground">{taxYear}</span>
+                    </div>
+                    {adorPreApproval ? (
+                      <div className="flex justify-between gap-4">
+                        <span>ADOR pre-approval</span>
+                        <span className="text-foreground">{adorPreApproval}</span>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : (
+              <>
               <Card size="sm" className="shadow-none ring-1 ring-border/60">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Amounts</CardTitle>
@@ -1808,6 +2133,8 @@ export function TaxCreditWizard({
               />
 
               <TaxCreditLimitsSummaryCard taxYear={taxYear} filing={filing} taxLimits={taxLimits} />
+              </>
+              )}
 
               <Alert>
                 <AlertDescription>
@@ -1842,7 +2169,7 @@ export function TaxCreditWizard({
                 ) : null}
                 {taxPaymentComplete ? (
                   <div className="rounded-lg border border-act-action/30 bg-act-action/10 p-4 text-center text-sm text-act-action">
-                    Thank you. Your tax credit donation has been received and your receipt is being generated.
+                    Thank you. Your gift has been received and your receipt is on its way by email. Our team awards gifts to eligible students, so a campaign&apos;s progress bar moves once your gift is awarded.
                   </div>
                 ) : paypalConfigError ? (
                   <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1866,7 +2193,7 @@ export function TaxCreditWizard({
                         const res = await fetch("/api/paypal/create-order", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify(createTaxCreditOrderPayload()),
+                          body: JSON.stringify(createOrderPayload()),
                         });
                         const data = (await res.json()) as {
                           orderId?: string;
