@@ -26,8 +26,11 @@ const STEPS = [
 
 export function CreateCampaignWizard({
   initialValues,
+  canCreateSchoolLevel = false,
 }: {
   initialValues?: Partial<CampaignFormValues>;
+  /** Super Admins (and school administrators) may raise money for a school with no specific student. */
+  canCreateSchoolLevel?: boolean;
 }) {
   const [step, setStep] = useState(1);
   const [values, setValues] = useState<CampaignFormValues>(() => ({
@@ -132,9 +135,47 @@ export function CreateCampaignWizard({
       </div>
 
       <div className="space-y-5">
+        {step === 1 && canCreateSchoolLevel ? (
+          <fieldset className="space-y-2 rounded-lg border border-border p-4">
+            <legend className="px-1 text-sm font-medium text-foreground">Campaign type</legend>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="campaign-type"
+                className="mt-1"
+                checked={!values.isSchoolLevel}
+                onChange={() => onPatch({ isSchoolLevel: false })}
+              />
+              <span>
+                Student campaign
+                <span className="block text-xs text-muted-foreground">Raises money for one or more named students.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="campaign-type"
+                className="mt-1"
+                checked={values.isSchoolLevel}
+                onChange={() => onPatch({ isSchoolLevel: true, students: [] })}
+              />
+              <span>
+                School-level campaign (no specific student)
+                <span className="block text-xs text-muted-foreground">
+                  Raises money for students at one school, awarded where need is greatest. There is no student step.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+        ) : null}
         {step === 1 ? <CampaignFormPanelCampaign values={values} onPatch={onPatch} /> : null}
         {step === 2 ? <CampaignFormPanelParent values={values} onPatch={onPatch} /> : null}
-        {step === 3 ? (
+        {step === 3 && values.isSchoolLevel ? (
+          <p className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            School-level campaigns have no student. Continue to choose the school.
+          </p>
+        ) : null}
+        {step === 3 && !values.isSchoolLevel ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
               <p className="text-sm text-muted-foreground">

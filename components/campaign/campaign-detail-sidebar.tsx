@@ -6,6 +6,7 @@ import { Check, Clock, Heart, Share2, Users } from "lucide-react";
 
 import { CampaignCountdown } from "@/components/campaign/campaign-countdown";
 import { CampaignDonationDialog } from "@/components/donation/campaign-donation-dialog";
+import type { DonorPrefill } from "@/lib/donations/prefill-server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ export function CampaignDetailSidebar({
   pct,
   qrSrc,
   givingLevels,
+  donorPrefill,
 }: {
   campaignSlug: string;
   campaignTitle: string;
@@ -46,6 +48,7 @@ export function CampaignDetailSidebar({
   pct: number;
   qrSrc: string;
   givingLevels: CampaignGivingLevel[];
+  donorPrefill?: DonorPrefill | null;
 }) {
   const [donateOpen, setDonateOpen] = React.useState(false);
   const [preselectAmount, setPreselectAmount] = React.useState<number | undefined>();
@@ -122,6 +125,7 @@ export function CampaignDetailSidebar({
         endDate={endDate}
         givingLevels={givingLevels}
         preselectQuickAmount={preselectAmount}
+        donorPrefill={donorPrefill}
       />
       <Card id="campaign-give" className="scroll-mt-28 border-border/80 shadow-md ring-1 ring-foreground/5">
         <CardContent className="space-y-4 p-5 sm:p-6">

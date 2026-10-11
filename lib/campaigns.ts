@@ -118,6 +118,8 @@ export type Campaign = {
   gallery: string[];
   students: CampaignStudent[];
   school: {
+    /** schools.id when the campaign is linked to a school record. */
+    id?: string;
     name: string;
     address: string;
     website: string;

@@ -5,7 +5,9 @@ import { notifyIncompleteCampaignDraft } from "@/lib/campaigns/notifications";
 import { getActSession } from "@/lib/auth/session-server";
 import type { ActSession } from "@/lib/auth/types";
 import type { CampaignFormStudent, CampaignFormValues } from "@/lib/dashboard/campaign-editor";
-import { getCampaignFormStudents, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
+import { composeParentName, getCampaignFormStudents, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
+import { canCreateSchoolLevelCampaign } from "@/lib/schools/permissions";
+import { resolveSchool } from "@/lib/schools/resolve";
 import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
@@ -63,6 +65,8 @@ const PROFILE_SELECT = {
   email: true,
   displayName: true,
   fullName: true,
+  firstName: true,
+  lastName: true,
   phone: true,
 } as const;
 
@@ -139,6 +143,8 @@ export async function POST(request: Request) {
     image: text(raw.image),
     galleryText: text(raw.galleryText),
     parentName: text(raw.parentName) || profile.displayName || profile.fullName || session.name,
+    parentFirstName: text(raw.parentFirstName) || profile.firstName || "",
+    parentLastName: text(raw.parentLastName) || profile.lastName || "",
     parentEmail: text(raw.parentEmail) || profile.email,
     parentPhone: text(raw.parentPhone) || profile.phone || "",
     parentPhoto: text(raw.parentPhoto),
@@ -151,11 +157,30 @@ export async function POST(request: Request) {
     studentIndividualRaised: text(raw.studentIndividualRaised),
     studentPhoto: text(raw.studentPhoto),
     students: parsedStudents,
+    schoolId: text(raw.schoolId),
     schoolName: text(raw.schoolName),
     schoolAddress: text(raw.schoolAddress),
     schoolWebsite: text(raw.schoolWebsite),
     schoolLogo: text(raw.schoolLogo),
+    isSchoolLevel: raw.isSchoolLevel === true,
     };
+    values.parentName = composeParentName(values) || values.parentName;
+
+    // School-level campaigns (no specific student) are for Super Admins and the
+    // school's own administrators; families always campaign for a student.
+    if (values.isSchoolLevel) {
+      if (!(await canCreateSchoolLevelCampaign(session, profile.id, values.schoolId || null))) {
+        return NextResponse.json(
+          { error: "Only ACT staff or the school's administrators can create a school-level campaign." },
+          { status: 403 },
+        );
+      }
+      if (!values.schoolId) {
+        return NextResponse.json({ error: "Choose the school this campaign raises money for." }, { status: 400 });
+      }
+      values.students = [];
+      values.studentFirstName = "";
+    }
 
     // Same rule as the date picker; an API call can't get around it.
     values.endDate = values.endDate || defaultCampaignEndDate(values.startDate);
@@ -176,6 +201,13 @@ export async function POST(request: Request) {
     const slug = await uniqueCampaignSlug(baseSlug);
     const students = getCampaignFormStudents(values);
     const schoolName = values.schoolName || students[0]?.school || values.studentSchool;
+    const schoolChoice = {
+      id: values.schoolId || null,
+      name: schoolName,
+      address: values.schoolAddress,
+      website: values.schoolWebsite,
+      logo: values.schoolLogo,
+    };
     const status = action === "review" ? "pending_review" : "draft";
 
     const campaign = await prisma.$transaction(async (tx) => {
@@ -213,29 +245,9 @@ export async function POST(request: Request) {
       },
     });
 
-    let schoolId: string | null = null;
-    if (schoolName) {
-      const schoolSlug = slugifyCampaignSlug("", schoolName);
-      const school = await tx.school.upsert({
-        where: { slug: schoolSlug },
-        create: {
-          name: schoolName,
-          slug: schoolSlug,
-          addressLine1: values.schoolAddress || null,
-          website: values.schoolWebsite || null,
-          logoUrl: values.schoolLogo || null,
-          status: "pending",
-        },
-        update: {
-          name: schoolName,
-          addressLine1: values.schoolAddress || null,
-          website: values.schoolWebsite || null,
-          logoUrl: values.schoolLogo || null,
-        },
-        select: { id: true },
-      });
-      schoolId = school.id;
-    }
+    // One school record with an id: picked from the list, or matched or
+    // created as pending from a typed name. Never edits an existing school.
+    const schoolId = await resolveSchool(tx, schoolChoice);
 
     const campaignType = await tx.campaignType.upsert({
       where: { slug: "private-schools" },
@@ -253,6 +265,7 @@ export async function POST(request: Request) {
       data: {
         createdByUserId: profile.id,
         schoolId,
+        isSchoolLevel: values.isSchoolLevel,
         campaignTypeId: campaignType.id,
         campaignType: "private-schools",
         title: values.title || "Untitled campaign",
@@ -310,7 +323,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const studentRows = students.length > 0 ? students : [];
+    const studentRows = values.isSchoolLevel ? [] : students;
     // A parent who already has children on their account picks them from the
     // wizard instead of retyping. Those rows arrive with an `id`, so they get
     // re-linked rather than duplicated — one student record per child, however

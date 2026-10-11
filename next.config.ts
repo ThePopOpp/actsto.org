@@ -15,6 +15,23 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Natural guesses at the donor dashboards' addresses. The individual donor
+  // dashboard lives at /dashboard/donor, and a reviewer reaching for another
+  // spelling got a 404.
+  async redirects() {
+    return [
+      ...["individual", "individual-donor", "donor-individual", "donor_individual"].map((alias) => ({
+        source: `/dashboard/${alias}/:path*`,
+        destination: "/dashboard/donor/:path*",
+        permanent: false,
+      })),
+      ...["business-donor", "donor-business", "donor_business", "corporate"].map((alias) => ({
+        source: `/dashboard/${alias}/:path*`,
+        destination: "/dashboard/business/:path*",
+        permanent: false,
+      })),
+    ];
+  },
   images: {
     remotePatterns: [
       {

@@ -578,6 +578,7 @@ export function TaxCreditWizard({
   onBackToChoose,
   onExitFlow,
   mode,
+  prefill,
 }: {
   embedInDialog?: boolean;
   initialCampaignSlug?: string;
@@ -590,26 +591,36 @@ export function TaxCreditWizard({
    * Left unset, a signed-in business donor gets the corporate form.
    */
   mode?: "individual" | "business";
+  /**
+   * The signed-in donor's details, loaded by the page on the server so step 1
+   * is filled on first render. Null for a guest. Undefined means the page
+   * didn't load them, and the form fetches them instead.
+   */
+  prefill?: DonorPrefill | null;
 } = {}) {
+  const pf = prefill ?? null;
+  const pfState = pf?.state ? pf.state.toUpperCase().slice(0, 2) : "AZ";
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [taxLimits, setTaxLimits] = useState<TaxCreditLimitConfig>(DEFAULT_TAX_CREDIT_LIMITS);
 
-  const [firstName, setFirstName] = useState("");
-  const [middleName, setMiddleName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [billingAddress, setBillingAddress] = useState("");
-  const [unit, setUnit] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("AZ");
-  const [zip, setZip] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [prefilledFromAccount, setPrefilledFromAccount] = useState(false);
+  const [firstName, setFirstName] = useState(pf?.firstName ?? "");
+  const [middleName, setMiddleName] = useState(pf?.middleName ?? "");
+  const [lastName, setLastName] = useState(pf?.lastName ?? "");
+  const [billingAddress, setBillingAddress] = useState(pf?.addressLine1 ?? "");
+  const [unit, setUnit] = useState(pf?.addressLine2 ?? "");
+  const [city, setCity] = useState(pf?.city ?? "");
+  const [state, setState] = useState(pfState);
+  const [zip, setZip] = useState(pf?.zip ?? "");
+  const [email, setEmail] = useState(pf?.email || pf?.business?.businessEmail || "");
+  const [phone, setPhone] = useState(pf?.phone || pf?.business?.businessPhone || "");
+  const [prefilledFromAccount, setPrefilledFromAccount] = useState(Boolean(pf && (pf.firstName || pf.email || pf.addressLine1)));
 
   // Corporate form. Set by the prop, or by a signed-in business account.
-  const [isBusiness, setIsBusiness] = useState(mode === "business");
-  const [businessName, setBusinessName] = useState("");
-  const [ein, setEin] = useState("");
+  const [isBusiness, setIsBusiness] = useState(
+    mode === "business" || (mode !== "individual" && pf?.accountRole === "donor_business"),
+  );
+  const [businessName, setBusinessName] = useState(pf?.business?.businessName ?? "");
+  const [ein, setEin] = useState(pf?.business?.ein ?? "");
   const [contactTitle, setContactTitle] = useState("");
   const [program, setProgram] = useState<CorporateProgram | "">("");
   const [programError, setProgramError] = useState<string | null>(null);
@@ -702,6 +713,8 @@ export function TaxCreditWizard({
   // stays editable for this gift without changing the profile. Guests get a
   // 401 and the form stays blank. SMS consent is never prefilled.
   useEffect(() => {
+    // Already filled from the page on first render.
+    if (prefill !== undefined) return;
     let cancelled = false;
     fetch("/api/donate/prefill", { cache: "no-store" })
       .then((res) => (res.ok ? (res.json() as Promise<DonorPrefill>) : null))

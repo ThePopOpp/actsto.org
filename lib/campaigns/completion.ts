@@ -34,6 +34,9 @@ function hasPositiveMoney(value: string) {
 
 export function calculateCampaignCompletion(values: CampaignFormValues): CampaignCompletion {
   const missingFields = REQUIRED_FIELDS.filter(({ key }) => {
+    // A school-level campaign has no student by design.
+    if ((key === "studentFirstName" || key === "studentGrade") && values.isSchoolLevel) return false;
+    if (key === "parentName") return !(values.parentFirstName?.trim() || values.parentName.trim());
     if (key === "studentFirstName") return getCampaignFormStudents(values).length === 0;
     if (key === "studentGrade") {
       const students = getCampaignFormStudents(values);

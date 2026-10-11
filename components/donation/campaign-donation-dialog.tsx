@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { TaxCreditWizard } from "@/components/donate/tax-credit-wizard";
+import type { DonorPrefill } from "@/lib/donations/prefill-server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +61,7 @@ export function CampaignDonationDialog({
   endDate,
   givingLevels,
   preselectQuickAmount,
+  donorPrefill,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -73,6 +75,8 @@ export function CampaignDonationDialog({
   givingLevels: CampaignGivingLevel[];
   /** When set, opening Quick Donation pre-selects this amount (after choose screen). */
   preselectQuickAmount?: number;
+  /** The signed-in donor's details from the server, so step 1 opens filled. */
+  donorPrefill?: DonorPrefill | null;
 }) {
   const [phase, setPhase] = React.useState<Phase>("choose");
   const [selection, setSelection] = React.useState<string>("level-0");
@@ -591,6 +595,7 @@ export function CampaignDonationDialog({
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-6 sm:px-8 sm:pt-6 sm:pb-8">
               <TaxCreditWizard
+                prefill={donorPrefill}
                 embedInDialog
                 initialCampaignSlug={campaignSlug}
                 supportSubtitle={`Support ${studentLine}`}

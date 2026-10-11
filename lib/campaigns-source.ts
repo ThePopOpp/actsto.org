@@ -134,6 +134,7 @@ function prismaCampaignToSiteCampaign(
       individualRaised: Number(link.amountAllocated ?? 0),
     })),
     school: {
+      id: campaign.schoolId ?? firstStudent?.schoolId ?? undefined,
       name: schoolName,
       address: formatSchoolAddress(campaign.school),
       website: campaign.school?.website ?? "",

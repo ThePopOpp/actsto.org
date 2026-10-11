@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageUp, Plus, Trash2, UserPlus, X } from "lucide-react";
 
 import { useFamilyStudents, type SavedStudent } from "@/components/campaigns/use-family-students";
@@ -8,7 +8,8 @@ import { GradeSelect } from "@/components/grade-select";
 import { Badge } from "@/components/ui/badge";
 
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
-import { emptyCampaignFormStudent, getCampaignFormStudents } from "@/lib/dashboard/campaign-editor";
+import { composeParentName, emptyCampaignFormStudent, getCampaignFormStudents } from "@/lib/dashboard/campaign-editor";
+import type { SchoolListItem } from "@/app/api/schools/route";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -287,14 +288,37 @@ export function CampaignFormPanelParent({
 }) {
   return (
     <div className="space-y-5">
-      <div>
-        <Label htmlFor="cf-parent-name">Parent / guardian name</Label>
-        <Input
-          id="cf-parent-name"
-          className="mt-1.5"
-          value={values.parentName}
-          onChange={(e) => onPatch({ parentName: e.target.value })}
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="cf-parent-first">Parent / guardian first name</Label>
+          <Input
+            id="cf-parent-first"
+            className="mt-1.5"
+            autoComplete="given-name"
+            value={values.parentFirstName}
+            onChange={(e) =>
+              onPatch({
+                parentFirstName: e.target.value,
+                parentName: composeParentName({ ...values, parentFirstName: e.target.value }),
+              })
+            }
+          />
+        </div>
+        <div>
+          <Label htmlFor="cf-parent-last">Last name</Label>
+          <Input
+            id="cf-parent-last"
+            className="mt-1.5"
+            autoComplete="family-name"
+            value={values.parentLastName}
+            onChange={(e) =>
+              onPatch({
+                parentLastName: e.target.value,
+                parentName: composeParentName({ ...values, parentLastName: e.target.value }),
+              })
+            }
+          />
+        </div>
       </div>
       <div>
         <Label htmlFor="cf-parent-email">Email</Label>
@@ -598,6 +622,12 @@ export function CampaignFormPanelStudent({
   );
 }
 
+/**
+ * The campaign's school, picked from the approved list so every campaign,
+ * student and application points at one school record. "Not listed" takes a
+ * typed name and creates a pending school for staff to approve or merge; it
+ * never edits an existing school's details.
+ */
 export function CampaignFormPanelSchool({
   values,
   onPatch,
@@ -605,51 +635,122 @@ export function CampaignFormPanelSchool({
   values: CampaignFormValues;
   onPatch: OnPatch;
 }) {
+  const [schools, setSchools] = useState<SchoolListItem[] | null>(null);
+  const [notListed, setNotListed] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/schools")
+      .then((res) => res.json() as Promise<{ schools?: SchoolListItem[] }>)
+      .then((data) => {
+        if (!mounted) return;
+        const list = data.schools ?? [];
+        setSchools(list);
+        // An older campaign stored only a name: select the matching school.
+        if (!values.schoolId && values.schoolName) {
+          const match = list.find((school) => school.name.toLowerCase() === values.schoolName.trim().toLowerCase());
+          if (match) onPatch({ schoolId: match.id, schoolName: match.name });
+          else setNotListed(true);
+        }
+      })
+      .catch(() => mounted && setSchools([]));
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load the list once
+  }, []);
+
+  const picked = schools?.find((school) => school.id === values.schoolId) ?? null;
+  const showTyped = notListed || (schools !== null && schools.length === 0);
+
   return (
     <div className="space-y-5">
       <div>
-        <Label htmlFor="cf-school-name">School name</Label>
-        <Input
-          id="cf-school-name"
-          className="mt-1.5"
-          value={values.schoolName}
-          onChange={(e) => onPatch({ schoolName: e.target.value })}
-        />
+        <Label htmlFor="cf-school-pick">School</Label>
+        <select
+          id="cf-school-pick"
+          className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+          value={showTyped ? "__other__" : values.schoolId}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next === "__other__") {
+              setNotListed(true);
+              onPatch({ schoolId: "", schoolName: "" });
+              return;
+            }
+            setNotListed(false);
+            const school = schools?.find((item) => item.id === next);
+            onPatch({
+              schoolId: next,
+              schoolName: school?.name ?? "",
+              schoolAddress: school?.address ?? "",
+              schoolWebsite: school?.website ?? "",
+              schoolLogo: school?.logoUrl ?? "",
+            });
+          }}
+        >
+          <option value="">{schools === null ? "Loading schools…" : "Choose a school"}</option>
+          {(schools ?? []).map((school) => (
+            <option key={school.id} value={school.id}>
+              {school.name}
+              {school.city ? ` — ${school.city}` : ""}
+            </option>
+          ))}
+          {values.isSchoolLevel ? null : <option value="__other__">My school isn&apos;t listed</option>}
+        </select>
+        {picked ? (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {[picked.address, picked.website].filter(Boolean).join(" · ") || "School details are kept by ACT."} Our team
+            keeps each school&apos;s details up to date.
+          </p>
+        ) : null}
       </div>
-      <div>
-        <Label htmlFor="cf-school-address">School address</Label>
-        <Input
-          id="cf-school-address"
-          className="mt-1.5"
-          value={values.schoolAddress}
-          onChange={(e) => onPatch({ schoolAddress: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="cf-school-web">School website</Label>
-        <Input
-          id="cf-school-web"
-          type="url"
-          className="mt-1.5 font-mono text-sm"
-          value={values.schoolWebsite}
-          onChange={(e) => onPatch({ schoolWebsite: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="cf-school-logo">School logo URL</Label>
-        <Input
-          id="cf-school-logo"
-          className="mt-1.5 font-mono text-sm"
-          value={values.schoolLogo}
-          onChange={(e) => onPatch({ schoolLogo: e.target.value })}
-        />
-        <CampaignImageUpload
-          label="Click or drop school logo to upload"
-          value={values.schoolLogo}
-          onClear={() => onPatch({ schoolLogo: "" })}
-          onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })}
-        />
-      </div>
+
+      {showTyped ? (
+        <div className="space-y-5 rounded-lg border border-dashed border-border p-4">
+          <p className="text-sm text-muted-foreground">
+            Tell us about the school. Our team checks it and adds it to the list.
+          </p>
+          <div>
+            <Label htmlFor="cf-school-name">School name</Label>
+            <Input
+              id="cf-school-name"
+              className="mt-1.5"
+              placeholder="Full name and campus or city"
+              value={values.schoolName}
+              onChange={(e) => onPatch({ schoolName: e.target.value, schoolId: "" })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="cf-school-address">School address</Label>
+            <Input
+              id="cf-school-address"
+              className="mt-1.5"
+              value={values.schoolAddress}
+              onChange={(e) => onPatch({ schoolAddress: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="cf-school-web">School website</Label>
+            <Input
+              id="cf-school-web"
+              type="url"
+              className="mt-1.5 font-mono text-sm"
+              value={values.schoolWebsite}
+              onChange={(e) => onPatch({ schoolWebsite: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>School logo</Label>
+            <CampaignImageUpload
+              label="Click or drop school logo to upload"
+              value={values.schoolLogo}
+              onClear={() => onPatch({ schoolLogo: "" })}
+              onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

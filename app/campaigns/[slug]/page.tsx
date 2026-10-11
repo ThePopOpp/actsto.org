@@ -14,6 +14,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getCampaignGivingLevels } from "@/lib/campaigns";
 import { getCampaignDetailRecords } from "@/lib/campaign-detail-records";
 import { listPublicReviews } from "@/lib/dashboard/campaign-reviews";
+import { getActSession } from "@/lib/auth/session-server";
+import { getDonorPrefill } from "@/lib/donations/prefill-server";
 import { prisma } from "@/lib/prisma";
 import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
 import { cn, FACE_SAFE_CROP } from "@/lib/utils";
@@ -70,6 +72,9 @@ export default async function CampaignDetailPage({ params }: Props) {
     .findUnique({ where: { slug: c.slug }, select: { id: true, reviewsEnabled: true } })
     .catch(() => null);
   const reviewsEnabled = reviewSource?.reviewsEnabled ?? false;
+  // A signed-in donor's step 1 comes filled from their own account.
+  const session = await getActSession().catch(() => null);
+  const donorPrefill = session?.email ? await getDonorPrefill(session).catch(() => null) : null;
   const reviews = reviewSource && reviewsEnabled ? await listPublicReviews(reviewSource.id) : [];
 
   const pct =
@@ -206,6 +211,7 @@ export default async function CampaignDetailPage({ params }: Props) {
             pct={pct}
             qrSrc={qrSrc}
             givingLevels={givingLevels}
+            donorPrefill={donorPrefill}
           />
         </div>
       </div>

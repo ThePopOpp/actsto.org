@@ -25,7 +25,10 @@ export type CampaignFormValues = {
   goal: string;
   image: string;
   galleryText: string;
+  /** Kept in step with parentFirstName + parentLastName. */
   parentName: string;
+  parentFirstName: string;
+  parentLastName: string;
   parentEmail: string;
   parentPhone: string;
   parentPhoto: string;
@@ -38,10 +41,14 @@ export type CampaignFormValues = {
   studentIndividualRaised: string;
   studentPhoto: string;
   students: CampaignFormStudent[];
+  /** A school picked from the list; empty when typed under "Not listed". */
+  schoolId: string;
   schoolName: string;
   schoolAddress: string;
   schoolWebsite: string;
   schoolLogo: string;
+  /** School-level campaign: no specific student. Super Admins only. */
+  isSchoolLevel: boolean;
 };
 
 export function emptyCampaignFormStudent(): CampaignFormStudent {
@@ -71,6 +78,8 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     image: "",
     galleryText: "",
     parentName: "",
+    parentFirstName: "",
+    parentLastName: "",
     parentEmail: "",
     parentPhone: "",
     parentPhoto: "",
@@ -83,11 +92,26 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     studentIndividualRaised: "",
     studentPhoto: "",
     students: [],
+    schoolId: "",
     schoolName: "",
     schoolAddress: "",
     schoolWebsite: "",
     schoolLogo: "",
+    isSchoolLevel: false,
   };
+}
+
+/** "Mary Ann Smith" → first "Mary Ann", last "Smith". A starting point only. */
+export function splitParentName(full: string): { first: string; last: string } {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return { first: parts[0] ?? "", last: "" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+}
+
+/** The display name from the structured fields, falling back to a single typed name. */
+export function composeParentName(values: Pick<CampaignFormValues, "parentFirstName" | "parentLastName" | "parentName">) {
+  const structured = [values.parentFirstName.trim(), values.parentLastName.trim()].filter(Boolean).join(" ");
+  return structured || values.parentName.trim();
 }
 
 /** URL-safe slug for campaign routes (admin can edit; empty falls back to title). */
@@ -185,14 +209,16 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
     image: values.image.trim() || previous?.image || defaultImage,
     gallery: gallery.length > 0 ? gallery : (previous?.gallery ?? []),
     students,
+    isSchoolLevel: values.isSchoolLevel,
     school: {
+      id: values.schoolId.trim() || undefined,
       name: values.schoolName.trim() || "School",
       address: values.schoolAddress.trim() || "",
       website: values.schoolWebsite.trim() || "",
       logo: values.schoolLogo.trim() || previous?.school.logo,
     },
     parent: {
-      name: values.parentName.trim() || "-",
+      name: composeParentName(values) || "-",
       email: values.parentEmail.trim() || "",
       phone: values.parentPhone.trim() || "",
       photo: values.parentPhoto.trim() || previous?.parent.photo,
@@ -210,6 +236,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
 
 export function campaignToFormValues(c: Campaign): CampaignFormValues {
   const s = c.students[0];
+  const parentSplit = splitParentName(c.parent.name === "-" ? "" : c.parent.name);
   const students = c.students.map((student) => ({
     id: student.id ?? "",
     firstName: student.firstName,
@@ -232,6 +259,8 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     image: c.image,
     galleryText: c.gallery.join("\n"),
     parentName: c.parent.name,
+    parentFirstName: parentSplit.first,
+    parentLastName: parentSplit.last,
     parentEmail: c.parent.email,
     parentPhone: c.parent.phone,
     parentPhoto: c.parent.photo ?? "",
@@ -244,9 +273,11 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     studentIndividualRaised: "",
     studentPhoto: s?.photo ?? "",
     students,
+    schoolId: c.school.id ?? "",
     schoolName: c.school.name,
     schoolAddress: c.school.address,
     schoolWebsite: c.school.website,
     schoolLogo: c.school.logo ?? "",
+    isSchoolLevel: Boolean(c.isSchoolLevel),
   };
 }

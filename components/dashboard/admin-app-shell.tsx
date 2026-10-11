@@ -81,6 +81,7 @@ const nav: NavEntry[] = [
     children: [
       { href: "/dashboard/admin/scholarships", label: "Review queue", icon: GraduationCap },
       { href: "/dashboard/admin/scholarships/allocation", label: "Allocation", icon: Wallet },
+      { href: "/dashboard/admin/schools", label: "Schools", icon: GraduationCap },
       { href: "/dashboard/admin/scholarships/eligibility", label: "Eligibility", icon: ShieldCheck },
       { href: "/dashboard/admin/scholarships/income-table", label: "Low-income table", icon: Scale },
       { href: "/dashboard/admin/scholarships/caps", label: "Scholarship caps", icon: ClipboardList },

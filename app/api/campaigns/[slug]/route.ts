@@ -8,6 +8,8 @@ import { notifyIncompleteCampaignDraft } from "@/lib/campaigns/notifications";
 import { campaignToFormValues, slugifyCampaignSlug } from "@/lib/dashboard/campaign-editor";
 import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
+import { canCreateSchoolLevelCampaign } from "@/lib/schools/permissions";
+import { resolveSchool } from "@/lib/schools/resolve";
 import {
   createFamilyStudent,
   filterOwnedStudentIds,
@@ -44,30 +46,6 @@ async function profileForSession(email: string) {
   });
 }
 
-async function upsertSchoolForCampaign(campaign: Campaign) {
-  const name = campaign.school.name.trim();
-  if (!name || name === "School") return null;
-  const slug = slugifyCampaignSlug("", name);
-  const school = await prisma.school.upsert({
-    where: { slug },
-    create: {
-      name,
-      slug,
-      addressLine1: campaign.school.address || null,
-      website: campaign.school.website || null,
-      logoUrl: campaign.school.logo || null,
-      status: "pending",
-    },
-    update: {
-      name,
-      addressLine1: campaign.school.address || null,
-      website: campaign.school.website || null,
-      logoUrl: campaign.school.logo || null,
-    },
-    select: { id: true },
-  });
-  return school.id;
-}
 
 async function updateNormalizedCampaign({
   slug,
@@ -99,13 +77,38 @@ async function updateNormalizedCampaign({
   const formValues = campaignToFormValues(campaign);
   const completion = calculateCampaignCompletion(formValues);
   const nextSlug = slugifyCampaignSlug(campaign.slug, campaign.title);
-  const schoolId = await upsertSchoolForCampaign(campaign);
+  // The school picked from the list, or one matched or created (pending) from
+  // a typed name. A shared school's details are never overwritten from here.
+  const schoolId = await resolveSchool(prisma, {
+    id: campaign.school.id ?? null,
+    name: campaign.school.name,
+    address: campaign.school.address,
+    website: campaign.school.website,
+    logo: campaign.school.logo,
+  });
+
+  // Switching to or from a school-level campaign is a staff decision.
+  const wantsSchoolLevel = typeof campaign.isSchoolLevel === "boolean" ? campaign.isSchoolLevel : existing.isSchoolLevel;
+  if (wantsSchoolLevel !== existing.isSchoolLevel) {
+    const session = await getActSession();
+    const allowed = session ? await canCreateSchoolLevelCampaign(session, profile.id, schoolId) : false;
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Only ACT staff or the school's administrators can change whether a campaign is school-level." },
+        { status: 403 },
+      );
+    }
+  }
+  if (wantsSchoolLevel && !schoolId) {
+    return NextResponse.json({ error: "A school-level campaign needs its school." }, { status: 400 });
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const updatedCampaign = await tx.campaign.update({
       where: { id: existing.id },
       data: {
         schoolId,
+        isSchoolLevel: wantsSchoolLevel,
         title: campaign.title.trim() || "Untitled campaign",
         slug: nextSlug,
         tagline: campaign.tagline.trim() || null,
@@ -160,7 +163,8 @@ async function updateNormalizedCampaign({
     const fallbackGoal = money(campaign.goal) || 1000;
     const keptStudentIds = new Set<string>();
 
-    for (const [index, formStudent] of campaign.students.entries()) {
+    // A school-level campaign has no students of its own to reconcile.
+    for (const [index, formStudent] of (wantsSchoolLevel ? [] : campaign.students).entries()) {
       const claimedId = formStudent.id?.trim();
       const matchedId = claimedId
         ? null
@@ -241,7 +245,7 @@ async function updateNormalizedCampaign({
     }
 
     // Detach students the parent removed — the child record is untouched.
-    const removedIds = [...linkedIds].filter((id) => !keptStudentIds.has(id));
+    const removedIds = wantsSchoolLevel ? [] : [...linkedIds].filter((id) => !keptStudentIds.has(id));
     if (removedIds.length > 0) {
       await tx.campaignStudent.deleteMany({
         where: { campaignId: existing.id, studentId: { in: removedIds } },
