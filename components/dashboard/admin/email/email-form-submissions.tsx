@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 
 function dt(d: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
 }
 
 async function getForms() {

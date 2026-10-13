@@ -4,6 +4,7 @@ import { logAdminActivity } from "@/lib/admin/audit";
 import { recomputeCampaignAwarded } from "@/lib/allocation/server";
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
+import { fillMissingStudentSchools } from "@/lib/schools/student-school";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
  * Folds a duplicate school into the one to keep: every student, campaign,
  * application, award, payment, allocation, recommendation and school admin
  * pointing at the duplicate moves to the kept school, and the duplicate is
- * archived (kept, not deleted, so its history is traceable). Allocation and
+ * archived (kept, not deleted, so its history is traceable). Students with no
+ * school recorded take one from their application or campaign. Allocation and
  * reporting group by school id, so this is what makes them count correctly.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -49,7 +51,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       else await tx.schoolAdmin.update({ where: { id: admin.id }, data: { schoolId: intoId } });
     }
     await tx.school.update({ where: { id }, data: { status: "archived" } });
-    return counts;
+    // Students with no school of their own take it from their application or
+    // campaign, now that those point at the kept school.
+    return { ...counts, studentsGivenSchool: await fillMissingStudentSchools(tx) };
   });
 
   // School-level campaigns count awards to students at their school.

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { formatWindowDate } from "@/lib/scholarship/windows";
+import { formatDate } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -61,8 +62,8 @@ export default async function RetentionPage() {
           <CardHeader>
             <CardTitle className="font-heading text-primary">Due for deletion in the next 12 months</CardTitle>
             <CardDescription>
-              Place a hold to keep a file during an audit or dispute. {undated} displaced-student file
-              {undated === 1 ? " has" : "s have"} no date yet because the final payout year isn&apos;t known.
+              Place a hold to keep a file during an audit or dispute.{" "}
+              {`${undated} displaced-student ${undated === 1 ? "file has" : "files have"} no date yet because the final payout year isn't known.`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -124,7 +125,7 @@ export default async function RetentionPage() {
               <ul className="space-y-1 text-sm">
                 {purged.map((p, i) => (
                   <li key={i} className="text-muted-foreground">
-                    {p.createdAt.toISOString().slice(0, 10)} · {p.document.fileName} ({p.document.documentKind})
+                    {formatDate(p.createdAt)} · {p.document.fileName} ({p.document.documentKind})
                   </li>
                 ))}
               </ul>

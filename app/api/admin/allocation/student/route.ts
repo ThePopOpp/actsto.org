@@ -5,6 +5,7 @@ import { payableRoom } from "@/lib/allocation/rules";
 import { studentEligibility, studentYearMoney } from "@/lib/allocation/server";
 import { FUNDING_SOURCE_LABEL, isFundingSource } from "@/lib/funding-sources";
 import { prisma } from "@/lib/prisma";
+import { isoDateInArizona } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
           payments: award.payments.map((p) => ({
             id: p.id,
             amount: Number(p.amount),
-            paidAt: (p.paidAt ?? p.createdAt).toISOString().slice(0, 10),
+            paidAt: isoDateInArizona(p.paidAt ?? p.createdAt),
             reference: p.paymentReference,
             status: p.status,
             voidReason: p.voidReason,
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
         };
       }),
       recommendations: recommendations.map((r) => ({
-        date: r.donation.createdAt.toISOString().slice(0, 10),
+        date: isoDateInArizona(r.donation.createdAt),
         amount: Number(r.donation.amount),
         campaign: r.donation.campaign?.title ?? null,
         donor:

@@ -1,3 +1,4 @@
+import type { SchoolDetails } from "@/lib/schools/details";
 
   "https://arizonachristiantuition.com/wp-content/uploads/2026/03/Valley.Logo_.Round_.png";
 
@@ -124,6 +125,10 @@ export type Campaign = {
     address: string;
     website: string;
     logo?: string;
+    /** Added by a family and waiting for ACT to approve it onto the list. */
+    pending?: boolean;
+    /** Full details for a school added under "Other school" (new schools only). */
+    details?: SchoolDetails;
   };
   parent: {
     /** Profile id of the campaign owner — needed to start a direct message. */

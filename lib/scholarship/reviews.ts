@@ -89,6 +89,17 @@ async function writeReview(actor: StaffActor, input: ReviewInput, dueAt: Date | 
       409,
     );
   }
+  // Staff can open a draft to see where a family stopped, but there is nothing
+  // to decide until it is submitted. Internal notes are still allowed.
+  if (input.action !== "note") {
+    const current = await prisma.scholarshipApplication.findUnique({
+      where: { id: input.applicationId },
+      select: { status: true },
+    });
+    if (current?.status === "draft") {
+      throw new ScopeError("This application hasn't been submitted yet, so there is nothing to decide.", 409);
+    }
+  }
 
   return prisma.applicationReview.create({
     data: {

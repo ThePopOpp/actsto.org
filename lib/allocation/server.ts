@@ -21,6 +21,7 @@ import {
 import { gradeBand, isK12 } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/scholarship/notifications";
+import { isoDateInArizona } from "@/lib/format-date";
 
 export class AllocationError extends Error {
   constructor(
@@ -654,7 +655,7 @@ export async function studentAwardSummaries(studentId: string): Promise<StudentA
               : "Partially sent to school",
       payments: award.payments.map((p) => ({
         amount: Number(p.amount),
-        date: (p.paidAt ?? p.createdAt).toISOString().slice(0, 10),
+        date: isoDateInArizona(p.paidAt ?? p.createdAt),
       })),
     });
     years.set(year, summary);

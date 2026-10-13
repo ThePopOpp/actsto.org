@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAllocationActor } from "@/lib/allocation/api";
 import { FLAG_LABEL, FLAG_STATUS_LABEL, isEligibilityFlag, isFlagStatus } from "@/lib/eligibility/flags";
 import { listEligibility } from "@/lib/eligibility/list-server";
+import { isoDateInArizona } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ function cell(value: unknown) {
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-/** GET /api/admin/eligibility/export?flag=&status=&year=&noAward=1 — CSV for ADOR reporting. */
+/** GET /api/admin/eligibility/export?flag=&status=&year=&noAward=1&school= — CSV for ADOR reporting. */
 export async function GET(request: Request) {
   const auth = await requireAllocationActor();
   if (!auth.ok) return auth.response;
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
     status: url.searchParams.get("status") ?? undefined,
     year: url.searchParams.get("year") ?? undefined,
     noAward: url.searchParams.get("noAward") === "1",
+    schoolId: url.searchParams.get("school") || undefined,
   });
   const lines = [
     ["Student", "School", "Grade", "Flag", "School year", "Status", "Set by", "Decided", "Decided by", "Reason", "Awarded (year)"].join(","),
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
         r.schoolYear,
         isFlagStatus(r.status) ? FLAG_STATUS_LABEL[r.status] : r.status,
         r.source,
-        r.decidedAt?.slice(0, 10),
+        r.decidedAt ? isoDateInArizona(r.decidedAt) : "",
         r.decidedByEmail,
         r.reason,
         r.awardedThisYear,

@@ -653,7 +653,8 @@ export function TaxCreditWizard({
   const taxYear: TaxYear =
     taxYearChoice && offeredTaxYears.includes(taxYearChoice) ? taxYearChoice : offeredTaxYears[0];
   const yearLimits = getOriginalOverflowForYear(taxYear, taxLimits);
-  const [filing, setFiling] = useState<FilingStatus>("single");
+  // The filing status saved on the donor's profile picks their credit limits.
+  const [filing, setFiling] = useState<FilingStatus>(pf?.filingStatus ?? "single");
   const [hasOtherSto, setHasOtherSto] = useState(embedInDialog ? false : true);
   const [stoRows, setStoRows] = useState<StoRow[]>([
     { id: "1", organization: "", amount: 0 },
@@ -735,6 +736,7 @@ export function TaxCreditWizard({
         // State starts as "AZ"; replace that default only, never a choice.
         if (p.state) setState((current) => (current === "AZ" || !current ? p.state.toUpperCase().slice(0, 2) : current));
         if (p.firstName || p.email || p.addressLine1) setPrefilledFromAccount(true);
+        if (p.filingStatus) setFiling(p.filingStatus);
         // A business account gives as the business unless the page asked for
         // the individual form.
         if (p.accountRole === "donor_business" && mode !== "individual") setIsBusiness(true);

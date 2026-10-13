@@ -2,7 +2,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminPaypalReceiptBackfillButton } from "@/components/dashboard/admin/admin-paypal-receipt-backfill-button";
 import { ExpirePendingButton, FundingSourceCell } from "@/components/dashboard/admin/funding-source-cell";
+import { RemoveTestDonationButton } from "@/components/dashboard/admin/remove-test-donation";
+import { ARCHIVED_TESTS_ONLY } from "@/lib/donations/remove-test";
+import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
+import { cn } from "@/lib/utils";
 
 function money(value: unknown) {
   const n = Number(value ?? 0);
@@ -38,13 +42,39 @@ function statusBadge(status: string) {
 
 type PaypalActivityView = "all" | "payments" | "receipts" | "webhooks";
 
-export async function AdminPaypalActivityPanel({ view = "all" }: { view?: PaypalActivityView }) {
-  const [summary, recentDonations, recentEvents, recentReceipts, missingReceiptCount] = await Promise.all([
+/** Status filter on the Payments table. */
+export const PAYMENT_STATUS_FILTERS = [
+  { id: "paid", label: "Paid", statuses: ["paid"] },
+  { id: "pending", label: "Pending", statuses: ["pending"] },
+  { id: "failed", label: "Failed / cancelled", statuses: ["failed", "cancelled"] },
+  { id: "all", label: "All", statuses: null },
+] as const;
+export type PaymentStatusFilter = (typeof PAYMENT_STATUS_FILTERS)[number]["id"];
+
+export function parsePaymentStatusFilter(value: unknown): PaymentStatusFilter {
+  return PAYMENT_STATUS_FILTERS.some((f) => f.id === value) ? (value as PaymentStatusFilter) : "all";
+}
+
+export async function AdminPaypalActivityPanel({
+  view = "all",
+  status = "all",
+}: {
+  view?: PaypalActivityView;
+  status?: PaymentStatusFilter;
+}) {
+  const statuses = PAYMENT_STATUS_FILTERS.find((f) => f.id === status)?.statuses ?? null;
+  const [summary, recentDonations, recentEvents, recentReceipts, missingReceiptCount, archived] = await Promise.all([
     getPaymentSummary(),
     prisma.donation.findMany({
-      where: { paymentProvider: "paypal" },
+      // Archived sandbox tests are left out here exactly as on the Dashboard
+      // and Allocation, so all three show the same paid total.
+      where: {
+        paymentProvider: "paypal",
+        AND: [EXCLUDE_ARCHIVED_TESTS],
+        ...(statuses ? { status: { in: [...statuses] } } : {}),
+      },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 100,
       include: {
         campaign: { select: { title: true, slug: true } },
         taxReceipts: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -57,6 +87,7 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
       take: 12,
     }),
     prisma.taxReceipt.findMany({
+      where: { donation: EXCLUDE_ARCHIVED_TESTS },
       orderBy: { createdAt: "desc" },
       take: 8,
       include: { donation: { select: { status: true, paymentProviderOrderId: true } } },
@@ -66,9 +97,17 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
         paymentProvider: "paypal",
         status: "paid",
         taxReceipts: { none: {} },
+        AND: [EXCLUDE_ARCHIVED_TESTS],
       },
     }),
+    prisma.donation.aggregate({
+      where: ARCHIVED_TESTS_ONLY,
+      _count: { _all: true },
+      _sum: { totalAmount: true, amount: true },
+    }),
   ]);
+  const archivedCount = archived._count._all;
+  const archivedAmount = Number(archived._sum.totalAmount ?? archived._sum.amount ?? 0);
 
   return (
     <div className="mt-6 space-y-6">
@@ -106,15 +145,39 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
         <CardHeader>
           <CardTitle className="font-heading text-primary">Recent PayPal donations</CardTitle>
           <CardDescription>
-            Capture status, funding source, receipt and campaign for the latest 50 checkouts. Gifts marked Review were
+            Capture status, funding source, receipt and campaign for the latest 100 checkouts. Gifts marked Review were
             recorded before funding sources existed, or are quick gifts with an Overflow part; confirm or correct them.
+            Paid volume here counts the same gifts as the Dashboard and Allocation: archived sandbox tests are left out
+            everywhere.
           </CardDescription>
-          <div className="pt-2">
+          <nav className="flex flex-wrap gap-1.5 pt-2" aria-label="Payment status">
+            {PAYMENT_STATUS_FILTERS.map((f) => (
+              <a
+                key={f.id}
+                href={`/dashboard/admin/billing${f.id === "all" ? "" : `?status=${f.id}`}`}
+                aria-current={f.id === status ? "page" : undefined}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium",
+                  f.id === status ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {f.label}
+              </a>
+            ))}
+          </nav>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <ExpirePendingButton pendingCount={summary.pendingCount} />
+            <RemoveTestDonationButton mode="archived" count={archivedCount} amount={archivedAmount} />
           </div>
+          {archivedCount > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {archivedCount} archived sandbox test donation{archivedCount === 1 ? "" : "s"} ({money(archivedAmount)}) are
+              hidden from every total but still stored. Remove them to clear them out completely.
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="w-full min-w-[1080px] text-sm">
             <thead className="border-b border-border text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="py-2 pr-4">Created</th>
@@ -124,7 +187,8 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
                 <th className="py-2 pr-4">Campaign</th>
                 <th className="py-2 pr-4">Receipt</th>
                 <th className="py-2 pr-4">PayPal order</th>
-                <th className="py-2">Capture</th>
+                <th className="py-2 pr-4">Capture</th>
+                <th className="py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70">
@@ -156,9 +220,24 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
                     {donation.taxReceipts[0]?.receiptNumber ?? "-"}
                   </td>
                   <td className="py-3 pr-4 font-mono text-xs">{donation.paymentProviderOrderId ?? "-"}</td>
-                  <td className="py-3 font-mono text-xs">{donation.paymentProviderCaptureId ?? "-"}</td>
+                  <td className="py-3 pr-4 font-mono text-xs">{donation.paymentProviderCaptureId ?? "-"}</td>
+                  <td className="py-3">
+                    <RemoveTestDonationButton
+                      mode="one"
+                      donationId={donation.id}
+                      amount={Number(donation.totalAmount ?? donation.amount)}
+                      label={dt(donation.createdAt)}
+                    />
+                  </td>
                 </tr>
               ))}
+              {recentDonations.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-6 text-center text-muted-foreground">
+                    No donations with this status.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </CardContent>
@@ -228,7 +307,7 @@ export async function AdminPaypalActivityPanel({ view = "all" }: { view?: Paypal
 async function getPaymentSummary() {
   const rows = await prisma.donation.groupBy({
     by: ["status"],
-    where: { paymentProvider: "paypal" },
+    where: { paymentProvider: "paypal", AND: [EXCLUDE_ARCHIVED_TESTS] },
     _count: { _all: true },
     _sum: { totalAmount: true, amount: true },
   });

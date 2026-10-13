@@ -4,6 +4,7 @@ import type { AdminUserSample } from "@/lib/admin/mock-users";
 import { canAccessSuperAdminDashboard } from "@/lib/auth/admin-allowlist";
 import type { UserRole } from "@/lib/auth/types";
 import { PORTAL_ROLES, type PortalRole } from "@/lib/auth/types";
+import { formatDate } from "@/lib/format-date";
 
 function formatLastActive(d: Date): string {
   const now = Date.now();
@@ -15,7 +16,7 @@ function formatLastActive(d: Date): string {
   if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return d.toLocaleDateString();
+  return formatDate(d);
 }
 
 export function prismaUserToAdminSample(

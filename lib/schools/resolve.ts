@@ -2,16 +2,21 @@ import "server-only";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { cleanWebsite, type SchoolDetails } from "@/lib/schools/details";
+
 type Db = PrismaClient | Prisma.TransactionClient;
 
 export type SchoolChoice = {
   /** A school picked from the list. Always wins when it exists. */
   id?: string | null;
-  /** A school typed under "Not listed". */
+  /** A school typed under "Other school". */
   name?: string | null;
+  /** One-line address, from forms that predate the separate address fields. */
   address?: string | null;
   website?: string | null;
   logo?: string | null;
+  /** Full address, phone and photos for a school added under "Other school". */
+  details?: SchoolDetails | null;
 };
 
 function slugify(name: string) {
@@ -57,15 +62,25 @@ export async function resolveSchool(db: Db, choice: SchoolChoice): Promise<strin
   });
   if (existing) return existing.id;
 
+  const details = choice.details ?? null;
   // A merged-away school keeps its slug on the archived row; never collide.
   const taken = await db.school.findUnique({ where: { slug }, select: { id: true } });
   const created = await db.school.create({
     data: {
       name,
       slug: taken ? `${slug}-${Date.now().toString(36)}` : slug,
-      addressLine1: choice.address?.trim() || null,
-      website: choice.website?.trim() || null,
+      addressLine1: details?.addressLine1 || choice.address?.trim() || null,
+      addressLine2: details?.addressLine2 || null,
+      city: details?.city || null,
+      state: details?.state || null,
+      zip: details?.zip || null,
+      phone: details?.phone || null,
+      website: cleanWebsite(choice.website) || null,
       logoUrl: choice.logo?.trim() || null,
+      featuredImageUrl: details?.featuredImageUrl || null,
+      galleryUrls: details?.galleryUrls ?? [],
+      // Saved for everyone, and shown in other families' pickers once staff
+      // approve it on the Schools screen.
       status: "pending",
     },
     select: { id: true },

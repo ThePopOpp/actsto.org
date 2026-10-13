@@ -61,7 +61,7 @@ const BULK_PAST_TENSE: Record<BulkAction, string> = {
 };
 
 function fmt(v: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(v));
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", year: "numeric" }).format(new Date(v));
 }
 function statusBadge(s: string) {
   if (s === "ready") return <Badge className="border-0 bg-emerald-100 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-200">Ready</Badge>;

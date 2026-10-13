@@ -3,9 +3,10 @@ import "server-only";
 import type { ActSession } from "@/lib/auth/types";
 import type { Campaign } from "@/lib/campaigns";
 import { getSiteCampaignsBySlugs } from "@/lib/campaigns-source";
-import { FUNDING_SOURCE_PARENT_LABEL, isFundingSource } from "@/lib/funding-sources";
+import { FUNDING_SOURCE_PARENT_LABEL, isFundingSource, type FundingSource } from "@/lib/funding-sources";
 import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
+import { isoDateInArizona } from "@/lib/format-date";
 
 export type MyGift = {
   id: string;
@@ -13,6 +14,8 @@ export type MyGift = {
   campaignTitle: string;
   campaignSlug: string | null;
   creditType: string;
+  /** quick | tax_credit | business | ... — "business" only from the corporate form. */
+  donationType: string;
   amount: number;
   taxYear: number | null;
   receiptNumber: string | null;
@@ -20,6 +23,8 @@ export type MyGift = {
   receiptId: string | null;
   /** Programs the gift funds, e.g. "Low-income corporate scholarship". */
   programs: string[];
+  /** The raw funding sources behind `programs`. */
+  fundingSources: FundingSource[];
   /** Business name on a corporate gift, as entered on the form. */
   businessName: string | null;
 };
@@ -101,24 +106,20 @@ export async function getMyGiving(session: ActSession): Promise<MyGiving> {
     const metadata = (donation.metadata ?? {}) as Record<string, unknown>;
     const metaTitle = typeof metadata.campaignTitle === "string" ? metadata.campaignTitle : null;
     const metaSlug = typeof metadata.campaignSlug === "string" ? metadata.campaignSlug : null;
+    const sources = Array.from(new Set(donation.fundSplits.map((split) => split.fundingSource).filter(isFundingSource)));
     return {
       id: donation.id,
-      date: donation.createdAt.toISOString().slice(0, 10),
+      date: isoDateInArizona(donation.createdAt),
       campaignTitle: donation.campaign?.title ?? metaTitle ?? "ACT General Fund",
       campaignSlug: donation.campaign?.slug ?? metaSlug,
       creditType: creditLabel(donation.donationType),
+      donationType: donation.donationType,
       amount: Number(donation.totalAmount ?? donation.amount ?? 0),
       taxYear: donation.taxYear ?? donation.createdAt.getFullYear(),
       receiptNumber: donation.taxReceipts[0]?.receiptNumber ?? null,
       receiptId: donation.taxReceipts[0]?.id ?? null,
-      programs: Array.from(
-        new Set(
-          donation.fundSplits
-            .map((split) => split.fundingSource)
-            .filter(isFundingSource)
-            .map((source) => FUNDING_SOURCE_PARENT_LABEL[source]),
-        ),
-      ),
+      programs: Array.from(new Set(sources.map((source) => FUNDING_SOURCE_PARENT_LABEL[source]))),
+      fundingSources: sources,
       businessName: donation.donationDetail?.businessName ?? null,
     };
   });

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { getProfileForEmail, managedCampaignWhere } from "@/lib/dashboard/parent-scope";
+import { editableCampaignWhere, getProfileForEmail, isSuperAdminViewer } from "@/lib/dashboard/parent-scope";
 import type { ActSession } from "@/lib/auth/types";
 
 /**
@@ -40,10 +40,7 @@ export async function requireManagedCampaign(slug: string, session: ActSession) 
   const profile = await getProfileForEmail(session.email);
   if (!profile) throw new UpdateError("Profile not found.", 404);
 
-  const where =
-    profile.isSuperAdmin || session.role === "super_admin"
-      ? { slug }
-      : { slug, ...managedCampaignWhere(profile.id) };
+  const where = isSuperAdminViewer(session, profile) ? { slug } : { slug, ...editableCampaignWhere(profile.id) };
 
   const campaign = await prisma.campaign.findFirst({
     where,

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CheckCircle2, Copy, Link2, Plus, Send, Trash2, UserPlus, X } from "lucide-react";
 
 import { StudentHowToDialog } from "@/components/dashboard/parent/student-howto-dialog";
+import { StudentSchoolSelect } from "@/components/dashboard/parent/student-school-select";
 import { GradeSelect } from "@/components/grade-select";
 import {
   STUDENT_VIEW_TABS,
@@ -70,6 +71,7 @@ function AddStudentForm({
   const [lastName, setLastName] = useState("");
   const [grade, setGrade] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [schoolId, setSchoolId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +80,7 @@ function AddStudentForm({
     setLastName("");
     setGrade("");
     setBirthDate("");
+    setSchoolId("");
     setError(null);
   }
 
@@ -92,7 +95,7 @@ function AddStudentForm({
       const res = await fetch("/api/parent/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, grade, birthDate }),
+        body: JSON.stringify({ firstName, lastName, grade, birthDate, schoolId }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "Could not add this student.");
@@ -144,6 +147,13 @@ function AddStudentForm({
           <div>
             <Label htmlFor="new-student-grade">Grade</Label>
             <GradeSelect id="new-student-grade" className="mt-1.5" value={grade} onChange={setGrade} />
+          </div>
+          <div>
+            <Label htmlFor="new-student-school">School</Label>
+            <StudentSchoolSelect id="new-student-school" className="mt-1.5" value={schoolId} onChange={setSchoolId} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Not listed? Add it when you start a campaign, under &ldquo;Other school&rdquo;.
+            </p>
           </div>
           <div>
             <Label htmlFor="new-student-dob">Date of birth (optional)</Label>
@@ -282,6 +292,123 @@ function CampaignLinks({
  * the record. The server refuses when donations or scholarship history hang off
  * the student, and that reason is shown here rather than a generic failure.
  */
+/** Edit a student's name, grade, date of birth and school. */
+function StudentDetailsEditor({ student, onSaved }: { student: ParentStudentRow; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    firstName: student.firstName,
+    lastName: student.lastName,
+    grade: student.grade,
+    birthDate: student.birthDate ?? "",
+    schoolId: student.schoolId ?? "",
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 p-4 text-sm">
+        <span>
+          <span className="text-muted-foreground">School: </span>
+          <span className={student.school ? "text-foreground" : "font-medium text-amber-700 dark:text-amber-400"}>
+            {student.school || "Not set"}
+          </span>
+        </span>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Edit details
+        </Button>
+      </div>
+    );
+  }
+
+  async function save() {
+    if (!form.firstName.trim()) {
+      setError("A first name is required.");
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/parent/students/${student.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not save this student.");
+      setOpen(false);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save this student.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border/80 p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor={`edit-first-${student.id}`}>First name</Label>
+          <Input
+            id={`edit-first-${student.id}`}
+            className="mt-1.5"
+            value={form.firstName}
+            onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+          />
+        </div>
+        <div>
+          <Label htmlFor={`edit-last-${student.id}`}>Last name</Label>
+          <Input
+            id={`edit-last-${student.id}`}
+            className="mt-1.5"
+            value={form.lastName}
+            onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+          />
+        </div>
+        <div>
+          <Label htmlFor={`edit-grade-${student.id}`}>Grade</Label>
+          <GradeSelect
+            id={`edit-grade-${student.id}`}
+            className="mt-1.5"
+            value={form.grade}
+            onChange={(grade) => setForm({ ...form, grade })}
+          />
+        </div>
+        <div>
+          <Label htmlFor={`edit-school-${student.id}`}>School</Label>
+          <StudentSchoolSelect
+            id={`edit-school-${student.id}`}
+            className="mt-1.5"
+            value={form.schoolId}
+            currentName={student.school}
+            onChange={(schoolId) => setForm({ ...form, schoolId })}
+          />
+        </div>
+        <div>
+          <Label htmlFor={`edit-dob-${student.id}`}>Date of birth (optional)</Label>
+          <Input
+            id={`edit-dob-${student.id}`}
+            type="date"
+            className="mt-1.5"
+            value={form.birthDate}
+            onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+          />
+        </div>
+      </div>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" disabled={isSaving} onClick={() => void save()}>
+          {isSaving ? "Saving..." : "Save details"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function RemoveStudentButton({ student, onRemoved }: { student: ParentStudentRow; onRemoved: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -573,6 +700,8 @@ export function ParentStudentsManager({
 
     return (
       <>
+        <StudentDetailsEditor key={`${student.id}-${student.schoolId}-${student.grade}`} student={student} onSaved={refresh} />
+
         <CampaignLinks student={student} campaigns={campaigns} onChanged={refresh} />
 
         {!connected ? (

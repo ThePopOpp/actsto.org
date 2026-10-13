@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 
 import type { CampaignFormValues } from "@/lib/dashboard/campaign-editor";
 import { composeParentName, emptyCampaignFormStudent, getCampaignFormStudents } from "@/lib/dashboard/campaign-editor";
+import { emptySchoolDetails, type SchoolDetails } from "@/lib/schools/details";
 import type { SchoolListItem } from "@/app/api/schools/route";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -27,7 +28,7 @@ type OnPatch = (patch: Partial<CampaignFormValues>) => void;
  * way to tell whether the right file had landed — or whether an image was on the
  * campaign at all. `value` is the URL currently saved; pass it and you see it.
  */
-function CampaignImageUpload({
+export function CampaignImageUpload({
   label = "Click or drop files to upload",
   multiple = false,
   value,
@@ -661,7 +662,12 @@ export function CampaignFormPanelSchool({
   }, []);
 
   const picked = schools?.find((school) => school.id === values.schoolId) ?? null;
-  const showTyped = notListed || (schools !== null && schools.length === 0);
+  // A school this family added earlier and ACT hasn't approved yet: it has an
+  // id but isn't on the public list. Keep it rather than asking again.
+  const pendingOwn = Boolean(values.schoolId) && schools !== null && !picked;
+  const showTyped = !pendingOwn && (notListed || (schools !== null && schools.length === 0));
+  const details = values.schoolDetails;
+  const patchDetails = (patch: Partial<SchoolDetails>) => onPatch({ schoolDetails: { ...details, ...patch } });
 
   return (
     <div className="space-y-5">
@@ -670,12 +676,12 @@ export function CampaignFormPanelSchool({
         <select
           id="cf-school-pick"
           className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-          value={showTyped ? "__other__" : values.schoolId}
+          value={showTyped || pendingOwn ? "__other__" : values.schoolId}
           onChange={(e) => {
             const next = e.target.value;
             if (next === "__other__") {
               setNotListed(true);
-              onPatch({ schoolId: "", schoolName: "" });
+              onPatch({ schoolId: "", schoolName: "", schoolDetails: emptySchoolDetails() });
               return;
             }
             setNotListed(false);
@@ -696,7 +702,7 @@ export function CampaignFormPanelSchool({
               {school.city ? ` — ${school.city}` : ""}
             </option>
           ))}
-          {values.isSchoolLevel ? null : <option value="__other__">My school isn&apos;t listed</option>}
+          {values.isSchoolLevel ? null : <option value="__other__">Other school (not listed)</option>}
         </select>
         {picked ? (
           <p className="mt-1.5 text-xs text-muted-foreground">
@@ -706,10 +712,18 @@ export function CampaignFormPanelSchool({
         ) : null}
       </div>
 
+      {pendingOwn ? (
+        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+          {values.schoolName || "This school"} is saved and waiting for our team to add it to the list. Choose
+          another school above to change it.
+        </p>
+      ) : null}
+
       {showTyped ? (
         <div className="space-y-5 rounded-lg border border-dashed border-border p-4">
           <p className="text-sm text-muted-foreground">
-            Tell us about the school. Our team checks it and adds it to the list.
+            Add the school. It is saved with your campaign, and once our team checks it, other families can choose it
+            too.
           </p>
           <div>
             <Label htmlFor="cf-school-name">School name</Label>
@@ -721,24 +735,75 @@ export function CampaignFormPanelSchool({
               onChange={(e) => onPatch({ schoolName: e.target.value, schoolId: "" })}
             />
           </div>
-          <div>
-            <Label htmlFor="cf-school-address">School address</Label>
-            <Input
-              id="cf-school-address"
-              className="mt-1.5"
-              value={values.schoolAddress}
-              onChange={(e) => onPatch({ schoolAddress: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="cf-school-web">School website</Label>
-            <Input
-              id="cf-school-web"
-              type="url"
-              className="mt-1.5 font-mono text-sm"
-              value={values.schoolWebsite}
-              onChange={(e) => onPatch({ schoolWebsite: e.target.value })}
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label htmlFor="cf-school-line1">Street address</Label>
+              <Input
+                id="cf-school-line1"
+                className="mt-1.5"
+                autoComplete="off"
+                value={details.addressLine1}
+                onChange={(e) => patchDetails({ addressLine1: e.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="cf-school-line2">Address line 2 (optional)</Label>
+              <Input
+                id="cf-school-line2"
+                className="mt-1.5"
+                autoComplete="off"
+                value={details.addressLine2}
+                onChange={(e) => patchDetails({ addressLine2: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="cf-school-city">City</Label>
+              <Input id="cf-school-city" className="mt-1.5" value={details.city} onChange={(e) => patchDetails({ city: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="cf-school-state">State</Label>
+                <Input
+                  id="cf-school-state"
+                  className="mt-1.5 uppercase"
+                  maxLength={2}
+                  value={details.state}
+                  onChange={(e) => patchDetails({ state: e.target.value.toUpperCase() })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cf-school-zip">ZIP</Label>
+                <Input
+                  id="cf-school-zip"
+                  inputMode="numeric"
+                  className="mt-1.5"
+                  maxLength={10}
+                  value={details.zip}
+                  onChange={(e) => patchDetails({ zip: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="cf-school-phone">Phone</Label>
+              <Input
+                id="cf-school-phone"
+                type="tel"
+                className="mt-1.5"
+                value={details.phone}
+                onChange={(e) => patchDetails({ phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="cf-school-web">Website</Label>
+              <Input
+                id="cf-school-web"
+                type="url"
+                className="mt-1.5 font-mono text-sm"
+                placeholder="https://"
+                value={values.schoolWebsite}
+                onChange={(e) => onPatch({ schoolWebsite: e.target.value })}
+              />
+            </div>
           </div>
           <div>
             <Label>School logo</Label>
@@ -747,6 +812,25 @@ export function CampaignFormPanelSchool({
               value={values.schoolLogo}
               onClear={() => onPatch({ schoolLogo: "" })}
               onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })}
+            />
+          </div>
+          <div>
+            <Label>School featured image</Label>
+            <CampaignImageUpload
+              label="Click or drop a photo of the school"
+              value={details.featuredImageUrl}
+              onClear={() => patchDetails({ featuredImageUrl: "" })}
+              onUploaded={([featuredImageUrl]) => featuredImageUrl && patchDetails({ featuredImageUrl })}
+            />
+          </div>
+          <div>
+            <Label>School photo gallery</Label>
+            <CampaignImageUpload
+              multiple
+              label="Click or drop school photos to upload"
+              values={details.galleryUrls}
+              onClear={(url) => patchDetails({ galleryUrls: details.galleryUrls.filter((u) => u !== url) })}
+              onUploaded={(urls) => patchDetails({ galleryUrls: Array.from(new Set([...details.galleryUrls, ...urls])) })}
             />
           </div>
         </div>

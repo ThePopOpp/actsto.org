@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { ATTEMPT_FLAG_THRESHOLD, STAFF_STATUS_LABEL } from "@/lib/scholarship/constants";
 import { formatCurrency } from "@/lib/scholarship/income";
 import { getStaffActor } from "@/lib/scholarship/scope";
-import { formatWindowDate } from "@/lib/scholarship/windows";
+import { formatWindowDate, formatWindowDateTime } from "@/lib/scholarship/windows";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,10 @@ const TABS = [
   { id: "approved", label: "Approved", statuses: ["approved"] },
   { id: "denied", label: "Denied", statuses: ["denied"] },
   { id: "withdrawn", label: "Withdrawn", statuses: ["withdrawn"] },
-  { id: "all", label: "All", statuses: [...OPEN_STATUSES, "approved", "denied", "withdrawn"] },
+  // Started but never submitted. Nothing to decide, but staff need to see who
+  // stopped where, and the Schools counts include them.
+  { id: "drafts", label: "Drafts", statuses: ["draft"] },
+  { id: "all", label: "All", statuses: [...OPEN_STATUSES, "approved", "denied", "withdrawn", "draft"] },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -50,6 +53,7 @@ const VERIFICATION_TAB_STATUSES: Record<TabId, string[]> = {
   approved: ["approved"],
   denied: ["denied"],
   withdrawn: ["withdrawn"],
+  drafts: [],
   all: ["pending_review", "awaiting_dcs", "info_requested", "approved", "denied", "withdrawn"],
 };
 
@@ -65,14 +69,20 @@ const VERIFICATION_STATUS_LABEL: Record<string, string> = {
 export default async function AdminScholarshipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string }>;
+  searchParams: Promise<{ status?: string; type?: string; school?: string }>;
 }) {
-  const { status: statusParam, type: typeParam } = await searchParams;
+  const { status: statusParam, type: typeParam, school: schoolParam } = await searchParams;
   const tab = TABS.find((t) => t.id === statusParam) ?? TABS[0];
   const type: TypeId = TYPES.find((t) => t.id === typeParam)?.id ?? "all";
   const showApplications = type === "all" || type === "application";
   const verificationKinds = type === "all" ? ["disability", "displacement"] : type === "application" ? [] : [type];
   const isOpenTab = tab.id === "open";
+  const isDraftsTab = tab.id === "drafts";
+  // From the Schools page: only this school's applications and students.
+  const schoolFilter =
+    schoolParam && /^[0-9a-f-]{36}$/i.test(schoolParam)
+      ? await prisma.school.findUnique({ where: { id: schoolParam }, select: { id: true, name: true } })
+      : null;
   const actor = await getStaffActor();
   if (!actor) {
     return (
@@ -88,7 +98,7 @@ export default async function AdminScholarshipsPage({
 
   const statusCounts = await prisma.scholarshipApplication.groupBy({
     by: ["status"],
-    where: { status: { not: "draft" } },
+    where: schoolFilter ? { schoolId: schoolFilter.id } : {},
     _count: { _all: true },
   });
   const countFor = (id: TabId) => {
@@ -98,7 +108,11 @@ export default async function AdminScholarshipsPage({
 
   const verifications = verificationKinds.length
     ? await prisma.studentVerification.findMany({
-        where: { kind: { in: verificationKinds }, status: { in: VERIFICATION_TAB_STATUSES[tab.id] } },
+        where: {
+          kind: { in: verificationKinds },
+          status: { in: VERIFICATION_TAB_STATUSES[tab.id] },
+          ...(schoolFilter ? { student: { schoolId: schoolFilter.id } } : {}),
+        },
         orderBy: { createdAt: isOpenTab ? "asc" : "desc" },
         select: {
           id: true,
@@ -119,9 +133,14 @@ export default async function AdminScholarshipsPage({
   });
 
   const applications = !showApplications ? [] : await prisma.scholarshipApplication.findMany({
-    where: { status: { in: [...tab.statuses] } },
-    // The queue works oldest-first; decided lists read newest decision first.
-    orderBy: isOpenTab ? [{ submittedAt: "asc" }] : [{ reviewedAt: { sort: "desc", nulls: "last" } }, { submittedAt: "desc" }],
+    where: { status: { in: [...tab.statuses] }, ...(schoolFilter ? { schoolId: schoolFilter.id } : {}) },
+    // The queue works oldest-first; decided lists read newest decision first;
+    // drafts read most recently saved first.
+    orderBy: isOpenTab
+      ? [{ submittedAt: "asc" }]
+      : isDraftsTab
+        ? [{ updatedAt: "desc" }]
+        : [{ reviewedAt: { sort: "desc", nulls: "last" } }, { submittedAt: "desc" }, { updatedAt: "desc" }],
     select: {
       id: true,
       status: true,
@@ -136,6 +155,9 @@ export default async function AdminScholarshipsPage({
       overflowQualification: true,
       incomeSnapshot: true,
       reviewedBy: true,
+      updatedAt: true,
+      guardianUserId: true,
+      schoolNameOther: true,
       student: { select: { firstName: true, lastName: true } },
       school: { select: { name: true } },
       documents: { where: { purgedAt: null }, select: { id: true, verifiedAt: true } },
@@ -151,6 +173,20 @@ export default async function AdminScholarshipsPage({
         select: { id: true, displayName: true, fullName: true, email: true },
       })
     : [];
+  // The parent on each application, shown for drafts.
+  const guardianIds = [...new Set(applications.map((a) => a.guardianUserId).filter(Boolean))] as string[];
+  const guardians = guardianIds.length
+    ? await prisma.profile.findMany({
+        where: { id: { in: guardianIds } },
+        select: { id: true, displayName: true, fullName: true, email: true },
+      })
+    : [];
+  const parentLabel = (id: string | null) => {
+    const g = id ? guardians.find((x) => x.id === id) : null;
+    if (!g) return null;
+    return [g.displayName ?? g.fullName, g.email].filter(Boolean).join(" · ");
+  };
+
   const reviewerName = (id: string | null) => {
     if (!id) return null;
     const r = reviewers.find((x) => x.id === id);
@@ -180,11 +216,25 @@ export default async function AdminScholarshipsPage({
         </Alert>
       ) : null}
 
+      {schoolFilter ? (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant="secondary">{schoolFilter.name}</Badge>
+          <span className="text-muted-foreground">Showing this school only.</span>
+          <Link
+            href={"/dashboard/admin/scholarships" + (tab.id !== "open" ? "?status=" + tab.id : "")}
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Show every school
+          </Link>
+        </p>
+      ) : null}
+
       <nav className="mb-3 flex flex-wrap gap-2" aria-label="Item type">
         {TYPES.map((t) => {
           const query = new URLSearchParams();
           if (tab.id !== "open") query.set("status", tab.id);
           if (t.id !== "all") query.set("type", t.id);
+          if (schoolFilter) query.set("school", schoolFilter.id);
           const qs = query.toString();
           return (
             <Link
@@ -214,6 +264,7 @@ export default async function AdminScholarshipsPage({
                 const query = new URLSearchParams();
                 if (t.id !== "open") query.set("status", t.id);
                 if (type !== "all") query.set("type", type);
+                if (schoolFilter) query.set("school", schoolFilter.id);
                 const qs = query.toString();
                 return qs ? "?" + qs : "";
               })()
@@ -269,7 +320,11 @@ export default async function AdminScholarshipsPage({
       {applications.length === 0 && verifications.length === 0 ? (
         <Card className="border-border/80">
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
-            {isOpenTab ? "Nothing waiting for review." : `No ${tab.label.toLowerCase()} applications.`}
+            {isOpenTab
+              ? "Nothing waiting for review."
+              : isDraftsTab
+                ? "No unsubmitted applications."
+                : `No ${tab.label.toLowerCase()} applications.`}
           </CardContent>
         </Card>
       ) : (
@@ -307,9 +362,16 @@ export default async function AdminScholarshipsPage({
                       ) : null}
                       {overdue ? <Badge variant="outline">Past deadline</Badge> : null}
                     </div>
+                    {application.status === "draft" ? (
+                      <p className="text-sm text-muted-foreground">
+                        Parent: {parentLabel(application.guardianUserId) ?? "unknown"}
+                      </p>
+                    ) : null}
                     <p className="text-sm text-muted-foreground">
-                      {application.schoolYear} · {application.school?.name ?? "No school"} ·{" "}
-                      {application.confirmationCode ?? "no code"}
+                      {application.schoolYear ?? "No school year"} ·{" "}
+                      {application.school?.name ??
+                        (application.schoolNameOther ? `${application.schoolNameOther} (typed)` : "No school")}{" "}
+                      · {application.confirmationCode ?? "no code"}
                       {snapshot?.annual_total !== undefined
                         ? ` · household ${formatCurrency(snapshot.annual_total)}`
                         : ""}
@@ -317,7 +379,7 @@ export default async function AdminScholarshipsPage({
                     <p className="text-xs text-muted-foreground">
                       {application.submittedAt
                         ? `Submitted ${formatWindowDate(application.submittedAt)}`
-                        : "Not submitted"}
+                        : `Not submitted · last saved ${formatWindowDateTime(application.updatedAt)}`}
                       {!OPEN_STATUSES.includes(application.status as (typeof OPEN_STATUSES)[number]) && application.reviewedAt
                         ? ` · decided ${formatWindowDate(application.reviewedAt)}`
                         : ""}

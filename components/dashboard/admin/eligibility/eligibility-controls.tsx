@@ -169,3 +169,58 @@ export function FixGradeControl({ kind, id, suggestion }: { kind: "student" | "a
     </div>
   );
 }
+
+/** Set or change the school a student attends. */
+export function StudentSchoolControl({
+  studentId,
+  schoolId,
+  schools,
+}: {
+  studentId: string;
+  schoolId: string | null;
+  schools: { id: string; name: string }[];
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState(schoolId ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <select
+        aria-label="School"
+        className="h-9 max-w-[16rem] rounded-md border border-input bg-background px-2 text-sm"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      >
+        <option value="">No school</option>
+        {schools.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={saving || value === (schoolId ?? "")}
+        onClick={async () => {
+          setSaving(true);
+          setError(null);
+          const res = await fetch(`/api/admin/students/${studentId}/school`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ schoolId: value || null }),
+          });
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          setSaving(false);
+          if (!res.ok) setError(data?.error ?? "Not saved.");
+          else router.refresh();
+        }}
+      >
+        {saving ? "Saving…" : "Save"}
+      </Button>
+      {error ? <span className="text-xs text-destructive">{error}</span> : null}
+    </div>
+  );
+}

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { validateIncomeTable, type IncomeTable } from "@/lib/eligibility/income-table";
+import { formatDate } from "@/lib/format-date";
 
 type SavedTable = IncomeTable & { updatedAt: string; updatedByEmail: string | null };
 
@@ -110,7 +111,7 @@ export function IncomeTableEditor() {
             >
               {t.schoolYear}
               <span className="block text-xs text-muted-foreground">
-                Updated {t.updatedAt.slice(0, 10)}
+                Updated {formatDate(t.updatedAt)}
                 {t.updatedByEmail ? ` by ${t.updatedByEmail}` : ""}
               </span>
             </button>

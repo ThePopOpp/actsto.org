@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 
 function dt(d: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
 }
 function statusBadge(status: string | null) {
   if (status === "sent") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Sent</Badge>;

@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 
+import { isoDateInArizona } from "@/lib/format-date";
 import { prisma } from "@/lib/prisma";
 
 export type DonorRow = {
@@ -128,26 +129,20 @@ export async function donorStats(where: Prisma.DonationWhereInput) {
 
 /** Daily paid totals for the last 30 days (sparkline). */
 export async function donorTrend(where: Prisma.DonationWhereInput): Promise<{ date: string; amount: number }[]> {
-  const since = new Date();
-  since.setDate(since.getDate() - 29);
-  since.setHours(0, 0, 0, 0);
+  // The last 30 Arizona days, today included. Arizona is UTC-7 all year.
+  const [y, m, d] = isoDateInArizona(new Date()).split("-").map(Number);
+  const keys = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(y, m - 1, d - 29 + i)).toISOString().slice(0, 10));
+  const since = new Date(`${keys[0]}T00:00:00-07:00`);
   const donations = await prisma.donation.findMany({
     where: { AND: [where, { status: "paid", createdAt: { gte: since } }] },
     select: { createdAt: true, amount: true },
   });
   const byDay = new Map<string, number>();
-  for (const d of donations) {
-    const key = d.createdAt.toISOString().slice(0, 10);
-    byDay.set(key, (byDay.get(key) ?? 0) + Number(d.amount));
+  for (const donation of donations) {
+    const key = isoDateInArizona(donation.createdAt);
+    byDay.set(key, (byDay.get(key) ?? 0) + Number(donation.amount));
   }
-  const out: { date: string; amount: number }[] = [];
-  for (let i = 0; i < 30; i++) {
-    const day = new Date(since);
-    day.setDate(since.getDate() + i);
-    const key = day.toISOString().slice(0, 10);
-    out.push({ date: key, amount: byDay.get(key) ?? 0 });
-  }
-  return out;
+  return keys.map((key) => ({ date: key, amount: byDay.get(key) ?? 0 }));
 }
 
 export type LeaderRow = {

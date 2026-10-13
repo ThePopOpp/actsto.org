@@ -70,10 +70,10 @@ function dur(s: number | null): string {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 function dt(v: string): string {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(v));
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric" }).format(new Date(v));
 }
 function dtFull(v: string): string {
-  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v));
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v));
 }
 
 export function DialerPanel() {

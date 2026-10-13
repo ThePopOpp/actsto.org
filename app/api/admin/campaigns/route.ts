@@ -8,6 +8,9 @@ export type AdminCampaign = {
   title: string;
   slug: string;
   tagline: string | null;
+  shortExcerpt: string | null;
+  /** The campaign description ("story"). */
+  story: string | null;
   status: string;
   isFeatured: boolean;
   /** Lower shows first among featured campaigns; null is unranked. */
@@ -41,7 +44,7 @@ export async function GET() {
   const campaigns = await prisma.campaign.findMany({
     orderBy: [{ isFeatured: "desc" }, { featuredRank: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
     select: {
-      id: true, title: true, slug: true, tagline: true, status: true, isFeatured: true, isPublic: true,
+      id: true, title: true, slug: true, tagline: true, shortExcerpt: true, story: true, status: true, isFeatured: true, isPublic: true,
       featuredRank: true, isSchoolLevel: true, schoolId: true, school: { select: { name: true } },
       awardedAmount: true, awardedDonorCount: true,
       goalAmount: true, raisedAmount: true, donorCount: true, city: true, state: true, featuredImageUrl: true,
@@ -62,6 +65,8 @@ export async function GET() {
       title: c.title,
       slug: c.slug,
       tagline: c.tagline,
+      shortExcerpt: c.shortExcerpt,
+      story: c.story,
       status: c.status,
       isFeatured: c.isFeatured,
       featuredRank: c.featuredRank,

@@ -117,6 +117,7 @@ export function ReviewPanel({
             <AlertDescription>
               Waiting on the family. Reply due{" "}
               {new Date(needsInfoDueAt).toLocaleDateString("en-US", {
+                timeZone: "America/Phoenix",
                 day: "numeric",
                 month: "long",
                 year: "numeric",

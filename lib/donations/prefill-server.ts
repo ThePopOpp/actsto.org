@@ -1,7 +1,9 @@
 import "server-only";
 
 import type { ActSession } from "@/lib/auth/types";
+import { creditLimitFiling } from "@/lib/donors/filing-status";
 import { prisma } from "@/lib/prisma";
+import type { FilingStatus } from "@/lib/tax-credit";
 
 export type DonorPrefill = {
   firstName: string;
@@ -14,6 +16,8 @@ export type DonorPrefill = {
   city: string;
   state: string;
   zip: string;
+  /** Credit-limit filing status from the Individual Donor profile, when saved. */
+  filingStatus: FilingStatus | null;
   /** The portal the donor is signed in to, so a business donor gets the corporate form. */
   accountRole: string;
   /** The business's own record, for the corporate form. Null for other accounts. */
@@ -67,6 +71,7 @@ export async function getDonorPrefill(session: ActSession): Promise<DonorPrefill
         displayName: true,
         fullName: true,
         phone: true,
+        individualDonorProfile: { select: { filingStatus: true } },
         parentGuardianProfile: { select: { addressLine1: true, addressLine2: true, city: true, state: true, zip: true } },
         businessDonorProfile: {
           select: {
@@ -90,7 +95,7 @@ export async function getDonorPrefill(session: ActSession): Promise<DonorPrefill
     const empty: DonorPrefill = {
       firstName: "", middleName: "", lastName: "", email: session.email, phone: "",
       addressLine1: "", addressLine2: "", city: "", state: "", zip: "",
-      accountRole: session.role, business: null,
+      filingStatus: null, accountRole: session.role, business: null,
     };
     return empty;
   }
@@ -120,6 +125,7 @@ export async function getDonorPrefill(session: ActSession): Promise<DonorPrefill
     city: clean(address?.city),
     state: clean(address?.state),
     zip: clean(address?.zip),
+    filingStatus: creditLimitFiling(profile.individualDonorProfile?.filingStatus),
     accountRole: session.role,
     business:
       isBusiness && biz

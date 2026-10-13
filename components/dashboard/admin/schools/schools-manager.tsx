@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
+import { CampaignImageUpload } from "@/components/campaigns/campaign-form-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { AdminSchool, TypedSchoolName } from "@/app/api/admin/schools/route";
+import { schoolCsvTemplate } from "@/lib/schools/csv-template";
+import type { SchoolImportResult } from "@/lib/schools/import-types";
 
 const STATUS_LABEL: Record<string, string> = {
   active: "On the list",
@@ -35,10 +40,10 @@ export function SchoolsManager() {
   const [typed, setTyped] = useState<TypedSchoolName[]>([]);
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<AdminSchool | null>(null);
+  /** The school being edited, or "new" while adding one. */
+  const [editing, setEditing] = useState<AdminSchool | "new" | null>(null);
   const [merging, setMerging] = useState<AdminSchool | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [newName, setNewName] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/schools", { cache: "no-store" });
@@ -88,6 +93,9 @@ export function SchoolsManager() {
             <CardDescription>Only schools &ldquo;On the list&rdquo; appear in campaign and donation pickers.</CardDescription>
           </div>
           <div className="flex flex-wrap items-end gap-2">
+            <Button type="button" size="sm" onClick={() => setEditing("new")}>
+              Add school
+            </Button>
             <Input aria-label="Search schools" placeholder="Search" className="h-9 w-44" value={query} onChange={(e) => setQuery(e.target.value)} />
             <select
               aria-label="Show"
@@ -129,9 +137,14 @@ export function SchoolsManager() {
                     <td className="py-2 pr-3">
                       <Badge variant={s.status === "active" ? "secondary" : "outline"}>{STATUS_LABEL[s.status] ?? s.status}</Badge>
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{s.counts.students}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      <CountLink href={`/dashboard/admin/scholarships/eligibility?school=${s.id}`} count={s.counts.students} label={`Students at ${s.name}`} />
+                    </td>
                     <td className="py-2 pr-3 text-right tabular-nums">{s.counts.campaigns}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{s.counts.applications}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      {/* Every application, drafts included, so the list matches this count. */}
+                      <CountLink href={`/dashboard/admin/scholarships?status=all&school=${s.id}`} count={s.counts.applications} label={`Applications for ${s.name}`} />
+                    </td>
                     <td className="py-2">
                       {s.status !== "archived" ? (
                         <div className="flex flex-wrap gap-1">
@@ -158,26 +171,10 @@ export function SchoolsManager() {
               </tbody>
             </table>
           </div>
-          <form
-            className="mt-4 flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                await send("/api/admin/schools", "POST", { name: newName });
-                setNewName("");
-              }, "School added.");
-            }}
-          >
-            <div>
-              <Label htmlFor="new-school">Add a school</Label>
-              <Input id="new-school" className="mt-1.5 w-72" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            </div>
-            <Button type="submit" variant="outline" disabled={!newName.trim()}>
-              Add
-            </Button>
-          </form>
         </CardContent>
       </Card>
+
+      <ImportSchoolsCard onImported={load} />
 
       <Card className="border-border/80">
         <CardHeader>
@@ -214,14 +211,15 @@ export function SchoolsManager() {
       ) : null}
 
       {editing ? (
-        <EditSchoolDialog
-          school={editing}
+        <SchoolDialog
+          school={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
           onSave={(patch) =>
             run(async () => {
-              await send(`/api/admin/schools/${editing.id}`, "PATCH", patch);
+              if (editing === "new") await send("/api/admin/schools", "POST", patch);
+              else await send(`/api/admin/schools/${editing.id}`, "PATCH", patch);
               setEditing(null);
-            }, "School saved.")
+            }, editing === "new" ? "School added." : "School saved.")
           }
         />
       ) : null}
@@ -284,62 +282,67 @@ function TypedRow({
   );
 }
 
-function EditSchoolDialog({
+function CountLink({ href, count, label }: { href: string; count: number; label: string }) {
+  if (count === 0) return <>0</>;
+  return (
+    <Link href={href} aria-label={`${label}: ${count}`} className="text-primary underline-offset-4 hover:underline">
+      {count}
+    </Link>
+  );
+}
+
+/** Add a school, or edit one: address, contact details, logo, featured image and gallery. */
+function SchoolDialog({
   school,
   onClose,
   onSave,
 }: {
-  school: AdminSchool;
+  school: AdminSchool | null;
   onClose: () => void;
   onSave: (patch: Record<string, unknown>) => Promise<void>;
 }) {
   const [form, setForm] = useState({
-    name: school.name,
-    addressLine1: school.addressLine1,
-    city: school.city,
-    state: school.state || "AZ",
-    zip: school.zip,
-    website: school.website,
-    phone: school.phone,
-    email: school.email,
-    logoUrl: school.logoUrl,
-    isPartner: school.isPartner,
-    status: school.status,
+    name: school?.name ?? "",
+    schoolType: school?.schoolType ?? "",
+    addressLine1: school?.addressLine1 ?? "",
+    addressLine2: school?.addressLine2 ?? "",
+    city: school?.city ?? "",
+    state: school?.state || "AZ",
+    zip: school?.zip ?? "",
+    website: school?.website ?? "",
+    phone: school?.phone ?? "",
+    email: school?.email ?? "",
+    logoUrl: school?.logoUrl ?? "",
+    featuredImageUrl: school?.featuredImageUrl ?? "",
+    galleryUrls: school?.galleryUrls ?? [],
+    description: school?.description ?? "",
+    isPartner: school?.isPartner ?? false,
+    status: school?.status ?? "active",
   });
-  const field = (key: keyof typeof form, label: string, cls = "") => (
+  const [saving, setSaving] = useState(false);
+  type TextKey = Exclude<keyof typeof form, "galleryUrls" | "isPartner">;
+  const field = (key: TextKey, label: string, cls = "", type = "text") => (
     <div className={cls}>
       <Label htmlFor={`sch-${key}`}>{label}</Label>
       <Input
         id={`sch-${key}`}
+        type={type}
         className="mt-1.5"
-        value={String(form[key] ?? "")}
+        value={form[key]}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
       />
     </div>
   );
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading text-primary">Edit school</DialogTitle>
+          <DialogTitle className="font-heading text-primary">{school ? "Edit school" : "Add a school"}</DialogTitle>
           <DialogDescription>Shown on campaign pages and used for allocation and reporting.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           {field("name", "Name", "sm:col-span-2")}
-          {field("addressLine1", "Street address", "sm:col-span-2")}
-          {field("city", "City")}
-          <div className="grid grid-cols-2 gap-3">
-            {field("state", "State")}
-            {field("zip", "ZIP")}
-          </div>
-          {field("website", "Website", "sm:col-span-2")}
-          {field("phone", "Phone")}
-          {field("email", "Email")}
-          {field("logoUrl", "Logo URL", "sm:col-span-2")}
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" className="size-4" checked={form.isPartner} onChange={(e) => setForm({ ...form, isPartner: e.target.checked })} />
-            Partner school
-          </label>
+          {field("schoolType", "School type (e.g. K-8, K-12)")}
           <div>
             <Label htmlFor="sch-status">Status</Label>
             <select
@@ -353,17 +356,208 @@ function EditSchoolDialog({
               <option value="inactive">Hidden</option>
             </select>
           </div>
+          {field("addressLine1", "Street address", "sm:col-span-2")}
+          {field("addressLine2", "Address line 2", "sm:col-span-2")}
+          {field("city", "City")}
+          <div className="grid grid-cols-2 gap-3">
+            {field("state", "State")}
+            {field("zip", "ZIP")}
+          </div>
+          {field("phone", "Phone", "", "tel")}
+          {field("email", "Email", "", "email")}
+          {field("website", "Website", "sm:col-span-2", "url")}
+          <div className="sm:col-span-2">
+            <Label htmlFor="sch-description">Description</Label>
+            <Textarea
+              id="sch-description"
+              className="mt-1.5 min-h-[80px]"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Logo</Label>
+            <CampaignImageUpload
+              label="Click or drop the school logo"
+              value={form.logoUrl}
+              onClear={() => setForm((f) => ({ ...f, logoUrl: "" }))}
+              onUploaded={([url]) => url && setForm((f) => ({ ...f, logoUrl: url }))}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Featured image</Label>
+            <CampaignImageUpload
+              label="Click or drop a photo of the school"
+              value={form.featuredImageUrl}
+              onClear={() => setForm((f) => ({ ...f, featuredImageUrl: "" }))}
+              onUploaded={([url]) => url && setForm((f) => ({ ...f, featuredImageUrl: url }))}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Photo gallery</Label>
+            <CampaignImageUpload
+              multiple
+              label="Click or drop school photos"
+              values={form.galleryUrls}
+              onClear={(url) => setForm((f) => ({ ...f, galleryUrls: f.galleryUrls.filter((u) => u !== url) }))}
+              onUploaded={(urls) => setForm((f) => ({ ...f, galleryUrls: Array.from(new Set([...f.galleryUrls, ...urls])) }))}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={form.isPartner}
+              onChange={(e) => setForm({ ...form, isPartner: e.target.checked })}
+            />
+            Partner school
+          </label>
           <p className="text-xs text-muted-foreground sm:col-span-2">
             Put the street on the street line and the city in City; the page builds the full address from both.
           </p>
           <div className="sm:col-span-2">
-            <Button type="button" onClick={() => void onSave(form)}>
-              Save school
+            <Button
+              type="button"
+              disabled={saving || !form.name.trim()}
+              onClick={async () => {
+                setSaving(true);
+                await onSave(form);
+                setSaving(false);
+              }}
+            >
+              {saving ? "Saving…" : school ? "Save school" : "Add school"}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Bulk add or update schools from a CSV. It always previews first: the server
+ * reports what each row would do, and nothing is written until Import.
+ */
+function ImportSchoolsCard({ onImported }: { onImported: () => Promise<void> }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+  const [csv, setCsv] = useState("");
+  const [preview, setPreview] = useState<SchoolImportResult | null>(null);
+  const [done, setDone] = useState<SchoolImportResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function post(dryRun: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/schools/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv, dryRun }),
+      });
+      const data = (await res.json().catch(() => null)) as (SchoolImportResult & { error?: string }) | null;
+      if (!res.ok || !data) throw new Error(data?.error ?? "The file couldn't be read.");
+      if (dryRun) {
+        setPreview(data);
+      } else {
+        setDone(data);
+        setPreview(null);
+        await onImported();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The file couldn't be read.");
+    }
+    setBusy(false);
+  }
+
+  function downloadTemplate() {
+    const url = URL.createObjectURL(new Blob([schoolCsvTemplate()], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "act-schools-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const shown = done ?? preview;
+  const toWrite = preview ? preview.created + preview.updated : 0;
+  return (
+    <Card className="border-border/80">
+      <CardHeader>
+        <CardTitle className="font-heading text-primary">Import schools</CardTitle>
+        <CardDescription>
+          Add many schools at once from a CSV, or update ones already listed (matched by name; blank cells leave the
+          existing value alone). Logos and photos are image links; separate gallery links with &ldquo;|&rdquo;.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              setFileName(file.name);
+              setCsv(await file.text());
+              setPreview(null);
+              setDone(null);
+              setError(null);
+            }}
+          />
+          <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+            Choose CSV file
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={downloadTemplate}>
+            Download template
+          </Button>
+          {fileName ? <span className="text-muted-foreground">{fileName}</span> : null}
+        </div>
+        {csv && !preview && !done ? (
+          <Button type="button" size="sm" disabled={busy} onClick={() => void post(true)}>
+            {busy ? "Checking…" : "Preview import"}
+          </Button>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-destructive">
+            {error}
+          </p>
+        ) : null}
+        {shown ? (
+          <div className="space-y-2 rounded-lg border border-border/60 p-3">
+            <p className="font-medium text-foreground">
+              {done ? "Imported: " : "This file would add "}
+              {shown.created} new · {shown.updated} updated · {shown.unchanged} unchanged · {shown.errors} with problems
+            </p>
+            {shown.unknownColumns.length ? (
+              <p className="text-xs text-muted-foreground">Ignored columns: {shown.unknownColumns.join(", ")}</p>
+            ) : null}
+            <ul className="max-h-56 space-y-0.5 overflow-y-auto text-xs">
+              {shown.rows.map((row) => (
+                <li key={row.line} className={row.outcome === "error" ? "text-destructive" : "text-muted-foreground"}>
+                  Row {row.line}: {row.name || "(no name)"} · {row.outcome}
+                  {row.message ? ` (${row.message})` : ""}
+                </li>
+              ))}
+            </ul>
+            {preview && !done ? (
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" disabled={busy || toWrite === 0} onClick={() => void post(false)}>
+                  {busy ? "Importing…" : `Import ${toWrite} school${toWrite === 1 ? "" : "s"}`}
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPreview(null)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

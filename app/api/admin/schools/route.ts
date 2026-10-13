@@ -1,8 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { logAdminActivity } from "@/lib/admin/audit";
 import { requireSuperAdminApi } from "@/lib/auth/require-super-admin-api";
 import { prisma } from "@/lib/prisma";
+import { findSchoolByName, schoolDataFromInput, uniqueSchoolSlug, type SchoolInput } from "@/lib/schools/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ export type AdminSchool = {
   status: string;
   isPartner: boolean;
   addressLine1: string;
+  addressLine2: string;
   city: string;
   state: string;
   zip: string;
@@ -20,6 +23,10 @@ export type AdminSchool = {
   phone: string;
   email: string;
   logoUrl: string;
+  featuredImageUrl: string;
+  galleryUrls: string[];
+  schoolType: string;
+  description: string;
   counts: { students: number; campaigns: number; applications: number };
 };
 
@@ -52,6 +59,7 @@ export async function GET() {
     status: s.status,
     isPartner: s.isPartner,
     addressLine1: s.addressLine1 ?? "",
+    addressLine2: s.addressLine2 ?? "",
     city: s.city ?? "",
     state: s.state ?? "",
     zip: s.zip ?? "",
@@ -59,6 +67,10 @@ export async function GET() {
     phone: s.phone ?? "",
     email: s.email ?? "",
     logoUrl: s.logoUrl ?? "",
+    featuredImageUrl: s.featuredImageUrl ?? "",
+    galleryUrls: Array.isArray(s.galleryUrls) ? s.galleryUrls.filter((u): u is string => typeof u === "string") : [],
+    schoolType: s.schoolType ?? "",
+    description: s.description ?? "",
     counts: { students: s._count.students, campaigns: s._count.campaigns, applications: s._count.scholarshipApps },
   }));
   const typedNames: TypedSchoolName[] = typed
@@ -69,19 +81,34 @@ export async function GET() {
   return NextResponse.json({ schools: rows, typedNames });
 }
 
-/** POST /api/admin/schools — add a school to the list. */
+/**
+ * POST /api/admin/schools — add a school to the list, with any of its details
+ * (address, phone, website, logo, featured image, gallery). A name that is
+ * already on the list is refused rather than duplicated.
+ */
 export async function POST(request: Request) {
   const auth = await requireSuperAdminApi();
   if (!auth.ok) return auth.response;
-  const body = (await request.json().catch(() => null)) as { name?: string } | null;
-  const name = body?.name?.trim();
-  if (!name) return NextResponse.json({ error: "Enter the school's name." }, { status: 400 });
-  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "school";
-  const taken = await prisma.school.findUnique({ where: { slug: base }, select: { id: true } });
+  const body = (await request.json().catch(() => null)) as SchoolInput | null;
+  const name = String(body?.name ?? "").trim();
+  if (!body || !name) return NextResponse.json({ error: "Enter the school's name." }, { status: 400 });
+
+  const parsed = schoolDataFromInput(body);
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const existing = await findSchoolByName(name);
+  if (existing) {
+    return NextResponse.json({ error: `${existing.name} is already on the list. Edit it instead.` }, { status: 409 });
+  }
+
   const school = await prisma.school.create({
-    data: { name, slug: taken ? `${base}-${Date.now().toString(36)}` : base, status: "active" },
+    data: {
+      ...(parsed.data as Prisma.SchoolCreateInput),
+      name,
+      slug: await uniqueSchoolSlug(name),
+      status: (parsed.data.status as string | undefined) ?? "active",
+    },
     select: { id: true },
   });
-  await logAdminActivity({ actorEmail: auth.email, action: "school.create", entityType: "school", entityId: school.id, after: { name } });
+  await logAdminActivity({ actorEmail: auth.email, action: "school.create", entityType: "school", entityId: school.id, after: parsed.data });
   return NextResponse.json({ ok: true, id: school.id });
 }

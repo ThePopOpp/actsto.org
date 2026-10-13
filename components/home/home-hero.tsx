@@ -23,7 +23,7 @@ const LABELS: ReadonlyArray<readonly [string, string]> = [
   ["Create Your Campaign", "Tell your story & set a tuition goal"],
   ["Share with Your Community", "Church members, family & friends"],
   ["Receive Donations", "Tax-credit gifts arrive in minutes"],
-  ["Make an Impact", "Emma attends school this fall"],
+  ["Make an Impact", "A student attends school this fall"],
 ];
 
 const DUR = [4600, 4600, 5200, 5600];
@@ -266,10 +266,12 @@ export function HomeHero({ cta }: { cta?: HomeHeroCta | null }) {
               <span className="funded-badge">100% Funded</span>
               <div className="ccard__photo">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="ccard__img" src="/hero/emma-student.png" alt="Emma with her teacher" />
+                <img className="ccard__img" src="/hero/emma-student.png" alt="" />
+                {/* An illustration of how a campaign works, not a real campaign. */}
+                <span className="ccard__example">Example campaign</span>
               </div>
-              <h3>Emma&apos;s 3rd Grade Tuition</h3>
-              <p className="school">Valley Christian Schools · Chandler, AZ</p>
+              <h3>3rd Grade Tuition</h3>
+              <p className="school">Your student&apos;s school · Arizona</p>
               <div className="barrow">
                 <div className="bar">
                   <i ref={barRef} />
@@ -283,13 +285,13 @@ export function HomeHero({ cta }: { cta?: HomeHeroCta | null }) {
 
             <div className="linkchip">
               <span className="dot-gold" />
-              actsto.org/campaigns/emma
+              actsto.org/campaigns/your-campaign
             </div>
 
             <div className="impact">
               <span className="impact__check">✓</span>
               <p>
-                <b>Emma starts school this fall.</b> Donors receive an impact update — and the cycle
+                <b>Your student starts school this fall.</b> Donors receive an impact update — and the cycle
                 of generosity continues.
               </p>
             </div>

@@ -10,6 +10,8 @@ export type StudentScholarshipInfo = {
   name: string;
   grade: string | null;
   flags: { flag: string; schoolYear: string; status: string; reason: string | null }[];
+  /** School years with an approved application: eligible for the Original scholarship. */
+  approvedYears: string[];
   verifications: { id: string; kind: "disability" | "displacement"; status: string; schoolYear: string; parentMessage: string | null }[];
   awards: StudentAwardSummary[];
 };
@@ -90,8 +92,15 @@ export function StudentScholarshipPanel({
                 ))
               )}
 
-              {approvedFlags.length ? (
+              {/* Every program the student qualifies for: Original from an
+                  approved application, the others from approved flags. */}
+              {s.approvedYears.length || approvedFlags.length ? (
                 <div className="flex flex-wrap gap-1.5">
+                  {s.approvedYears.map((year) => (
+                    <Badge key={`original-${year}`} variant="secondary">
+                      Eligible: Original scholarship · {year}
+                    </Badge>
+                  ))}
                   {approvedFlags.map((f) => (
                     <Badge key={f.flag + f.schoolYear} variant="secondary">
                       {isEligibilityFlag(f.flag) ? FLAG_PARENT_LABEL[f.flag] : f.flag}

@@ -401,6 +401,7 @@ function OverrideOption({
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "America/Phoenix",
     day: "numeric",
     month: "long",
     year: "numeric",

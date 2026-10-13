@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAllocationActor } from "@/lib/allocation/api";
 import { allocationLedger, fundBalances } from "@/lib/allocation/server";
 import { FUNDING_SOURCE_LABEL, isFundingSource } from "@/lib/funding-sources";
+import { isoDateInArizona } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -67,10 +68,10 @@ export async function GET(request: Request) {
           a.status,
           Number(a.awardAmount),
           sent.reduce((s, p) => s + Number(p.amount), 0),
-          sent.map((p) => (p.paidAt ?? p.createdAt).toISOString().slice(0, 10)).join("; "),
+          sent.map((p) => isoDateInArizona(p.paidAt ?? p.createdAt)).join("; "),
           sent.map((p) => p.paymentReference ?? "").filter(Boolean).join("; "),
           a.campaign?.title,
-          a.createdAt.toISOString().slice(0, 10),
+          isoDateInArizona(a.createdAt),
           a.createdByEmail,
           a.reversalReason,
         ]

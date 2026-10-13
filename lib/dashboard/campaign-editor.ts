@@ -1,5 +1,6 @@
 import type { Campaign, CampaignStudent } from "@/lib/campaigns";
 import { defaultCampaignEndDate } from "@/lib/campaign-dates";
+import { emptySchoolDetails, type SchoolDetails } from "@/lib/schools/details";
 
 export type CampaignFormStudent = {
   /** `students.id` when this row is an existing student on the family's account. */
@@ -47,6 +48,8 @@ export type CampaignFormValues = {
   schoolAddress: string;
   schoolWebsite: string;
   schoolLogo: string;
+  /** Address, phone and photos when the school is added under "Other school". */
+  schoolDetails: SchoolDetails;
   /** School-level campaign: no specific student. Super Admins only. */
   isSchoolLevel: boolean;
 };
@@ -97,6 +100,7 @@ export function emptyCampaignFormValues(): CampaignFormValues {
     schoolAddress: "",
     schoolWebsite: "",
     schoolLogo: "",
+    schoolDetails: emptySchoolDetails(),
     isSchoolLevel: false,
   };
 }
@@ -216,6 +220,7 @@ export function formValuesToCampaign(values: CampaignFormValues, previous?: Camp
       address: values.schoolAddress.trim() || "",
       website: values.schoolWebsite.trim() || "",
       logo: values.schoolLogo.trim() || previous?.school.logo,
+      details: values.schoolId.trim() ? undefined : values.schoolDetails,
     },
     parent: {
       name: composeParentName(values) || "-",
@@ -278,6 +283,7 @@ export function campaignToFormValues(c: Campaign): CampaignFormValues {
     schoolAddress: c.school.address,
     schoolWebsite: c.school.website,
     schoolLogo: c.school.logo ?? "",
+    schoolDetails: c.school.details ?? emptySchoolDetails(),
     isSchoolLevel: Boolean(c.isSchoolLevel),
   };
 }

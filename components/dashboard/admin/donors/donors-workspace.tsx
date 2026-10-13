@@ -40,7 +40,7 @@ function statusColor(s: string) { return STATUSES.find((x) => x.id === s)?.color
 function statusLabel(s: string) { return STATUSES.find((x) => x.id === s)?.label ?? s; }
 function money(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n); }
 function dt(v: string) { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Phoenix" }).format(new Date(v)); }
-function dShort(v: string) { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(v)); }
+function dShort(v: string) { return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", year: "numeric" }).format(new Date(v)); }
 
 function StatusBadge({ status }: { status: string }) {
   return <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: `${statusColor(status)}1a`, color: statusColor(status) }}><span className="size-1.5 rounded-full" style={{ background: statusColor(status) }} />{statusLabel(status)}</span>;

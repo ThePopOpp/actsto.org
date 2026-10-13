@@ -90,6 +90,9 @@ const FIELD_DESTINATIONS: Partial<Record<SetupField, string>> = {
   business: "/company",
   authorized: "/company",
   ein: "/company",
+  // On the Profile page of whichever portal the account is in.
+  arizona: "/profile#tax-credit",
+  filing: "/profile#tax-credit",
 };
 
 /** Absolute path that resolves the given outstanding field for this role. */

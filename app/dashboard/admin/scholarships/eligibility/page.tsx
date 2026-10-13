@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
-import { FixGradeControl, OverrideFlagButton } from "@/components/dashboard/admin/eligibility/eligibility-controls";
+import {
+  FixGradeControl,
+  OverrideFlagButton,
+  StudentSchoolControl,
+} from "@/components/dashboard/admin/eligibility/eligibility-controls";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,8 +17,9 @@ import {
   isEligibilityFlag,
   isFlagStatus,
 } from "@/lib/eligibility/flags";
-import { gradesNeedingReview, listEligibility } from "@/lib/eligibility/list-server";
+import { gradesNeedingReview, listEligibility, listStudentSchools } from "@/lib/eligibility/list-server";
 import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -31,18 +36,26 @@ function detailText(details: unknown): string | null {
 export default async function EligibilityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ flag?: string; status?: string; year?: string; noAward?: string }>;
+  searchParams: Promise<{ flag?: string; status?: string; year?: string; noAward?: string; school?: string }>;
 }) {
   const params = await searchParams;
+  const schools = await prisma.school.findMany({
+    where: { status: { not: "archived" } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const school = schools.find((s) => s.id === params.school) ?? null;
   const filters = {
     flag: params.flag,
     status: params.status,
     year: params.year,
     noAward: params.noAward === "1",
+    schoolId: school?.id,
   };
-  const [rows, grades, years] = await Promise.all([
+  const [rows, grades, studentSchools, years] = await Promise.all([
     listEligibility(filters),
     gradesNeedingReview(),
+    listStudentSchools(school?.id),
     prisma.studentEligibilityFlag
       .findMany({ distinct: ["schoolYear"], select: { schoolYear: true } })
       .then((r) => r.map((x) => x.schoolYear).filter((y) => y !== "K-12").sort().reverse()),
@@ -90,6 +103,17 @@ export default async function EligibilityPage({
                 {years.map((y) => (
                   <option key={y} value={y}>
                     {y}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="block text-xs text-muted-foreground">School</span>
+              <select name="school" defaultValue={school?.id ?? ""} className="h-9 max-w-[14rem] rounded-md border border-input bg-background px-2">
+                <option value="">All schools</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
                   </option>
                 ))}
               </select>
@@ -152,7 +176,7 @@ export default async function EligibilityPage({
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {r.source === "admin_override" ? "Admin override" : r.source === "verification" ? "Verification review" : "Application"}
-                        {r.decidedAt ? <span className="block">{r.decidedAt.slice(0, 10)}</span> : null}
+                        {r.decidedAt ? <span className="block">{formatDate(r.decidedAt)}</span> : null}
                         {r.decidedByEmail ? <span className="block">{r.decidedByEmail}</span> : null}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -188,6 +212,42 @@ export default async function EligibilityPage({
                 </tbody>
               </table>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6 border-border/80">
+        <CardHeader>
+          <CardTitle className="font-heading text-primary">
+            {school ? `Students at ${school.name}` : "Students with no school"}
+          </CardTitle>
+          <CardDescription>
+            {school
+              ? "Change a student's school here if it is wrong."
+              : "Every student needs the school they attend. Schools named on their applications and campaigns are shown to help."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {studentSchools.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {school ? "No students are recorded at this school." : "Every student has a school."}
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {studentSchools.map((st) => (
+                <li key={st.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <span className="min-w-0">
+                    <span className="font-medium text-foreground">{st.name}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {st.grade ?? "no grade"}
+                      {st.parentEmail ? ` · ${st.parentEmail}` : ""}
+                      {st.namedSchools.length ? ` · named: ${st.namedSchools.join(", ")}` : ""}
+                    </span>
+                  </span>
+                  <StudentSchoolControl studentId={st.id} schoolId={st.schoolId} schools={schools} />
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

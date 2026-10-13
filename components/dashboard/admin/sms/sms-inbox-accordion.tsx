@@ -32,7 +32,7 @@ type Thread = {
 type Runtime = { ready: boolean; sender: string };
 
 function dt(v: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v));
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v));
 }
 
 export function SmsInboxAccordion() {

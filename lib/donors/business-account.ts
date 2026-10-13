@@ -2,7 +2,9 @@ import "server-only";
 
 import type { ActSession } from "@/lib/auth/types";
 import { getMyGiving, type MyGift } from "@/lib/donors/my-giving";
+import { FUNDING_SOURCE_PARENT_LABEL } from "@/lib/funding-sources";
 import { prisma } from "@/lib/prisma";
+import { isoDateInArizona } from "@/lib/format-date";
 
 export type BusinessCompany = {
   businessName: string;
@@ -140,7 +142,7 @@ export async function getBusinessAccount(session: ActSession): Promise<BusinessA
     committed: Number(pledge.amount),
     received: pledge.donations.reduce((sum, d) => sum + Number(d.totalAmount ?? d.amount ?? 0), 0),
     status: pledge.status,
-    createdAt: pledge.createdAt.toISOString().slice(0, 10),
+    createdAt: isoDateInArizona(pledge.createdAt),
   }));
 
   const invoices: BusinessInvoice[] = invoiceRows.map((invoice) => ({
@@ -152,8 +154,14 @@ export async function getBusinessAccount(session: ActSession): Promise<BusinessA
     status: invoice.status,
   }));
 
+  // Only gifts made through the corporate form. The same person's individual
+  // tax-credit and quick gifts match this account by email too, but they are
+  // not the company's and must not count toward its corporate credit.
+  const gifts = giving.gifts.filter((gift) => gift.donationType === "business").map(corporateProgramLabels);
+  const currentTaxYear = new Date().getFullYear();
+
   const years = new Map<number, { total: number; count: number; receipts: number }>();
-  for (const gift of giving.gifts) {
+  for (const gift of gifts) {
     const year = gift.taxYear ?? Number(gift.date.slice(0, 4));
     const row = years.get(year) ?? { total: 0, count: 0, receipts: 0 };
     row.total += gift.amount;
@@ -166,15 +174,30 @@ export async function getBusinessAccount(session: ActSession): Promise<BusinessA
     profileId: profile?.id ?? null,
     company,
     missingCompanyFields,
-    gifts: giving.gifts,
+    gifts,
     pledges,
     invoices,
-    totalThisTaxYear: giving.totalThisTaxYear,
-    totalAllTime: giving.gifts.reduce((sum, gift) => sum + gift.amount, 0),
+    totalThisTaxYear: gifts.filter((gift) => gift.taxYear === currentTaxYear).reduce((sum, gift) => sum + gift.amount, 0),
+    totalAllTime: gifts.reduce((sum, gift) => sum + gift.amount, 0),
     byTaxYear: Array.from(years.entries())
       .map(([taxYear, row]) => ({ taxYear, ...row }))
       .sort((a, b) => b.taxYear - a.taxYear),
   };
+}
+
+/**
+ * A corporate gift is labeled with its program: low-income or
+ * disabled/displaced. Gifts recorded before the form asked for a program carry
+ * the placeholder "corporate_other" until an admin assigns one.
+ */
+function corporateProgramLabels(gift: MyGift): MyGift {
+  const programs = gift.fundingSources
+    .map((source) =>
+      source === "corporate_low_income" || source === "corporate_disabled_displaced"
+        ? FUNDING_SOURCE_PARENT_LABEL[source]
+        : "Program being confirmed",
+    );
+  return { ...gift, programs: Array.from(new Set(programs.length ? programs : ["Program being confirmed"])) };
 }
 
 /** A business account with no records yet — what a brand-new company sees. */

@@ -30,7 +30,7 @@ export default async function ParentStudentsPage() {
 
   // Only this parent's own children: listFamilyStudents is already scoped.
   const ids = students.map((s) => s.id);
-  const [flags, verifications, settings] = await Promise.all([
+  const [flags, verifications, settings, approvedYears] = await Promise.all([
     ids.length
       ? prisma.studentEligibilityFlag.findMany({
           where: { studentId: { in: ids } },
@@ -46,6 +46,15 @@ export default async function ParentStudentsPage() {
         })
       : [],
     getEligibilitySettings(),
+    // An approved, unrevoked application makes a student eligible for the
+    // Original scholarship that school year. It isn't stored as a flag.
+    ids.length
+      ? prisma.studentYearEligibility.findMany({
+          where: { studentId: { in: ids }, revokedAt: null },
+          select: { studentId: true, schoolYear: true },
+          orderBy: { schoolYear: "desc" },
+        })
+      : [],
   ]);
   const scholarship: StudentScholarshipInfo[] = await Promise.all(
     students.map(async (s) => ({
@@ -53,6 +62,7 @@ export default async function ParentStudentsPage() {
       name: [s.firstName, s.lastName].filter(Boolean).join(" "),
       grade: s.grade,
       flags: flags.filter((f) => f.studentId === s.id),
+      approvedYears: approvedYears.filter((y) => y.studentId === s.id).map((y) => y.schoolYear),
       verifications: verifications
         .filter((v) => v.studentId === s.id)
         .map((v) => ({ ...v, kind: v.kind === "displacement" ? ("displacement" as const) : ("disability" as const) })),

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatUsPhone } from "@/lib/utils";
+import { DONOR_FILING_STATUSES } from "@/lib/donors/filing-status";
 
 type ProfileResponse = {
   profile?: {
@@ -33,6 +34,7 @@ type ProfileResponse = {
     relationship?: string | null;
     bio?: string | null;
     timezone?: string | null;
+    taxCredit?: { applies: boolean; azResident: boolean | null; filingStatus: string };
   };
   error?: string;
 };
@@ -73,6 +75,10 @@ export function UserProfileEditor({
   const [timezone, setTimezone] = useState("America/Phoenix");
   const [relationship, setRelationship] = useState("");
   const [bio, setBio] = useState("");
+  // Individual Donor setup: Arizona residency and filing status.
+  const [taxApplies, setTaxApplies] = useState(false);
+  const [azResident, setAzResident] = useState<boolean | null>(null);
+  const [filingStatus, setFilingStatus] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -104,6 +110,11 @@ export function UserProfileEditor({
         setBio(data.profile.bio || "");
         setRelationship(data.profile.relationship || "");
         setTimezone(data.profile.timezone || "America/Phoenix");
+        if (data.profile.taxCredit?.applies) {
+          setTaxApplies(true);
+          setAzResident(data.profile.taxCredit.azResident);
+          setFilingStatus(data.profile.taxCredit.filingStatus || "");
+        }
         setStatus("idle");
       } catch {
         if (mounted) setStatus("idle");
@@ -165,6 +176,7 @@ export function UserProfileEditor({
           bio,
           timezone,
           ...(showRelationship ? { relationship } : {}),
+          ...(taxApplies ? { azResident, filingStatus } : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as ProfileResponse;
@@ -385,6 +397,57 @@ export function UserProfileEditor({
             </div>
           </CardContent>
         </Card>
+
+        {taxApplies ? (
+          <Card id="tax-credit" className="scroll-mt-24 border-border/80">
+            <CardHeader>
+              <CardTitle className="font-heading text-lg text-primary">Tax-credit details</CardTitle>
+              <CardDescription>
+                Needed to finish Individual Donor setup. Your filing status sets which Arizona credit limit the
+                donation form shows you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <fieldset className="space-y-2 sm:col-span-2">
+                <legend className="text-sm font-medium">Are you an Arizona resident (or do you file an Arizona return)?</legend>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="dp-az" className="size-4" checked={azResident === true} onChange={() => setAzResident(true)} />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="dp-az" className="size-4" checked={azResident === false} onChange={() => setAzResident(false)} />
+                    No
+                  </label>
+                </div>
+                {azResident === false ? (
+                  <p className="text-xs text-muted-foreground">
+                    The Arizona credit applies to Arizona income tax. You can still give; check with your tax advisor.
+                  </p>
+                ) : null}
+              </fieldset>
+              <div>
+                <Label htmlFor="dp-filing">Filing status</Label>
+                <select
+                  id="dp-filing"
+                  className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={filingStatus}
+                  onChange={(e) => setFilingStatus(e.target.value)}
+                >
+                  <option value="">Choose…</option>
+                  {DONOR_FILING_STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Married filing jointly uses the married limit; every other status uses the single limit.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="border-border/80">
           <CardHeader>

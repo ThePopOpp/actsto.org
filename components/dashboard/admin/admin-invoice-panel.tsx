@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { buttonVariants } from "@/lib/button-variants";
 import type { InvoiceLine } from "@/lib/admin/invoice-types";
 import { cn } from "@/lib/utils";
+import { formatCalendarDate } from "@/lib/format-date";
 
 type InvoiceablePledge = {
   id: string;
@@ -279,7 +280,7 @@ export function AdminInvoicePanel() {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{inv.campaignTitle}</p>
               <div className="mt-1 flex items-center justify-between text-sm">
-                <span>Due {new Date(inv.dueDate).toLocaleDateString()}</span>
+                <span>Due {formatCalendarDate(inv.dueDate)}</span>
                 <span className="font-medium">${inv.total.toLocaleString()}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">

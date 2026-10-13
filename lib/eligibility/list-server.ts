@@ -12,6 +12,8 @@ export type EligibilityFilters = {
   year?: string;
   /** Only students with no active award for the school year filtered on. */
   noAward?: boolean;
+  /** Only students at this school (schools.id). */
+  schoolId?: string;
 };
 
 export type EligibilityRow = {
@@ -41,6 +43,7 @@ export async function listEligibility(filters: EligibilityFilters): Promise<Elig
     ...(isFlagStatus(filters.status) ? { status: filters.status } : {}),
     // Displaced is K-12 wide, so it matches any school year filter.
     ...(filters.year ? { schoolYear: { in: [filters.year, DISPLACED_SCOPE] } } : {}),
+    ...(filters.schoolId ? { student: { schoolId: filters.schoolId } } : {}),
   };
 
   const flags = await prisma.studentEligibilityFlag.findMany({
@@ -138,4 +141,59 @@ export async function gradesNeedingReview(): Promise<GradeReviewRow[]> {
         link: `/dashboard/admin/scholarships/${a.id}`,
       })),
   ];
+}
+
+export type StudentSchoolRow = {
+  id: string;
+  name: string;
+  grade: string | null;
+  schoolId: string | null;
+  schoolName: string | null;
+  parentEmail: string | null;
+  /** Schools named on the student's applications or campaigns, as a hint. */
+  namedSchools: string[];
+};
+
+/**
+ * Students for the school panel: every student at `schoolId`, or, without
+ * one, every student with no school recorded, so none is left showing
+ * "No school" unnoticed.
+ */
+export async function listStudentSchools(schoolId?: string): Promise<StudentSchoolRow[]> {
+  const students = await prisma.student.findMany({
+    where: { status: { not: "archived" }, schoolId: schoolId ?? null },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    take: 500,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      grade: true,
+      schoolId: true,
+      parentUserId: true,
+      school: { select: { name: true } },
+      scholarshipApps: { select: { schoolNameOther: true, school: { select: { name: true } } } },
+      campaignStudents: { select: { campaign: { select: { school: { select: { name: true } } } } } },
+    },
+  });
+  const parentIds = [...new Set(students.map((s) => s.parentUserId))];
+  const parents = parentIds.length
+    ? await prisma.profile.findMany({ where: { id: { in: parentIds } }, select: { id: true, email: true } })
+    : [];
+  return students.map((s) => ({
+    id: s.id,
+    name: [s.firstName, s.lastName].filter(Boolean).join(" "),
+    grade: s.grade,
+    schoolId: s.schoolId,
+    schoolName: s.school?.name ?? null,
+    parentEmail: parents.find((p) => p.id === s.parentUserId)?.email ?? null,
+    namedSchools: Array.from(
+      new Set(
+        [
+          ...s.scholarshipApps.map((a) => a.school?.name ?? (a.schoolNameOther ? `${a.schoolNameOther} (typed)` : null)),
+          ...s.campaignStudents.map((c) => c.campaign.school?.name ?? null),
+        ].filter((name): name is string => Boolean(name)),
+      ),
+    ),
+  }));
 }

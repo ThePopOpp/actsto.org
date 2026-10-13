@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { canAccessSuperAdminDashboard } from "@/lib/auth/admin-allowlist";
+import { editableCampaignWhere } from "@/lib/dashboard/parent-scope";
 import { getActSession } from "@/lib/auth/session-server";
 import type { Campaign } from "@/lib/campaigns";
 import { calculateCampaignCompletion } from "@/lib/campaigns/completion";
@@ -9,6 +10,7 @@ import { campaignToFormValues, slugifyCampaignSlug } from "@/lib/dashboard/campa
 import { normalizeGradeInput } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { canCreateSchoolLevelCampaign } from "@/lib/schools/permissions";
+import { parseSchoolDetails } from "@/lib/schools/details";
 import { resolveSchool } from "@/lib/schools/resolve";
 import {
   createFamilyStudent,
@@ -66,7 +68,15 @@ async function updateNormalizedCampaign({
   if (!existing) return null;
 
   const isAdmin = profile.isSuperAdmin || canAccessSuperAdminDashboard(sessionEmail);
-  if (!isAdmin && existing.createdByUserId !== profile.id) {
+  // The creator, or an administrator of the school a school-level campaign is for.
+  const canEdit =
+    isAdmin ||
+    existing.createdByUserId === profile.id ||
+    Boolean(
+      existing.isSchoolLevel &&
+        (await prisma.campaign.count({ where: { id: existing.id, ...editableCampaignWhere(profile.id) } })),
+    );
+  if (!canEdit) {
     return NextResponse.json({ error: "You do not have access to edit this campaign." }, { status: 403 });
   }
 
@@ -85,6 +95,7 @@ async function updateNormalizedCampaign({
     address: campaign.school.address,
     website: campaign.school.website,
     logo: campaign.school.logo,
+    details: campaign.school.id ? null : parseSchoolDetails(campaign.school.details),
   });
 
   // Switching to or from a school-level campaign is a staff decision.

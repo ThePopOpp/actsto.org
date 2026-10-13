@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FUNDING_SOURCE_LABEL, FUNDING_SOURCES, type FundingSource } from "@/lib/funding-sources";
 import { GRADE_BAND_LABEL, type GradeBand } from "@/lib/grades";
+import { formatDate } from "@/lib/format-date";
 
 type Cap = {
   id: string;
@@ -113,7 +114,7 @@ export function CapsEditor() {
                       <td className="py-2 pr-3">{GRADE_BAND_LABEL[cap.gradeBand]}</td>
                       <td className="py-2 pr-3 text-right font-medium tabular-nums">{usd(cap.amount)}</td>
                       <td className="py-2 text-xs text-muted-foreground">
-                        {cap.updatedAt.slice(0, 10)}
+                        {formatDate(cap.updatedAt)}
                         {cap.updatedByEmail ? ` · ${cap.updatedByEmail}` : ""}
                       </td>
                     </tr>

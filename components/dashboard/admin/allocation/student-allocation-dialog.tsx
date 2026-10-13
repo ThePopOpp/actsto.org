@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { StudentEligibility } from "@/lib/allocation/rules";
+import { formatDate, isoDateInArizona } from "@/lib/format-date";
 
 type AwardRow = {
   id: string;
@@ -105,7 +106,7 @@ export function StudentAllocationDialog({
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = isoDateInArizona(new Date());
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -205,7 +206,7 @@ export function StudentAllocationDialog({
                             {award.fundingLabel} · {usd(award.amount)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {award.createdAt.slice(0, 10)}
+                            {formatDate(award.createdAt)}
                             {award.createdByEmail ? ` by ${award.createdByEmail}` : ""}
                             {award.campaignTitle ? ` · from ${award.campaignTitle}` : ""}
                             {award.note ? ` · ${award.note}` : ""}

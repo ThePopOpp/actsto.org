@@ -15,7 +15,7 @@ type EventRow = { id: string; channel: string; status: string; contactName: stri
 type ContactRow = { id: string; channel: string; email: string | null; phone: string | null; contactName: string | null; status: string; confirmed: boolean; marketing: boolean; campaignUpdates: boolean; donationUpdates: boolean; updatedAt: string };
 
 function dt(v: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v));
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v));
 }
 function statusChip(s: string) {
   if (s === "subscribed" || s === "opt_in" || s === "confirmed") return "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-200";

@@ -28,11 +28,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CampaignImageUpload } from "@/components/campaigns/campaign-form-panels";
 import { Progress } from "@/components/ui/progress";
 import type { AdminCampaign } from "@/app/api/admin/campaigns/route";
 import { cn, FACE_SAFE_CROP, initialsOf } from "@/lib/utils";
 import { campaignEndDateError, maxCampaignEndDate } from "@/lib/campaign-dates";
+import { calendarDateToLocal, formatCalendarDate } from "@/lib/format-date";
 
 type ViewMode = "card" | "list" | "table" | "kanban" | "calendar" | "map";
 
@@ -57,9 +61,9 @@ function money(v: number) {
 function pct(c: AdminCampaign) {
   return c.goalAmount > 0 ? Math.min(100, Math.round((c.awardedAmount / c.goalAmount) * 100)) : 0;
 }
+/** Start and end are calendar days stored at midnight UTC: show them as written. */
 function fmtDate(v: string | null) {
-  if (!v) return "—";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(v));
+  return formatCalendarDate(v);
 }
 
 const VIEWS: { id: ViewMode; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
@@ -426,21 +430,21 @@ function KanbanView({ campaigns, controls }: { campaigns: AdminCampaign[]; contr
 // ── Calendar view (by end date) ──────────────────────────────────────────────
 function CalendarView({ campaigns, controls }: { campaigns: AdminCampaign[]; controls: Controls }) {
   const dated = campaigns.filter((c) => c.endsAt);
-  const base = dated.length ? new Date(dated[0].endsAt as string) : new Date();
+  const base = dated.length ? calendarDateToLocal(dated[0].endsAt as string) : new Date();
 
   const [scale, setScale] = useState<CalendarScale>("month");
   const [anchor, setAnchor] = useState<Date>(() => new Date(base));
 
   const range = calendarRange(anchor, scale);
   const inRange = dated.filter((c) => {
-    const d = new Date(c.endsAt as string);
+    const d = calendarDateToLocal(c.endsAt as string);
     return d >= range.start && d <= range.end;
   });
 
   const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   const byDay = new Map<string, AdminCampaign[]>();
   for (const c of inRange) {
-    const key = dayKey(new Date(c.endsAt as string));
+    const key = dayKey(calendarDateToLocal(c.endsAt as string));
     byDay.set(key, [...(byDay.get(key) ?? []), c]);
   }
 
@@ -517,7 +521,7 @@ function CalendarView({ campaigns, controls }: { campaigns: AdminCampaign[]; con
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 12 }, (_, m) => {
             const monthDate = new Date(anchor.getFullYear(), m, 1);
-            const items = inRange.filter((c) => new Date(c.endsAt as string).getMonth() === m);
+            const items = inRange.filter((c) => calendarDateToLocal(c.endsAt as string).getMonth() === m);
             return (
               <div key={m} className="rounded-md border border-border/60 p-2">
                 <p className="mb-1 text-xs font-semibold text-foreground">
@@ -733,6 +737,15 @@ function ManageDialog({
     };
   }, []);
   const [endsAt, setEndsAt] = useState(campaign.endsAt ? campaign.endsAt.slice(0, 10) : "");
+  const [content, setContent] = useState({
+    title: campaign.title,
+    tagline: campaign.tagline ?? "",
+    shortExcerpt: campaign.shortExcerpt ?? "",
+    story: campaign.story ?? "",
+    featuredImageUrl: campaign.featuredImageUrl ?? "",
+    goalAmount: campaign.goalAmount ? String(campaign.goalAmount) : "",
+  });
+  const editContent = (patch: Partial<typeof content>) => setContent((current) => ({ ...current, ...patch }));
 
   async function run(body: Record<string, unknown>) {
     setBusy(true);
@@ -750,7 +763,7 @@ function ManageDialog({
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-heading text-primary">{campaign.title}</DialogTitle>
-          <DialogDescription>Manage status, visibility, schedule, and moderation.</DialogDescription>
+          <DialogDescription>Manage status, visibility, content, schedule, and moderation.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -803,6 +816,62 @@ function ManageDialog({
               <p className="font-semibold tabular-nums">{money(campaign.awardedAmount)}</p>
               <p className="text-xs text-muted-foreground">{campaign.awardedDonorCount} donors</p>
             </div>
+          </div>
+
+          {/* Content: what the public page says. School-level campaigns have no
+              family to edit them, so staff need this here. */}
+          <div className="space-y-3 rounded-lg border border-border/60 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Content</p>
+            <div>
+              <Label htmlFor="camp-title" className="text-xs text-muted-foreground">Title</Label>
+              <Input id="camp-title" className="mt-1" value={content.title} onChange={(e) => editContent({ title: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="camp-tagline" className="text-xs text-muted-foreground">Tagline</Label>
+              <Input id="camp-tagline" className="mt-1" value={content.tagline} onChange={(e) => editContent({ tagline: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="camp-excerpt" className="text-xs text-muted-foreground">Short excerpt (cards and search)</Label>
+              <Textarea id="camp-excerpt" className="mt-1 min-h-[72px]" value={content.shortExcerpt} onChange={(e) => editContent({ shortExcerpt: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="camp-story" className="text-xs text-muted-foreground">Description</Label>
+              <Textarea id="camp-story" className="mt-1 min-h-[140px]" value={content.story} onChange={(e) => editContent({ story: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="camp-goal" className="text-xs text-muted-foreground">Goal (USD)</Label>
+              <Input
+                id="camp-goal"
+                inputMode="decimal"
+                className="mt-1 w-40"
+                value={content.goalAmount}
+                onChange={(e) => editContent({ goalAmount: e.target.value.replace(/[^0-9.]/g, "") })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="camp-image" className="text-xs text-muted-foreground">Featured image</Label>
+              <Input
+                id="camp-image"
+                className="mt-1 font-mono text-xs"
+                value={content.featuredImageUrl}
+                onChange={(e) => editContent({ featuredImageUrl: e.target.value })}
+                placeholder="https://… or upload below"
+              />
+              <CampaignImageUpload
+                value={content.featuredImageUrl}
+                onClear={() => editContent({ featuredImageUrl: "" })}
+                onUploaded={([url]) => url && editContent({ featuredImageUrl: url })}
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || !content.title.trim()}
+              onClick={() => void run(content)}
+            >
+              Save content
+            </Button>
           </div>
 
           {/* Home page placement (spec #7) */}

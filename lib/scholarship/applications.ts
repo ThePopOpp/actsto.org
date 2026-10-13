@@ -32,6 +32,7 @@ import {
   type ParentActor,
 } from "@/lib/scholarship/scope";
 import { assertWindowOpenForSubmit, getWindowForYear } from "@/lib/scholarship/windows";
+import { fillMissingStudentSchools } from "@/lib/schools/student-school";
 
 /**
  * Application lifecycle: draft creation, autosave, validation, submission and
@@ -305,7 +306,13 @@ export async function patchApplication(
     await notifyStaffOfLateResponse(applicationId).catch(() => {});
   }
 
-  await prisma.scholarshipApplication.update({ where: { id: applicationId }, data });
+  const saved = await prisma.scholarshipApplication.update({
+    where: { id: applicationId },
+    data,
+    select: { studentId: true, schoolId: true },
+  });
+  // A student with no school takes the one picked on the application.
+  if (saved.schoolId) await fillMissingStudentSchools(prisma, [saved.studentId]).catch(() => 0);
   return requireOwnedApplication(applicationId, parent.profileId);
 }
 

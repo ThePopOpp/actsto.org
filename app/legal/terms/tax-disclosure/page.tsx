@@ -85,11 +85,10 @@ export default function TaxDisclosurePage() {
       <section>
         <h2>8. Organization information</h2>
         <p className="mt-3 text-muted-foreground">
-          Arizona Christian Tuition operates as a nonprofit organization in support of private school
-          tuition assistance in Arizona. Publicly available organizational details (including EIN and
-          certification status) are posted or provided upon request as required by law. Our site footer may
-          display a placeholder EIN until final publication — confirm the correct EIN on official filings
-          and receipts.
+          Arizona Christian Tuition is a 501(c)(3) nonprofit organization supporting private school tuition
+          assistance in Arizona. Our EIN is <strong>39-3034324</strong>, and it appears on every donation
+          receipt. Certification status and other organizational details are provided on request as required
+          by law.
         </p>
       </section>
 

@@ -71,7 +71,7 @@ function statusVariant(status: string): "secondary" | "outline" | "destructive" 
 
 function fmtDate(value?: string | null) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
 
 function postDate(p: Post): Date {

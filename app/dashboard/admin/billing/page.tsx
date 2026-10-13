@@ -1,5 +1,8 @@
 import { AdminPaypalSettingsForm } from "@/components/dashboard/admin/admin-paypal-settings-form";
-import { AdminPaypalActivityPanel } from "@/components/dashboard/admin/admin-paypal-activity-panel";
+import {
+  AdminPaypalActivityPanel,
+  parsePaymentStatusFilter,
+} from "@/components/dashboard/admin/admin-paypal-activity-panel";
 import { AdminPageTabLinks, type AdminPageTabLink } from "@/components/dashboard/admin/admin-page-tab-links";
 import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,10 +23,11 @@ function parseTab(value: unknown): PaymentsTab {
 export default async function AdminBillingPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; status?: string }>;
 }) {
   const params = searchParams ? await searchParams : {};
   const activeTab = parseTab(params.tab);
+  const status = parsePaymentStatusFilter(params.status);
 
   return (
     <>
@@ -33,7 +37,7 @@ export default async function AdminBillingPage({
       />
       <div className="space-y-6">
         <AdminPageTabLinks tabs={tabs} activeTab={activeTab} baseHref="/dashboard/admin/billing" />
-        {activeTab === "payments" ? <AdminPaypalActivityPanel view="payments" /> : null}
+        {activeTab === "payments" ? <AdminPaypalActivityPanel view="payments" status={status} /> : null}
         {activeTab === "receipts" ? <AdminPaypalActivityPanel view="receipts" /> : null}
         {activeTab === "webhooks" ? (
           <>

@@ -15,6 +15,7 @@ import { buttonVariants } from "@/lib/button-variants";
 import type { LegalSlug } from "@/lib/legal/slug";
 import { publicLegalPath } from "@/lib/legal/slug";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/format-date";
 
 type LegalApiResponse = {
   slug: string;
@@ -88,7 +89,7 @@ export function LegalWysiwygEditor({ slug }: { slug: LegalSlug }) {
       if (cancelled || !editor) return;
       setUpdatedLabel(
         data.updatedAt
-          ? `Saved version: ${new Date(data.updatedAt).toLocaleString()}`
+          ? `Saved version: ${formatDateTime(data.updatedAt)}`
           : "Showing site default (not saved yet)"
       );
       editor.commands.setContent(html, { emitUpdate: false });
@@ -122,7 +123,7 @@ export function LegalWysiwygEditor({ slug }: { slug: LegalSlug }) {
       return;
     }
     setMessage("Saved. Public pages will show this version.");
-    setUpdatedLabel(`Saved version: ${new Date().toLocaleString()}`);
+    setUpdatedLabel(`Saved version: ${formatDateTime(new Date())}`);
     setStatus("idle");
   }
 

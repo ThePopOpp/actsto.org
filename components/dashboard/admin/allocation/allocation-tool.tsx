@@ -412,10 +412,21 @@ export function AllocationTool() {
                 </tr>
               </thead>
               <tbody>
-                {(data?.balances ?? []).map((b) => (
+                {(data?.balances ?? [])
+                  // "Unassigned program" only holds business gifts recorded
+                  // before the corporate form asked for a program. Once they
+                  // are assigned it is empty, and is hidden.
+                  .filter((b) => b.fundingSource !== "corporate_other" || b.received !== 0 || b.allocated !== 0)
+                  .map((b) => (
                   <tr key={b.fundingSource} className="border-b border-border/50">
                     <td className="py-2 pr-3">
                       {b.label}
+                      {b.fundingSource === "corporate_other" ? (
+                        <span className="block text-xs text-muted-foreground">
+                          Business gifts made before the corporate form asked for a program. Assign each one to
+                          low-income or disabled/displaced on Payments (Funding source, Edit) before awarding it.
+                        </span>
+                      ) : null}
                       {b.needsReview > 0 ? (
                         <span className="block text-xs text-amber-700 dark:text-amber-400">
                           {usd(b.needsReview)} awaiting funding-source review on Payments

@@ -88,7 +88,8 @@ export function FundingSourceCell({ donationId, total, splits }: { donationId: s
                     value={row.fundingSource}
                     onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, fundingSource: e.target.value } : r)))}
                   >
-                    {FUNDING_SOURCES.map((s: FundingSource) => (
+                    {/* "Unassigned program" is a placeholder for old business gifts, never a choice. */}
+                    {FUNDING_SOURCES.filter((s) => s !== "corporate_other" || row.fundingSource === s).map((s: FundingSource) => (
                       <option key={s} value={s}>
                         {FUNDING_SOURCE_LABEL[s]}
                       </option>

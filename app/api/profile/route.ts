@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getActSession } from "@/lib/auth/session-server";
+import { isDonorFilingStatus } from "@/lib/donors/filing-status";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/sms/twilio";
 import { createServerClient } from "@/lib/supabase/server";
@@ -87,12 +88,35 @@ function profilePayload(profile: NonNullable<Awaited<ReturnType<typeof getProfil
   };
 }
 
+/** Whether this account has the Individual Donor type, on any portal. */
+function hasIndividualDonor(session: { role: string; roles: string[] }) {
+  return session.role === "donor_individual" || session.roles.includes("donor_individual");
+}
+
+/**
+ * Arizona residency and filing status, which Individual Donor setup requires
+ * and the donation form uses for the credit limits. Shown on the Profile page
+ * of every portal for an account that has the Individual Donor type.
+ */
+async function taxCreditPayload(
+  session: { role: string; roles: string[] },
+  profileId: string | null,
+): Promise<{ applies: boolean; azResident: boolean | null; filingStatus: string }> {
+  if (!hasIndividualDonor(session)) return { applies: false, azResident: null, filingStatus: "" };
+  const row = profileId
+    ? await prisma.individualDonorProfile
+        .findUnique({ where: { userId: profileId }, select: { azResident: true, filingStatus: true } })
+        .catch(() => null)
+    : null;
+  return { applies: true, azResident: row?.azResident ?? null, filingStatus: row?.filingStatus ?? "" };
+}
+
 export async function GET() {
   const identity = await getProfileIdentity();
   if (!identity) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 
   const { session, profile } = identity;
-  const base = profilePayload(profile);
+  const base = { ...profilePayload(profile), taxCredit: await taxCreditPayload(session, profile?.id ?? null) };
 
   if (!profile) {
     return NextResponse.json({
@@ -217,6 +241,30 @@ export async function PUT(request: Request) {
       ...("timezone" in body ? { timezone: timezone || null } : {}),
     },
   });
+
+  // Tax-credit details for an account with the Individual Donor type, from
+  // whichever portal's Profile page they were edited on.
+  if (hasIndividualDonor(identity.session) && ("azResident" in body || "filingStatus" in body)) {
+    const filingStatus = text(body.filingStatus).trim();
+    if (filingStatus && !isDonorFilingStatus(filingStatus)) {
+      return NextResponse.json({ error: "Choose a filing status from the list." }, { status: 400 });
+    }
+    const azResident = body.azResident === true ? true : body.azResident === false ? false : null;
+    const data = {
+      ...("azResident" in body ? { azResident } : {}),
+      ...("filingStatus" in body ? { filingStatus: filingStatus || null } : {}),
+    };
+    const saved = await prisma.individualDonorProfile.upsert({
+      where: { userId: profile.id },
+      create: { userId: profile.id, ...data },
+      update: data,
+      select: { azResident: true, filingStatus: true },
+    });
+    await prisma.individualDonorProfile.update({
+      where: { userId: profile.id },
+      data: { profileStatus: saved.azResident === true && saved.filingStatus ? "complete" : "incomplete" },
+    });
+  }
 
   if (identity.session.role === "parent") {
     await prisma.parentGuardianProfile.upsert({

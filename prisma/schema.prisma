@@ -359,26 +359,30 @@ model BusinessDonorProfile {
 // ============================================================
 
 model School {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String
-  slug            String   @unique
-  schoolType      String?  @map("school_type")
-  description     String?
-  logoUrl         String?  @map("logo_url")
-  website         String?
-  phone           String?
-  phoneNormalized String?  @map("phone_normalized")
-  email           String?
-  addressLine1    String?  @map("address_line1")
-  addressLine2    String?  @map("address_line2")
-  city            String?
-  state           String?
-  zip             String?
-  county          String?
-  isPartner       Boolean  @default(false) @map("is_partner")
-  status          String   @default("active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  slug             String   @unique
+  schoolType       String?  @map("school_type")
+  description      String?
+  logoUrl          String?  @map("logo_url")
+  /// Hero photo for the school, shown with its campaigns.
+  featuredImageUrl String?  @map("featured_image_url")
+  /// Gallery photo links, in order.
+  galleryUrls      Json     @default("[]") @map("gallery_urls")
+  website          String?
+  phone            String?
+  phoneNormalized  String?  @map("phone_normalized")
+  email            String?
+  addressLine1     String?  @map("address_line1")
+  addressLine2     String?  @map("address_line2")
+  city             String?
+  state            String?
+  zip              String?
+  county           String?
+  isPartner        Boolean  @default(false) @map("is_partner")
+  status           String   @default("active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   students             Student[]
   campaigns            Campaign[]
@@ -436,7 +440,7 @@ model Student {
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 
-  school               School?                  @relation(fields: [schoolId], references: [id])
+  school               School?                   @relation(fields: [schoolId], references: [id])
   guardians            StudentGuardian[]
   campaignStudents     CampaignStudent[]
   scholarshipApps      ScholarshipApplication[]
@@ -755,8 +759,8 @@ model Donation {
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 
-  campaign            Campaign?            @relation(fields: [campaignId], references: [id])
-  pledge              Pledge?              @relation(fields: [pledgeId], references: [id])
+  campaign            Campaign?                 @relation(fields: [campaignId], references: [id])
+  pledge              Pledge?                   @relation(fields: [pledgeId], references: [id])
   donationDetail      DonationDetail?
   donationAllocations DonationAllocation[]
   paymentEvents       PaymentEvent[]
@@ -794,6 +798,25 @@ model DonationFundSplit {
   @@index([donationId])
   @@index([fundingSource], map: "donation_fund_splits_source_idx")
   @@map("donation_fund_splits")
+}
+
+/// A test donation a Super Admin removed from Payments: a full copy of the
+/// donation and its related rows, taken just before they were deleted.
+model RemovedTestDonation {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId        String   @map("donation_id") @db.Uuid
+  amount            Decimal  @db.Decimal(14, 2)
+  status            String
+  donationType      String   @map("donation_type")
+  donationCreatedAt DateTime @map("donation_created_at") @db.Timestamptz(6)
+  snapshot          Json
+  reason            String
+  removedBy         String?  @map("removed_by") @db.Uuid
+  removedByEmail    String?  @map("removed_by_email")
+  removedAt         DateTime @default(now()) @map("removed_at") @db.Timestamptz(6)
+
+  @@index([donationId])
+  @@map("removed_test_donations")
 }
 
 /// Every student a donor recommended. Non-binding: an input to allocation only.
@@ -991,12 +1014,12 @@ model ScholarshipApplication {
   // ── Student circumstances (shown on the overflow step) ──────────────────
   /// 'yes' | 'no'. Independent of the single-select overflow reason, so a
   /// student who is disabled and also moved from a public school keeps both.
-  hasDisability     String?  @map("has_disability")
+  hasDisability     String? @map("has_disability")
   /// The yes came from picking a disability overflow reason, not from the
   /// parent answering directly. Only an auto-set yes is ever switched back.
-  disabilityAutoSet Boolean  @default(false) @map("disability_auto_set")
+  disabilityAutoSet Boolean @default(false) @map("disability_auto_set")
   /// 'yes' | 'no'. K-12 only.
-  isDisplaced       String?  @map("is_displaced")
+  isDisplaced       String? @map("is_displaced")
 
   // ── Income proof (low-income eligibility) ───────────────────────────────
   /// not_provided | submitted | accepted | rejected | needs_more

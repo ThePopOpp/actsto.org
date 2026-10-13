@@ -19,6 +19,8 @@ import {
 } from "@/lib/students/parent-students";
 import { createServerClient } from "@/lib/supabase/server";
 import { campaignEndDateError, defaultCampaignEndDate } from "@/lib/campaign-dates";
+import { fillMissingStudentSchools } from "@/lib/schools/student-school";
+import { parseSchoolDetails } from "@/lib/schools/details";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -162,6 +164,7 @@ export async function POST(request: Request) {
     schoolAddress: text(raw.schoolAddress),
     schoolWebsite: text(raw.schoolWebsite),
     schoolLogo: text(raw.schoolLogo),
+    schoolDetails: parseSchoolDetails(raw.schoolDetails),
     isSchoolLevel: raw.isSchoolLevel === true,
     };
     values.parentName = composeParentName(values) || values.parentName;
@@ -207,6 +210,7 @@ export async function POST(request: Request) {
       address: values.schoolAddress,
       website: values.schoolWebsite,
       logo: values.schoolLogo,
+      details: values.schoolId ? null : values.schoolDetails,
     };
     const status = action === "review" ? "pending_review" : "draft";
 
@@ -379,6 +383,8 @@ export async function POST(request: Request) {
         },
         update: { sortOrder: index },
       });
+      // A child already on the account with no school takes this campaign's.
+      if (schoolId) await fillMissingStudentSchools(tx, [studentId]);
     }
 
     return created;

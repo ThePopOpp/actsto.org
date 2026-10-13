@@ -35,7 +35,7 @@ function minutesToUnit(m: number): { value: string; unit: StepForm["delayUnit"] 
   return { value: String(m), unit: "minutes" };
 }
 function eventLabel(id: string) { return automationEventDef(id)?.label ?? id; }
-function dt(v: string) { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v)); }
+function dt(v: string) { return new Intl.DateTimeFormat("en-US", { timeZone: "America/Phoenix", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(v)); }
 const emptyStep = (): StepForm => ({ channel: "email", emailTemplateId: "", smsTemplateId: "", socialPlatform: "facebook", socialCaption: "", subjectOverride: "", delayValue: "0", delayUnit: "minutes" });
 
 export function EmailAutomationsPanel() {

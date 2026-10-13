@@ -22,6 +22,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         featuredRank?: number | null;
         isSchoolLevel?: boolean;
         schoolId?: string | null;
+        title?: string;
+        tagline?: string | null;
+        shortExcerpt?: string | null;
+        story?: string | null;
+        featuredImageUrl?: string | null;
+        goalAmount?: number | string;
       }
     | null;
   if (!body) return NextResponse.json({ error: "Invalid body." }, { status: 400 });
@@ -65,6 +71,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     data.isSchoolLevel = body.isSchoolLevel;
   }
   if (body.isPublic !== undefined) data.isPublic = body.isPublic;
+
+  // Campaign text, image and goal. Staff can correct these on any campaign,
+  // including school-level ones that have no family to edit them.
+  if (body.title !== undefined) {
+    const title = String(body.title ?? "").trim();
+    if (!title) return NextResponse.json({ error: "The campaign needs a title." }, { status: 400 });
+    if (title.length > 200) return NextResponse.json({ error: "Keep the title under 200 characters." }, { status: 400 });
+    data.title = title;
+  }
+  const optionalText = (value: string | null | undefined) => {
+    const text = String(value ?? "").trim();
+    return text ? text : null;
+  };
+  if (body.tagline !== undefined) data.tagline = optionalText(body.tagline);
+  if (body.shortExcerpt !== undefined) data.shortExcerpt = optionalText(body.shortExcerpt);
+  if (body.story !== undefined) data.story = optionalText(body.story);
+  if (body.featuredImageUrl !== undefined) {
+    const url = optionalText(body.featuredImageUrl);
+    if (url && !/^(https?:\/\/|\/)/i.test(url)) {
+      return NextResponse.json({ error: "The image must be a web link (https://…) or an uploaded image." }, { status: 400 });
+    }
+    data.featuredImageUrl = url;
+  }
+  if (body.goalAmount !== undefined) {
+    const goal = Number(String(body.goalAmount).replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(goal) || goal < 0 || goal > 100_000_000) {
+      return NextResponse.json({ error: "Enter the goal as a dollar amount." }, { status: 400 });
+    }
+    data.goalAmount = Math.round(goal * 100) / 100;
+  }
   if (body.startsAt !== undefined || body.endsAt !== undefined) {
     const current = await prisma.campaign.findUnique({ where: { id }, select: { startsAt: true, endsAt: true, createdAt: true } });
     if (!current) return NextResponse.json({ error: "Campaign not found." }, { status: 404 });

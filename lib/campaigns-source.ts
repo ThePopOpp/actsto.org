@@ -3,7 +3,7 @@ import "server-only";
 import type { Campaign } from "@/lib/campaigns";
 import { applyLiveCampaignDonationTotals } from "@/lib/campaigns-live";
 import type { ActSession } from "@/lib/auth/types";
-import { getProfileForEmail, managedCampaignWhere } from "@/lib/dashboard/parent-scope";
+import { editableCampaignWhere, getProfileForEmail, isSuperAdminViewer } from "@/lib/dashboard/parent-scope";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { defaultCampaignEndDate } from "@/lib/campaign-dates";
@@ -139,6 +139,7 @@ function prismaCampaignToSiteCampaign(
       address: formatSchoolAddress(campaign.school),
       website: campaign.school?.website ?? "",
       logo: campaign.school?.logoUrl ?? undefined,
+      pending: campaign.school?.status === "pending",
     },
     parent: {
       id: owner?.id,
@@ -240,10 +241,7 @@ export async function getDashboardCampaignsForSession(session: ActSession): Prom
   const profile = await getProfileForEmail(session.email);
   if (!profile) return [];
 
-  const where =
-    session.role === "super_admin" || profile.isSuperAdmin
-      ? {}
-      : managedCampaignWhere(profile.id);
+  const where = isSuperAdminViewer(session, profile) ? {} : editableCampaignWhere(profile.id);
 
   const prismaCampaigns = await loadPrismaCampaignsForDisplay(where).catch(() => []);
   const converted = prismaCampaigns.map((campaign) => ({
@@ -267,10 +265,7 @@ export async function getEditableCampaignBySlugForSession(slug: string, session:
   });
   if (!profile) return undefined;
 
-  const where =
-    profile.isSuperAdmin || session.role === "super_admin"
-      ? { slug }
-      : { slug, createdByUserId: profile.id };
+  const where = isSuperAdminViewer(session, profile) ? { slug } : { slug, ...editableCampaignWhere(profile.id) };
   const [campaign] = await loadPrismaCampaignsForDisplay(where).catch(() => []);
   if (!campaign) return undefined;
 

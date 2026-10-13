@@ -158,6 +158,20 @@
   overflow: hidden;
   background: linear-gradient(135deg, #eaf5fe, #f5fbff 55%, #e2f0fb);
 }
+.acthero .ccard__example {
+  position: absolute;
+  z-index: 2;
+  left: 8px;
+  top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgb(15 23 42 / 0.72);
+}
 .acthero .ccard__photo::after {
   content: "";
   position: absolute;
