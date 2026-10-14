@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MediaField } from "@/components/ui/media-field";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -344,16 +345,14 @@ export function AdminSiteContentForm() {
               />
               <p className="mt-1 text-xs text-muted-foreground">{seo.metaDescription.length} / ~160 recommended</p>
             </div>
-            <div>
-              <Label htmlFor="og-img">Default Open Graph image URL</Label>
-              <Input
-                id="og-img"
-                className="mt-1.5 font-mono text-sm"
-                value={seo.ogImage}
-                onChange={(event) => patchSection("seoSocial", { ogImage: event.target.value })}
-                placeholder="https://..."
-              />
-            </div>
+            <MediaField
+              id="og-img"
+              label="Default Open Graph image"
+              folder="site"
+              hint="1200 × 630 works best for link previews"
+              value={seo.ogImage}
+              onChange={(ogImage) => patchSection("seoSocial", { ogImage })}
+            />
             <div className="max-w-md">
               <Label htmlFor="tw">Twitter / X handle</Label>
               <Input

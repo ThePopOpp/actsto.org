@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ImageUp, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, UserPlus } from "lucide-react";
 
 import { useFamilyStudents, type SavedStudent } from "@/components/campaigns/use-family-students";
 import { GradeSelect } from "@/components/grade-select";
@@ -16,150 +16,18 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, FACE_SAFE_CROP, formatUsPhone, initialsOf } from "@/lib/utils";
+import { formatUsPhone } from "@/lib/utils";
 import { campaignEndDateError, maxCampaignEndDate } from "@/lib/campaign-dates";
+import { MediaField } from "@/components/ui/media-field";
 
 type OnPatch = (patch: Partial<CampaignFormValues>) => void;
 
-/**
- * Image upload with a preview of what's actually on the record.
- *
- * It previously reported "Uploaded 1 image." and showed nothing, so there was no
- * way to tell whether the right file had landed — or whether an image was on the
- * campaign at all. `value` is the URL currently saved; pass it and you see it.
- */
-export function CampaignImageUpload({
-  label = "Click or drop files to upload",
-  multiple = false,
-  value,
-  values,
-  onUploaded,
-  onClear,
-  round = false,
-  fallbackName,
-}: {
-  label?: string;
-  multiple?: boolean;
-  /** The single image currently on the record. */
-  value?: string | null;
-  /** Several images currently on the record, for gallery-style fields. */
-  values?: string[];
-  onUploaded: (urls: string[]) => void;
-  onClear?: (url: string) => void;
-  round?: boolean;
-  /** Shown as initials when there's no image yet — e.g. the parent's name. */
-  fallbackName?: string | null;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const current = values ?? (value ? [value] : []);
-
-  async function uploadFiles(files: FileList | File[]) {
-    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
-    if (images.length === 0) return;
-
-    setIsUploading(true);
-    setStatus("Uploading...");
-
-    try {
-      const uploaded: string[] = [];
-      for (const file of images) {
-        const body = new FormData();
-        body.append("file", file);
-        const res = await fetch("/api/campaign-media/upload", { method: "POST", body });
-        const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
-        if (!res.ok || !data?.url) {
-          throw new Error(data?.error ?? "Upload failed.");
-        }
-        uploaded.push(data.url);
-      }
-      if (uploaded.length > 0) {
-        onUploaded(uploaded);
-        setStatus(`Uploaded ${uploaded.length} image${uploaded.length === 1 ? "" : "s"}.`);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Upload failed.";
-      setStatus(message);
-    } finally {
-      setIsUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <div>
-      {current.length > 0 ? (
-        <div className="mt-1.5 flex flex-wrap gap-2">
-          {current.map((url) => (
-            <figure key={url} className="group relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt=""
-                className={cn(
-                  "border border-border object-cover",
-                  FACE_SAFE_CROP,
-                  round ? "size-20 rounded-full" : "h-24 w-36 rounded-md",
-                )}
-              />
-              {onClear ? (
-                <button
-                  type="button"
-                  onClick={() => onClear(url)}
-                  aria-label="Remove this image"
-                  className="absolute -right-1.5 -top-1.5 grid size-6 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:text-destructive"
-                >
-                  <X className="size-3.5" aria-hidden />
-                </button>
-              ) : null}
-            </figure>
-          ))}
-        </div>
-      ) : fallbackName ? (
-        // No photo yet — initials still identify who this is.
-        <div className="mt-1.5 flex items-center gap-3">
-          <span
-            aria-hidden
-            className="grid size-20 place-items-center rounded-full bg-secondary text-lg font-semibold text-primary"
-          >
-            {initialsOf(fallbackName)}
-          </span>
-          <p className="text-xs text-muted-foreground">
-            No photo yet — initials are shown until one is added.
-          </p>
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        className="mt-1.5 flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 text-sm text-muted-foreground transition-colors hover:border-primary/60 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-wait disabled:opacity-70"
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(event) => {
-          event.preventDefault();
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          void uploadFiles(event.dataTransfer.files);
-        }}
-        disabled={isUploading}
-      >
-        <ImageUp className="size-5" aria-hidden />
-        <span>{isUploading ? "Uploading..." : label}</span>
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple={multiple}
-        className="sr-only"
-        onChange={(event) => {
-          if (event.currentTarget.files) void uploadFiles(event.currentTarget.files);
-        }}
-      />
-      {status ? <p className="mt-1 text-xs text-muted-foreground">{status}</p> : null}
-    </div>
-  );
+/** The gallery is stored as one link per line. */
+function galleryList(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 export function CampaignFormPanelCampaign({
@@ -241,41 +109,22 @@ export function CampaignFormPanelCampaign({
           onChange={(e) => onPatch({ goal: e.target.value })}
         />
       </div>
-      <div>
-        <Label htmlFor="cf-hero">Featured image URL</Label>
-        <Input
-          id="cf-hero"
-          className="mt-1.5 font-mono text-sm"
-          value={values.image}
-          onChange={(e) => onPatch({ image: e.target.value })}
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Paste an image link, or upload a photo below.
-        </p>
-        <CampaignImageUpload
-          value={values.image}
-          onClear={() => onPatch({ image: "" })}
-          onUploaded={([image]) => image && onPatch({ image })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="cf-gallery">Photo gallery (one URL per line)</Label>
-        <Textarea
-          id="cf-gallery"
-          className="mt-1.5 min-h-[100px] font-mono text-sm"
-          value={values.galleryText}
-          onChange={(e) => onPatch({ galleryText: e.target.value })}
-          placeholder="https://..."
-        />
-        <CampaignImageUpload
-          multiple
-          onUploaded={(urls) =>
-            onPatch({
-              galleryText: [values.galleryText, ...urls].filter(Boolean).join("\n"),
-            })
-          }
-        />
-      </div>
+      <MediaField
+        id="cf-hero"
+        label="Featured image"
+        folder="campaigns"
+        hint="JPG or PNG, landscape works best"
+        value={values.image}
+        onChange={(image) => onPatch({ image })}
+      />
+      <MediaField
+        id="cf-gallery"
+        label="Photo gallery"
+        folder="campaigns"
+        multiple
+        values={galleryList(values.galleryText)}
+        onChangeValues={(urls) => onPatch({ galleryText: urls.join("\n") })}
+      />
     </div>
   );
 }
@@ -344,17 +193,14 @@ export function CampaignFormPanelParent({
           onChange={(e) => onPatch({ parentPhone: formatUsPhone(e.target.value) })}
         />
       </div>
-      <div>
-        <Label>Parent photo</Label>
-        <CampaignImageUpload
-          label="Click or drop parent photo to upload"
-          value={values.parentPhoto}
-          fallbackName={values.parentName}
-          round
-          onClear={() => onPatch({ parentPhoto: "" })}
-          onUploaded={([parentPhoto]) => parentPhoto && onPatch({ parentPhoto })}
-        />
-      </div>
+      <MediaField
+        label="Parent photo"
+        folder="people"
+        shape="round"
+        fallbackName={values.parentName}
+        value={values.parentPhoto}
+        onChange={(parentPhoto) => onPatch({ parentPhoto })}
+      />
     </div>
   );
 }
@@ -606,17 +452,14 @@ export function CampaignFormPanelStudent({
               onChange={(e) => patchStudent(index, { individualGoal: e.target.value })}
             />
           </div>
-          <div>
-            <Label>Student photo</Label>
-            <CampaignImageUpload
-              label="Click or drop student photo to upload"
-              value={student.photo}
-              fallbackName={[student.firstName, student.lastName].filter(Boolean).join(" ")}
-              round
-              onClear={() => patchStudent(index, { photo: "" })}
-              onUploaded={([photo]) => photo && patchStudent(index, { photo })}
-            />
-          </div>
+          <MediaField
+            label="Student photo"
+            folder="people"
+            shape="round"
+            fallbackName={[student.firstName, student.lastName].filter(Boolean).join(" ")}
+            value={student.photo}
+            onChange={(photo) => patchStudent(index, { photo })}
+          />
         </div>
       ))}
     </div>
@@ -805,34 +648,26 @@ export function CampaignFormPanelSchool({
               />
             </div>
           </div>
-          <div>
-            <Label>School logo</Label>
-            <CampaignImageUpload
-              label="Click or drop school logo to upload"
-              value={values.schoolLogo}
-              onClear={() => onPatch({ schoolLogo: "" })}
-              onUploaded={([schoolLogo]) => schoolLogo && onPatch({ schoolLogo })}
-            />
-          </div>
-          <div>
-            <Label>School featured image</Label>
-            <CampaignImageUpload
-              label="Click or drop a photo of the school"
-              value={details.featuredImageUrl}
-              onClear={() => patchDetails({ featuredImageUrl: "" })}
-              onUploaded={([featuredImageUrl]) => featuredImageUrl && patchDetails({ featuredImageUrl })}
-            />
-          </div>
-          <div>
-            <Label>School photo gallery</Label>
-            <CampaignImageUpload
-              multiple
-              label="Click or drop school photos to upload"
-              values={details.galleryUrls}
-              onClear={(url) => patchDetails({ galleryUrls: details.galleryUrls.filter((u) => u !== url) })}
-              onUploaded={(urls) => patchDetails({ galleryUrls: Array.from(new Set([...details.galleryUrls, ...urls])) })}
-            />
-          </div>
+          <MediaField
+            label="School logo"
+            folder="schools"
+            shape="square"
+            value={values.schoolLogo}
+            onChange={(schoolLogo) => onPatch({ schoolLogo })}
+          />
+          <MediaField
+            label="School featured image"
+            folder="schools"
+            value={details.featuredImageUrl}
+            onChange={(featuredImageUrl) => patchDetails({ featuredImageUrl })}
+          />
+          <MediaField
+            label="School photo gallery"
+            folder="schools"
+            multiple
+            values={details.galleryUrls}
+            onChangeValues={(galleryUrls) => patchDetails({ galleryUrls })}
+          />
         </div>
       ) : null}
     </div>

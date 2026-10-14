@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Building2, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { DashboardSectionPlaceholder } from "@/components/dashboard/dashboard-section-placeholder";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MediaField } from "@/components/ui/media-field";
 import { formatUsPhone } from "@/lib/utils";
 
 type Company = {
@@ -36,7 +36,6 @@ const EMPTY: Company = {
   logoUrl: "",
 };
 
-const MAX_LOGO_BYTES = 1_500_000;
 
 /**
  * The company's own record, used on receipts and to fill in the corporate
@@ -44,7 +43,6 @@ const MAX_LOGO_BYTES = 1_500_000;
  * and address, and the logo upload was preview-only.
  */
 export default function BusinessCompanyPage() {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [company, setCompany] = useState<Company>(EMPTY);
   const [status, setStatus] = useState<"loading" | "idle" | "saving" | "saved" | "error">("loading");
   const [message, setMessage] = useState("");
@@ -66,26 +64,6 @@ export default function BusinessCompanyPage() {
 
   function set<K extends keyof Company>(key: K, value: Company[K]) {
     setCompany((current) => ({ ...current, [key]: value }));
-  }
-
-  function onLogoPick(file?: File) {
-    if (!file) return;
-    if (file.size > MAX_LOGO_BYTES) {
-      setStatus("error");
-      setMessage("Please choose an image smaller than 1.5 MB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") set("logoUrl", reader.result);
-      setMessage("");
-      setStatus("idle");
-    };
-    reader.onerror = () => {
-      setStatus("error");
-      setMessage("We couldn't read that image. Please try another file.");
-    };
-    reader.readAsDataURL(file);
   }
 
   async function save(event: React.FormEvent) {
@@ -119,40 +97,15 @@ export default function BusinessCompanyPage() {
       <form onSubmit={save}>
         <Card className="border-border/80">
           <CardContent className="grid gap-4 p-5 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Label>Company logo</Label>
-              <div className="mt-2 flex flex-wrap items-center gap-4 rounded-lg border border-dashed border-border bg-muted/20 p-4">
-                <div className="flex size-14 items-center justify-center overflow-hidden rounded-md border border-border bg-primary/5">
-                  {company.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- data URLs
-                    <img src={company.logoUrl} alt="Company logo" className="size-full object-contain" />
-                  ) : (
-                    <Building2 className="size-5 text-primary" />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    className="hidden"
-                    onChange={(e) => onLogoPick(e.target.files?.[0])}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()}>
-                      <Upload className="size-4" />
-                      {company.logoUrl ? "Replace logo" : "Upload logo"}
-                    </Button>
-                    {company.logoUrl ? (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => set("logoUrl", "")}>
-                        Remove
-                      </Button>
-                    ) : null}
-                  </div>
-                  <p className="text-xs text-muted-foreground">PNG or JPG up to 1.5 MB. Saved with the rest of this form.</p>
-                </div>
-              </div>
-            </div>
+            <MediaField
+              className="md:col-span-2"
+              label="Company logo"
+              folder="business"
+              shape="square"
+              hint="PNG or JPG, saved with the rest of this form"
+              value={company.logoUrl}
+              onChange={(url) => set("logoUrl", url)}
+            />
             <div className="md:col-span-2">
               <Label htmlFor="company-name">Legal business name</Label>
               <Input id="company-name" className="mt-1.5" value={company.businessName} onChange={(e) => set("businessName", e.target.value)} />

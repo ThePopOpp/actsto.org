@@ -29,7 +29,7 @@ import {
   Wand2,
 } from "lucide-react";
 
-import { BlockFields, MediaUpload, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
+import { BlockFields, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,6 +57,7 @@ import {
   type BlogBlockType,
 } from "@/lib/blog/blocks";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 export type BlogBuilderInitial = {
   id: string;
@@ -578,14 +579,7 @@ export function BlogBuilder({ post }: { post?: BlogBuilderInitial }) {
 
             <Field label="Featured image">
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <MediaUpload accept="image/*" label="Upload image" onUploaded={(url) => setFeaturedUrl(url)} />
-                  {featuredUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={featuredUrl} alt="" className="h-10 w-16 rounded border border-border/60 object-cover" />
-                  ) : null}
-                </div>
-                <Input value={featuredUrl} onChange={(e) => setFeaturedUrl(e.target.value)} placeholder="…or paste an image URL" className="font-mono text-sm" />
+                <MediaField folder="blog" value={featuredUrl} onChange={setFeaturedUrl} />
                 <Input value={featuredAlt} onChange={(e) => setFeaturedAlt(e.target.value)} placeholder="Featured image alt text" />
               </div>
             </Field>

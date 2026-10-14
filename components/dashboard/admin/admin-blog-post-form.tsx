@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { blocksToHtml, coerceBlocks, type BlogBlock } from "@/lib/blog/blocks";
+import { MediaField } from "@/components/ui/media-field";
 
 const FORM_ID = "admin-blog-post";
 
@@ -235,16 +236,7 @@ export function AdminBlogPostForm({ post }: { post?: AdminBlogPostInitial }) {
           <CardTitle className="font-heading text-lg text-primary">Featured media</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="bp-feat-url">Image URL</Label>
-            <Input
-              id="bp-feat-url"
-              className="mt-1.5 font-mono text-sm"
-              value={featuredUrl}
-              onChange={(e) => setFeaturedUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
+          <MediaField id="bp-feat-url" label="Featured image" folder="blog" value={featuredUrl} onChange={setFeaturedUrl} />
           <div>
             <Label htmlFor="bp-feat-alt">Alt text</Label>
             <Input id="bp-feat-alt" className="mt-1.5" value={featuredAlt} onChange={(e) => setFeaturedAlt(e.target.value)} />

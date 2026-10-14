@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { GRADE_OPTIONS } from "@/lib/grades";
+import { MediaField } from "@/components/ui/media-field";
 
 type SchoolOption = {
   id: string;
@@ -205,15 +206,14 @@ export function StudentProfileEditor() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="student-photo">Profile photo URL</Label>
-              <Input
-                id="student-photo"
-                value={form.profilePhotoUrl}
-                onChange={(event) => update("profilePhotoUrl", event.target.value)}
-                placeholder="https://..."
-              />
-            </div>
+            <MediaField
+              id="student-photo"
+              label="Profile photo"
+              folder="people"
+              shape="round"
+              value={form.profilePhotoUrl}
+              onChange={(url) => update("profilePhotoUrl", url)}
+            />
 
             <div className="space-y-2">
               <Label htmlFor="student-bio">Bio</Label>

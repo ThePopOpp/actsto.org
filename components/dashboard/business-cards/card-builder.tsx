@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowDown,
@@ -29,6 +29,7 @@ import { CardPreview } from "@/components/business-card/card-preview";
 import { COLOR_PRESETS } from "@/lib/business-cards/defaults";
 import type { BusinessCard, BusinessCardLink, LeadFormSettings } from "@/lib/business-cards/types";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 const APP_BASE = typeof window !== "undefined" ? window.location.origin : "https://actsto.org";
 
@@ -175,61 +176,22 @@ function ImageField({
   label,
   value,
   onChange,
+  shape = "round",
 }: {
   label: string;
   value: string | null;
   onChange: (url: string | null) => void;
+  shape?: "round" | "square";
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function upload(file: File) {
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/business-cards/upload", { method: "POST", body: fd });
-      const data = (await res.json().catch(() => null)) as { url?: string } | null;
-      if (data?.url) onChange(data.url);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="flex items-center gap-2">
-        {value ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt="" className="size-12 rounded-lg border border-border/60 object-cover" />
-        ) : (
-          <div className="grid size-12 place-items-center rounded-lg border border-dashed border-border text-muted-foreground">
-            <Upload className="size-4" />
-          </div>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void upload(f);
-            e.target.value = "";
-          }}
-        />
-        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={busy}>
-          {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Upload className="mr-1.5 size-3.5" />}
-          Upload
-        </Button>
-        {value ? (
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-            Remove
-          </Button>
-        ) : null}
-      </div>
-    </div>
+    <MediaField
+      label={label}
+      folder="business-cards"
+      shape={shape}
+      compact
+      value={value}
+      onChange={(url) => onChange(url || null)}
+    />
   );
 }
 
@@ -261,7 +223,7 @@ function ContentPanel({
       <p className="font-heading text-base font-semibold text-primary">Profile</p>
       <div className="flex flex-wrap gap-4">
         <ImageField label="Profile photo" value={card.profilePhotoUrl} onChange={(v) => patch({ profilePhotoUrl: v })} />
-        <ImageField label="Logo (optional)" value={card.logoUrl} onChange={(v) => patch({ logoUrl: v })} />
+        <ImageField label="Logo (optional)" shape="square" value={card.logoUrl} onChange={(v) => patch({ logoUrl: v })} />
       </div>
 
       {/* Photo & logo sizing / shape / link */}
@@ -354,9 +316,16 @@ function ContentPanel({
         <Field label="Map / address URL">
           <Input value={card.mapsUrl ?? ""} onChange={(e) => patch({ mapsUrl: e.target.value })} className="font-mono text-sm" />
         </Field>
-        <Field label="Intro video URL">
-          <Input value={card.introVideoUrl ?? ""} onChange={(e) => patch({ introVideoUrl: e.target.value })} className="font-mono text-sm" />
-        </Field>
+        <MediaField
+          className="sm:col-span-2"
+          label="Intro video"
+          kind="video"
+          folder="business-cards"
+          compact
+          hint="MP4 up to 50 MB, or link a YouTube or Vimeo video"
+          value={card.introVideoUrl}
+          onChange={(url) => patch({ introVideoUrl: url || null })}
+        />
       </div>
     </div>
   );

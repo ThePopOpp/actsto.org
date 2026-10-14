@@ -45,6 +45,7 @@ import {
   getPostcardSize,
 } from "@/lib/marketing/postcard-sizes";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 const DRAFT_KEY = "act-postcard-draft-v1";
 const TEMPLATES_KEY = "act-postcard-templates-v1";
@@ -564,13 +565,6 @@ export function PostcardBuilder({
     setManualRecipientLine("");
   }
 
-  function readImageFileAsDataUrl(file: File | null, onDone: (dataUrl: string) => void) {
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => onDone(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  }
-
   const portalLabel = variant === "admin" ? "Super Admin" : "Parent portal";
 
   return (
@@ -712,32 +706,14 @@ export function PostcardBuilder({
                   onChange={(e) => persistDraft({ ...draft, notes: e.target.value })}
                 />
               </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="pc-photo">Featured photo URL</Label>
-                <Input
-                  id="pc-photo"
-                  className="mt-1.5 font-mono text-sm"
-                  value={draft.photoUrl}
-                  onChange={(e) => persistDraft({ ...draft, photoUrl: e.target.value })}
-                  placeholder="https://…"
-                />
-                <div className="mt-2">
-                  <Label htmlFor="pc-photo-file" className="text-xs text-muted-foreground">
-                    Or upload image (stored in browser as data URL)
-                  </Label>
-                  <Input
-                    id="pc-photo-file"
-                    type="file"
-                    accept="image/*"
-                    className="mt-1.5 cursor-pointer"
-                    onChange={(e) =>
-                      readImageFileAsDataUrl(e.target.files?.[0] ?? null, (dataUrl) =>
-                        persistDraft({ ...draft, photoUrl: dataUrl })
-                      )
-                    }
-                  />
-                </div>
-              </div>
+              <MediaField
+                id="pc-photo"
+                className="sm:col-span-2"
+                label="Featured photo"
+                folder="marketing"
+                value={draft.photoUrl}
+                onChange={(photoUrl) => persistDraft({ ...draft, photoUrl })}
+              />
               <div className="sm:col-span-2">
                 <Label>Featured photo shape (mask)</Label>
                 <Select
@@ -801,32 +777,13 @@ export function PostcardBuilder({
               </div>
               {draft.bgMode === "image" ? (
                 <div className="space-y-3 sm:col-span-2">
-                  <div>
-                    <Label htmlFor="pc-bgimg">Background image URL</Label>
-                    <Input
-                      id="pc-bgimg"
-                      className="mt-1.5 font-mono text-sm"
-                      value={draft.bgImageUrl}
-                      onChange={(e) => persistDraft({ ...draft, bgImageUrl: e.target.value })}
-                      placeholder="https://… or upload below"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="pc-bgimg-file" className="text-xs text-muted-foreground">
-                      Upload background image
-                    </Label>
-                    <Input
-                      id="pc-bgimg-file"
-                      type="file"
-                      accept="image/*"
-                      className="mt-1.5 cursor-pointer"
-                      onChange={(e) =>
-                        readImageFileAsDataUrl(e.target.files?.[0] ?? null, (dataUrl) =>
-                          persistDraft({ ...draft, bgImageUrl: dataUrl, bgMode: "image" })
-                        )
-                      }
-                    />
-                  </div>
+                  <MediaField
+                    id="pc-bgimg"
+                    label="Background image"
+                    folder="marketing"
+                    value={draft.bgImageUrl}
+                    onChange={(bgImageUrl) => persistDraft({ ...draft, bgImageUrl, bgMode: "image" })}
+                  />
                   <div>
                     <Label htmlFor="pc-bgimg-overlay">Dark overlay on image ({Math.round(draft.bgImageOverlay * 100)}%)</Label>
                     <input
@@ -929,23 +886,13 @@ export function PostcardBuilder({
                   />
                 </div>
                 <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="pc-back-brand-img">Branding image (bottom band only)</Label>
-                  <Input
+                  <MediaField
                     id="pc-back-brand-img"
-                    className="font-mono text-sm"
+                    label="Branding image (bottom band only)"
+                    folder="marketing"
+                    hint="A logo or texture, never placed over postage"
                     value={draft.backBrandImageUrl}
-                    onChange={(e) => persistDraft({ ...draft, backBrandImageUrl: e.target.value })}
-                    placeholder="https://… logo or texture — not placed over postage"
-                  />
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    className="cursor-pointer"
-                    onChange={(e) =>
-                      readImageFileAsDataUrl(e.target.files?.[0] ?? null, (dataUrl) =>
-                        persistDraft({ ...draft, backBrandImageUrl: dataUrl })
-                      )
-                    }
+                    onChange={(backBrandImageUrl) => persistDraft({ ...draft, backBrandImageUrl })}
                   />
                   <p className="text-xs text-muted-foreground">
                     Shown behind the message in the lower branding row only, beside a reserved USPS automation strip — never

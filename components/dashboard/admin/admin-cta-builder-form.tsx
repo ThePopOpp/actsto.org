@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MediaField } from "@/components/ui/media-field";
 
 type CtaBlock = {
   key: string;
@@ -351,10 +352,7 @@ export function AdminCtaBuilderForm() {
               <CardDescription>Optional image, spacing, and controlled brand styling.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="cta-img">Image URL</Label>
-                <Input id="cta-img" className="mt-1.5 font-mono text-sm" value={draft.imageUrl ?? ""} onChange={(e) => patch({ imageUrl: e.target.value })} placeholder="https://..." />
-              </div>
+              <MediaField id="cta-img" label="Image" folder="cta" value={draft.imageUrl} onChange={(imageUrl) => patch({ imageUrl })} />
               <div>
                 <Label htmlFor="cta-img-alt">Image alt text</Label>
                 <Input id="cta-img-alt" className="mt-1.5" value={draft.imageAlt ?? ""} onChange={(e) => patch({ imageAlt: e.target.value })} />

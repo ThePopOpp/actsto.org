@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -13,17 +13,14 @@ import {
   Heading,
   Image as ImageIcon,
   Images,
-  Loader2,
   Minus,
   MousePointerClick,
   MoveVertical,
   Music,
   Pilcrow,
-  Plus,
   Quote,
   Sparkles,
   Trash2,
-  Upload,
   Video,
   Wand2,
   X,
@@ -44,6 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextField } from "@/components/dashboard/admin/blog/rich-text-field";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Heading,
@@ -61,59 +59,6 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Minus,
   MoveVertical,
 };
-
-/** Reusable media uploader → Supabase, returns the public URL. */
-export function MediaUpload({
-  accept,
-  label,
-  onUploaded,
-}: {
-  accept: string;
-  label: string;
-  onUploaded: (url: string) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function handle(file: File) {
-    setBusy(true);
-    setErr(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/admin/blog-media/upload", { method: "POST", body: fd });
-      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
-      if (!res.ok || !data?.url) throw new Error(data?.error ?? "Upload failed.");
-      onUploaded(data.url);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void handle(f);
-          e.target.value = "";
-        }}
-      />
-      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={busy}>
-        {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Upload className="mr-1.5 size-3.5" />}
-        {busy ? "Uploading…" : label}
-      </Button>
-      {err ? <p className="mt-1 text-xs text-destructive">{err}</p> : null}
-    </div>
-  );
-}
 
 const FONT_FAMILY_OPTIONS: { label: string; value: string }[] = [
   { label: "Heading (serif)", value: "" },
@@ -537,14 +482,7 @@ export function BlockFields({
     case "image":
       return (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <MediaUpload accept="image/*" label="Upload image" onUploaded={(url) => onPatch({ src: url })} />
-            {p.src ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.src} alt="" className="h-10 w-14 rounded border border-border/60 object-cover" />
-            ) : null}
-          </div>
-          <Input value={p.src ?? ""} onChange={(e) => onPatch({ src: e.target.value })} placeholder="…or paste an image URL" className="font-mono text-sm" />
+          <MediaField folder="blog" compact value={p.src} onChange={(src) => onPatch({ src })} />
           <div className="grid gap-2 sm:grid-cols-2">
             <Input value={p.alt ?? ""} onChange={(e) => onPatch({ alt: e.target.value })} placeholder="Alt text" />
             <Input value={p.linkUrl ?? ""} onChange={(e) => onPatch({ linkUrl: e.target.value })} placeholder="Link URL (optional)" />
@@ -564,17 +502,15 @@ export function BlockFields({
     case "video":
       return (
         <div className="space-y-2">
-          <MediaUpload accept="video/*" label="Upload video (MP4)" onUploaded={(url) => onPatch({ videoUrl: url })} />
-          <Input value={p.videoUrl ?? ""} onChange={(e) => onPatch({ videoUrl: e.target.value })} placeholder="Video URL (YouTube, Vimeo, MP4…)" className="font-mono text-sm" />
-          <Input value={p.poster ?? ""} onChange={(e) => onPatch({ poster: e.target.value })} placeholder="Poster image URL (optional, for MP4)" className="font-mono text-sm" />
+          <MediaField kind="video" folder="blog" compact hint="MP4 up to 50 MB, or link a YouTube or Vimeo video" value={p.videoUrl} onChange={(videoUrl) => onPatch({ videoUrl })} />
+          <MediaField label="Poster image (optional, for uploaded videos)" folder="blog" compact value={p.poster} onChange={(poster) => onPatch({ poster })} />
           <Input value={p.caption ?? ""} onChange={(e) => onPatch({ caption: e.target.value })} placeholder="Caption (optional)" />
         </div>
       );
     case "audio":
       return (
         <div className="space-y-2">
-          <MediaUpload accept="audio/*" label="Upload audio" onUploaded={(url) => onPatch({ audioUrl: url })} />
-          <Input value={p.audioUrl ?? ""} onChange={(e) => onPatch({ audioUrl: e.target.value })} placeholder="…or paste an audio URL" className="font-mono text-sm" />
+          <MediaField kind="audio" endpoint="/api/admin/blog-media/upload" compact value={p.audioUrl} onChange={(audioUrl) => onPatch({ audioUrl })} />
           <Input value={p.audioTitle ?? ""} onChange={(e) => onPatch({ audioTitle: e.target.value })} placeholder="Track title (optional)" />
           <Textarea value={p.audioDesc ?? ""} onChange={(e) => onPatch({ audioDesc: e.target.value })} className="min-h-[56px]" placeholder="Description (optional)" />
           <div className="flex items-center gap-3">
@@ -656,7 +592,6 @@ function GalleryFields({
 }) {
   const images: GalleryImage[] = Array.isArray(props.images) ? props.images : [];
   const setImages = (next: GalleryImage[]) => onPatch({ images: next });
-  const addImage = (src = "") => setImages([...images, { src, alt: "", caption: "" }]);
   const updateImage = (i: number, patch: Partial<GalleryImage>) =>
     setImages(images.map((im, idx) => (idx === i ? { ...im, ...patch } : im)));
   const removeImage = (i: number) => setImages(images.filter((_, idx) => idx !== i));
@@ -694,7 +629,6 @@ function GalleryFields({
               </div>
             )}
             <div className="min-w-0 flex-1 space-y-1.5">
-              <Input value={im.src} onChange={(e) => updateImage(i, { src: e.target.value })} placeholder="Image URL" className="h-8 font-mono text-xs" />
               <div className="grid grid-cols-2 gap-1.5">
                 <Input value={im.alt ?? ""} onChange={(e) => updateImage(i, { alt: e.target.value })} placeholder="Alt" className="h-8" />
                 <Input value={im.caption ?? ""} onChange={(e) => updateImage(i, { caption: e.target.value })} placeholder="Caption" className="h-8" />
@@ -712,12 +646,17 @@ function GalleryFields({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <MediaUpload accept="image/*" label="Upload image" onUploaded={(url) => addImage(url)} />
-        <Button type="button" variant="outline" size="sm" onClick={() => addImage()}>
-          <Plus className="mr-1.5 size-3.5" /> Add by URL
-        </Button>
-      </div>
+      {/* Upload or link images; each row above sets its alt text and caption. */}
+      <MediaField
+        folder="blog"
+        multiple
+        compact
+        hidePreview
+        values={images.map((im) => im.src).filter(Boolean)}
+        onChangeValues={(urls) =>
+          setImages(urls.map((src) => images.find((im) => im.src === src) ?? { src, alt: "", caption: "" }))
+        }
+      />
     </div>
   );
 }

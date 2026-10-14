@@ -34,6 +34,7 @@ import {
   getSocialPreset,
 } from "@/lib/marketing/social-creative-sizes";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 const SOCIAL_DRAFT_KEY = "act-social-campaign-draft-v1";
 
@@ -73,13 +74,6 @@ function defaultSocialDraft(): SocialDraft {
     bgOverlay: 0.4,
     showSafeZones: true,
   };
-}
-
-function readImageFileAsDataUrl(file: File | null, onDone: (dataUrl: string) => void) {
-  if (!file || !file.type.startsWith("image/")) return;
-  const reader = new FileReader();
-  reader.onload = () => onDone(String(reader.result ?? ""));
-  reader.readAsDataURL(file);
 }
 
 function creativeBackgroundStyle(
@@ -497,25 +491,14 @@ export function SocialCampaignBuilder({
 
           <MarketingSection title="Visuals" className="sm:col-span-2">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Label htmlFor="soc-img">Hero image URL</Label>
-                <Input
-                  id="soc-img"
-                  className="mt-1.5 font-mono text-sm"
-                  value={draft.imageUrl}
-                  onChange={(e) => persist({ ...draft, imageUrl: e.target.value })}
-                />
-                <Input
-                  type="file"
-                  accept="image/*"
-                  className="mt-2 cursor-pointer"
-                  onChange={(e) =>
-                    readImageFileAsDataUrl(e.target.files?.[0] ?? null, (url) =>
-                      persist({ ...draft, imageUrl: url })
-                    )
-                  }
-                />
-              </div>
+              <MediaField
+                id="soc-img"
+                className="sm:col-span-2"
+                label="Hero image"
+                folder="marketing"
+                value={draft.imageUrl}
+                onChange={(imageUrl) => persist({ ...draft, imageUrl })}
+              />
               <div>
                 <Label>Background</Label>
                 <Select
@@ -558,22 +541,12 @@ export function SocialCampaignBuilder({
               </div>
               {draft.bgMode === "image" ? (
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="soc-bgurl">Background image URL</Label>
-                  <Input
+                  <MediaField
                     id="soc-bgurl"
-                    className="font-mono text-sm"
+                    label="Background image"
+                    folder="marketing"
                     value={draft.bgImageUrl}
-                    onChange={(e) => persist({ ...draft, bgImageUrl: e.target.value })}
-                  />
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    className="cursor-pointer"
-                    onChange={(e) =>
-                      readImageFileAsDataUrl(e.target.files?.[0] ?? null, (url) =>
-                        persist({ ...draft, bgImageUrl: url, bgMode: "image" })
-                      )
-                    }
+                    onChange={(bgImageUrl) => persist({ ...draft, bgImageUrl, bgMode: "image" })}
                   />
                   <div>
                     <Label>Overlay strength ({Math.round(draft.bgOverlay * 100)}%)</Label>

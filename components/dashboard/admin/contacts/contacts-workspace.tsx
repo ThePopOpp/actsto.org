@@ -7,7 +7,6 @@ import {
   Pencil, Phone, Plus, Search, Table as TableIcon, Trash2, Upload, X,
 } from "lucide-react";
 
-import { MediaUpload } from "@/components/dashboard/admin/blog/block-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +18,7 @@ import {
   CONTACT_STAGES, CONTACT_TYPES, contactName, stageColor, stageLabel, typeLabel, type ContactDTO,
 } from "@/lib/contacts/constants";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 type Stats = { total: number; users: number; nonUsers: number; archived: number; recent: number; stageCounts: Record<string, number> };
 type ViewMode = "list" | "table" | "cards" | "kanban";
@@ -365,32 +365,23 @@ function ContactModal({
         {editing ? (
           <div className="max-h-[70vh] space-y-3 overflow-y-auto p-4">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">Photo / image</Label>
-                <div className="mt-1 flex items-center gap-2">
-                  {form.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={form.avatarUrl} alt="" className="size-10 rounded-full border border-border object-cover" />
-                  ) : (
-                    <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{initials([form.firstName, form.lastName].join(" ") || "?")}</span>
-                  )}
-                  <MediaUpload accept="image/*" label={form.avatarUrl ? "Replace" : "Upload"} onUploaded={(url) => setForm({ ...form, avatarUrl: url })} />
-                  {form.avatarUrl ? <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setForm({ ...form, avatarUrl: "" })}>Remove</button> : null}
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Logo (org / business)</Label>
-                <div className="mt-1 flex items-center gap-2">
-                  {form.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={form.logoUrl} alt="" className="size-10 rounded border border-border object-contain" />
-                  ) : (
-                    <span className="flex size-10 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">Logo</span>
-                  )}
-                  <MediaUpload accept="image/*" label={form.logoUrl ? "Replace" : "Upload"} onUploaded={(url) => setForm({ ...form, logoUrl: url })} />
-                  {form.logoUrl ? <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setForm({ ...form, logoUrl: "" })}>Remove</button> : null}
-                </div>
-              </div>
+              <MediaField
+                label="Photo / image"
+                folder="contacts"
+                shape="round"
+                compact
+                fallbackName={[form.firstName, form.lastName].join(" ").trim() || null}
+                value={form.avatarUrl}
+                onChange={(avatarUrl) => setForm({ ...form, avatarUrl })}
+              />
+              <MediaField
+                label="Logo (org / business)"
+                folder="contacts"
+                shape="square"
+                compact
+                value={form.logoUrl}
+                onChange={(logoUrl) => setForm({ ...form, logoUrl })}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-muted-foreground">First name</Label><Input value={form.firstName} onChange={set("firstName")} className="mt-1" /></div>

@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-import { CampaignImageUpload } from "@/components/campaigns/campaign-form-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MediaField } from "@/components/ui/media-field";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdminSchool, TypedSchoolName } from "@/app/api/admin/schools/route";
 import { schoolCsvTemplate } from "@/lib/schools/csv-template";
@@ -375,34 +375,29 @@ function SchoolDialog({
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </div>
-          <div className="sm:col-span-2">
-            <Label>Logo</Label>
-            <CampaignImageUpload
-              label="Click or drop the school logo"
-              value={form.logoUrl}
-              onClear={() => setForm((f) => ({ ...f, logoUrl: "" }))}
-              onUploaded={([url]) => url && setForm((f) => ({ ...f, logoUrl: url }))}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Featured image</Label>
-            <CampaignImageUpload
-              label="Click or drop a photo of the school"
-              value={form.featuredImageUrl}
-              onClear={() => setForm((f) => ({ ...f, featuredImageUrl: "" }))}
-              onUploaded={([url]) => url && setForm((f) => ({ ...f, featuredImageUrl: url }))}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Photo gallery</Label>
-            <CampaignImageUpload
-              multiple
-              label="Click or drop school photos"
-              values={form.galleryUrls}
-              onClear={(url) => setForm((f) => ({ ...f, galleryUrls: f.galleryUrls.filter((u) => u !== url) }))}
-              onUploaded={(urls) => setForm((f) => ({ ...f, galleryUrls: Array.from(new Set([...f.galleryUrls, ...urls])) }))}
-            />
-          </div>
+          <MediaField
+            className="sm:col-span-2"
+            label="Logo"
+            folder="schools"
+            shape="square"
+            value={form.logoUrl}
+            onChange={(logoUrl) => setForm((f) => ({ ...f, logoUrl }))}
+          />
+          <MediaField
+            className="sm:col-span-2"
+            label="Featured image"
+            folder="schools"
+            value={form.featuredImageUrl}
+            onChange={(featuredImageUrl) => setForm((f) => ({ ...f, featuredImageUrl }))}
+          />
+          <MediaField
+            className="sm:col-span-2"
+            label="Photo gallery"
+            folder="schools"
+            multiple
+            values={form.galleryUrls}
+            onChangeValues={(galleryUrls) => setForm((f) => ({ ...f, galleryUrls }))}
+          />
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input
               type="checkbox"

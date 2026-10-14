@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, User } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatUsPhone } from "@/lib/utils";
 import { DONOR_FILING_STATUSES } from "@/lib/donors/filing-status";
+import { MediaField } from "@/components/ui/media-field";
 
 type ProfileResponse = {
   profile?: {
@@ -60,8 +60,6 @@ export function UserProfileEditor({
   defaultZip?: string;
 }) {
   const showRelationship = role === "parent";
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [name, setName] = useState(defaultName);
   const [firstName, setFirstName] = useState("");
@@ -106,7 +104,6 @@ export function UserProfileEditor({
         setState(data.profile.state || defaultState);
         setZip(data.profile.zip || defaultZip);
         setAvatarUrl(data.profile.avatarUrl || null);
-        setPhotoPreview(data.profile.avatarUrl || null);
         setBio(data.profile.bio || "");
         setRelationship(data.profile.relationship || "");
         setTimezone(data.profile.timezone || "America/Phoenix");
@@ -126,32 +123,6 @@ export function UserProfileEditor({
       mounted = false;
     };
   }, [defaultAddress, defaultCity, defaultName, defaultPhone, defaultState, defaultZip]);
-
-  function onPhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-
-    if (f.size > 1_500_000) {
-      setStatus("error");
-      setMessage("Please choose an image smaller than 1.5 MB.");
-      if (fileRef.current) fileRef.current.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === "string" ? reader.result : null;
-      setAvatarUrl(dataUrl);
-      setPhotoPreview(dataUrl);
-      setStatus("idle");
-      setMessage("");
-    };
-    reader.onerror = () => {
-      setStatus("error");
-      setMessage("We could not read that image. Please try another file.");
-    };
-    reader.readAsDataURL(f);
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -210,57 +181,18 @@ export function UserProfileEditor({
           <CardHeader>
             <CardTitle className="font-heading text-lg text-primary">Photo</CardTitle>
             <CardDescription>
-              JPG or PNG up to 1.5 MB. Square images (400px or larger) look best on campaign cards.
+              JPG or PNG up to 10 MB. Square images (400px or larger) look best on campaign cards.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            <div className="relative">
-              <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-border bg-muted">
-                {photoPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- profile previews may be data URLs
-                  <img src={photoPreview} alt="" className="size-full object-cover" />
-                ) : (
-                  <User className="size-12 text-muted-foreground" strokeWidth={1.25} />
-                )}
-              </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                className="absolute -right-1 -bottom-1 size-9 rounded-full shadow-md"
-                onClick={() => fileRef.current?.click()}
-                aria-label="Change photo"
-              >
-                <Camera className="size-4" />
-              </Button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={onPhotoPick}
-              />
-            </div>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                Upload photo
-              </Button>
-              {avatarUrl || photoPreview ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => {
-                    setAvatarUrl(null);
-                    setPhotoPreview(null);
-                    if (fileRef.current) fileRef.current.value = "";
-                  }}
-                >
-                  Remove
-                </Button>
-              ) : null}
-            </div>
+          <CardContent>
+            <MediaField
+              id="dp-photo"
+              folder="people"
+              shape="round"
+              fallbackName={[firstName, lastName].filter(Boolean).join(" ") || name}
+              value={avatarUrl}
+              onChange={(url) => setAvatarUrl(url || null)}
+            />
           </CardContent>
         </Card>
 

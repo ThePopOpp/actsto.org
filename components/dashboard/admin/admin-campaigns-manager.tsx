@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CampaignImageUpload } from "@/components/campaigns/campaign-form-panels";
+import { MediaField } from "@/components/ui/media-field";
 import { Progress } from "@/components/ui/progress";
 import type { AdminCampaign } from "@/app/api/admin/campaigns/route";
 import { cn, FACE_SAFE_CROP, initialsOf } from "@/lib/utils";
@@ -848,21 +848,13 @@ function ManageDialog({
                 onChange={(e) => editContent({ goalAmount: e.target.value.replace(/[^0-9.]/g, "") })}
               />
             </div>
-            <div>
-              <Label htmlFor="camp-image" className="text-xs text-muted-foreground">Featured image</Label>
-              <Input
-                id="camp-image"
-                className="mt-1 font-mono text-xs"
-                value={content.featuredImageUrl}
-                onChange={(e) => editContent({ featuredImageUrl: e.target.value })}
-                placeholder="https://… or upload below"
-              />
-              <CampaignImageUpload
-                value={content.featuredImageUrl}
-                onClear={() => editContent({ featuredImageUrl: "" })}
-                onUploaded={([url]) => url && editContent({ featuredImageUrl: url })}
-              />
-            </div>
+            <MediaField
+              id="camp-image"
+              label="Featured image"
+              folder="campaigns"
+              value={content.featuredImageUrl}
+              onChange={(featuredImageUrl) => editContent({ featuredImageUrl })}
+            />
             <Button
               type="button"
               size="sm"

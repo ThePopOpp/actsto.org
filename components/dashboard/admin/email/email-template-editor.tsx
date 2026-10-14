@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 
-import { BlockFields, MediaUpload, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
+import { BlockFields, SectionSettings } from "@/components/dashboard/admin/blog/block-editor";
 import { renderEmailLayout } from "@/lib/email/templates/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +46,7 @@ import {
 } from "@/lib/blog/blocks";
 import { EMAIL_MERGE_FIELDS } from "@/lib/email/merge-fields";
 import { cn } from "@/lib/utils";
+import { MediaField } from "@/components/ui/media-field";
 
 type Mode = "visual" | "html";
 
@@ -308,14 +309,7 @@ export function EmailTemplateEditor({ editId }: { editId?: string }) {
           <div><Label className="text-xs text-muted-foreground">Hero title</Label><Input value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} placeholder="Falls back to the subject line" className="mt-1" /></div>
           <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Hero subtitle</Label><Input value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} className="mt-1" /></div>
           <div className="sm:col-span-2">
-            <Label className="text-xs text-muted-foreground">Featured photo URL</Label>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Input value={featuredImageUrl} onChange={(e) => setFeaturedImageUrl(e.target.value)} placeholder="https://…" className="min-w-0 flex-1" />
-              <MediaUpload accept="image/*" label="Upload" onUploaded={setFeaturedImageUrl} />
-              {featuredImageUrl ? (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setFeaturedImageUrl("")}>Remove</Button>
-              ) : null}
-            </div>
+            <MediaField label="Featured photo" folder="email" compact value={featuredImageUrl} onChange={setFeaturedImageUrl} />
             <p className="mt-1 text-xs text-muted-foreground">Sits between the hero and the greeting. Left out entirely when empty, rather than leaving a gap.</p>
           </div>
           <div><Label className="text-xs text-muted-foreground">Button label</Label><Input value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} placeholder="Open your dashboard" className="mt-1" /></div>
