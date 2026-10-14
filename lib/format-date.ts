@@ -54,13 +54,32 @@ export function formatDateTime(value: DateInput, fallback = "—"): string {
 export function isoDateInArizona(value: DateInput): string {
   const date = toDate(value);
   if (!date) return "";
-  // en-CA formats as yyyy-MM-dd.
-  return new Intl.DateTimeFormat("en-CA", {
+  // Built from parts rather than a locale's own format, which differs between engines.
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: ACT_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(date);
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/**
+ * A day typed into a date field ("yyyy-MM-dd") as the moment to store: noon in
+ * Arizona that day. Shown on the Arizona calendar it is always the day typed,
+ * and it is the same day in UTC too. `new Date("2026-10-11")` is midnight UTC,
+ * which is Oct 10 in Arizona, which is how "Date sent" saved a day early.
+ */
+export function arizonaDateToInstant(isoDate: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const date = new Date(`${isoDate}T12:00:00-07:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Today on the Arizona calendar, as a value for a date-only (@db.Date) column. */
+export function arizonaTodayAsCalendarDate(now: Date = new Date()): Date {
+  return new Date(`${isoDateInArizona(now)}T00:00:00Z`);
 }
 
 /** A calendar date (stored as midnight UTC, or "yyyy-MM-dd") as written: "Jun 30, 2027". */

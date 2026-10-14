@@ -26,6 +26,7 @@ import { formatCurrency, readIncomeSnapshot } from "@/lib/scholarship/income";
 import { getStaffActor } from "@/lib/scholarship/scope";
 import { formatWindowDate } from "@/lib/scholarship/windows";
 import { cn } from "@/lib/utils";
+import { formatCalendarDate } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -532,7 +533,7 @@ export default async function AdminScholarshipDetailPage({
                         : document.legalHold
                           ? "on hold, not purged"
                           : document.purgeAfter
-                            ? `kept until ${formatWindowDate(document.purgeAfter)}`
+                            ? `kept until ${formatCalendarDate(document.purgeAfter)}`
                             : "kept until 4 years after the final payout year"}
                       {document.verifiedAt ? " · verified" : ""}
                     </p>

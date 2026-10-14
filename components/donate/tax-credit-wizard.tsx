@@ -46,6 +46,7 @@ import type {
   DonationOptionCampaign,
   DonationOptionSchool,
 } from "@/app/api/campaigns/donation-options/route";
+import { RELATIONSHIP_ACK_TEXT } from "@/lib/donations/recommendations";
 
 type StoRow = { id: string; organization: string; amount: number };
 type PaypalConfig = { clientId: string; environment: string };
@@ -523,7 +524,7 @@ function CorporateProgramPanel({
         <p className="text-xs text-muted-foreground">
           Corporate gifts can recommend a school but never a specific student. A recommendation is not binding;
           our team awards the gift to eligible students under Arizona law.
-          {campaignTitle ? ` Your gift still counts toward ${campaignTitle}.` : ""}
+          {campaignTitle ? ` Your gift stays in ${campaignTitle}'s funds until ACT awards it.` : ""}
         </p>
       </div>
 
@@ -1249,8 +1250,8 @@ export function TaxCreditWizard({
                 relaxed={embedInDialog}
               />
               <p className="text-xs text-muted-foreground">
-                A recommendation is not binding. Our team decides every award under Arizona law, and your gift
-                {attributedCampaign ? " still counts toward this campaign" : " is received"} either way.
+                A recommendation is not binding. Our team decides every award under Arizona law.
+                {attributedCampaign ? " Your gift stays in this campaign's funds until ACT awards it." : ""}
               </p>
             </div>
             ) : null}
@@ -1326,8 +1327,8 @@ export function TaxCreditWizard({
                       })}
                       {selectedStudentIds.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
-                          No students selected, so your gift will count toward the campaign without a student
-                          recommendation.
+                          No students selected. Your gift stays in this campaign&apos;s funds until ACT awards it,
+                          without a student recommendation.
                         </p>
                       ) : null}
                     </fieldset>
@@ -1342,8 +1343,7 @@ export function TaxCreditWizard({
                       }}
                       error={relationshipAckError}
                     >
-                      Relationship policy: I understand that I may not designate or direct this
-                      donation to benefit my own dependent or family member.
+                      {RELATIONSHIP_ACK_TEXT}
                     </CheckField>
                   ) : null}
                 </CardContent>

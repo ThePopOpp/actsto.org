@@ -11,6 +11,14 @@
  *   - An individual who answers YES may recommend only students actually on the
  *     campaign (no free-text names), and must acknowledge the relationship policy.
  */
+/**
+ * The relationship acknowledgement exactly as the donor sees it. The same
+ * string is stored with the gift, with the time it was given, so the record
+ * shows what was agreed to.
+ */
+export const RELATIONSHIP_ACK_TEXT =
+  "Relationship policy: I understand that I may not designate or direct this donation to benefit my own dependent or family member.";
+
 export function sanitizeRecommendation(input: {
   corporate: boolean;
   designate: boolean;

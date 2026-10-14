@@ -17,6 +17,9 @@ const { calculateLowIncome, incomeLimitFor, validateIncomeTable } = await import
 const { canonicalGrade, gradeBand, isK12, normalizeGradeInput } = await import("@/lib/grades");
 const { splitIndividualGift, isCorporateProgram } = await import("@/lib/funding-sources");
 const { sanitizeRecommendation } = await import("@/lib/donations/recommendations");
+const { splitEvenCents, takeEvenly, recommendedRemaining, fundingOrder, fundFromPots, GENERAL_POOL } = await import(
+  "@/lib/allocation/funding-plan"
+);
 
 let passed = 0;
 let failed = 0;
@@ -240,6 +243,97 @@ test("only the campaign's own students can be recommended", () => {
   });
   assert.deepEqual(out.studentIds, ["a"]);
   assert.equal(out.relationshipAckRequired, true);
+});
+
+
+// ── Campaign funding arithmetic ──────────────────────────────────────────────
+
+test("an even split keeps every cent", () => {
+  assert.deepEqual(splitEvenCents(1000, 3), [334, 333, 333]);
+  assert.equal(splitEvenCents(1, 4).reduce((a, b) => a + b, 0), 1);
+});
+
+test("taking evenly stops each balance at zero and re-spreads the rest", () => {
+  const out = takeEvenly(new Map([["a", 100], ["b", 1000], ["c", 0]]), 600);
+  assert.equal(out.balances.get("a"), 0);
+  assert.equal(out.balances.get("b"), 500);
+  assert.equal(out.balances.get("c"), 0);
+  assert.equal(out.leftover, 0);
+});
+
+test("recommended remaining splits each gift among the students it named", () => {
+  const out = recommendedRemaining({
+    studentIds: ["s1", "s2"],
+    gifts: [
+      { amount: 100, recommendedStudentIds: ["s1", "s2"] },
+      { amount: 30, recommendedStudentIds: ["s1"] },
+      { amount: 20, recommendedStudentIds: [] },
+    ],
+    awards: [],
+  });
+  assert.deepEqual(out.students.map((s) => s.remaining), [80, 50]);
+  assert.equal(out.noRecommendation, 20);
+  assert.equal(out.campaignRemaining, 150);
+});
+
+test("an award to an outside student reduces the campaign's students evenly", () => {
+  const out = recommendedRemaining({
+    studentIds: ["s1", "s2"],
+    gifts: [{ amount: 100, recommendedStudentIds: ["s1", "s2"] }, { amount: 10, recommendedStudentIds: [] }],
+    awards: [{ studentId: "outsider", amount: 30.01 }],
+  });
+  assert.deepEqual(out.students.map((s) => s.remaining), [34.99, 35]);
+  assert.equal(out.noRecommendation, 10);
+  assert.equal(out.campaignRemaining, 79.99);
+});
+
+test("a student's award uses their share, then unrecommended money, then others", () => {
+  const out = recommendedRemaining({
+    studentIds: ["s1", "s2"],
+    gifts: [{ amount: 40, recommendedStudentIds: ["s1"] }, { amount: 40, recommendedStudentIds: ["s2"] }, { amount: 10, recommendedStudentIds: [] }],
+    awards: [{ studentId: "s1", amount: 60 }],
+  });
+  assert.deepEqual(out.students.map((s) => s.remaining), [0, 30]);
+  assert.equal(out.noRecommendation, 0);
+  assert.equal(out.campaignRemaining, 30);
+});
+
+test("the student amounts plus No recommendation always equal the campaign remaining", () => {
+  const out = recommendedRemaining({
+    studentIds: ["a", "b", "c"],
+    gifts: [{ amount: 333.33, recommendedStudentIds: ["a", "b", "c"] }, { amount: 50, recommendedStudentIds: ["c"] }],
+    awards: [{ studentId: "x", amount: 99.99 }, { studentId: "c", amount: 120 }],
+  });
+  const sum = out.students.reduce((s, r) => s + Math.round(r.remaining * 100), 0) + Math.round(out.noRecommendation * 100);
+  assert.equal(sum, Math.round(out.campaignRemaining * 100));
+  assert.equal(out.campaignRemaining, 163.34);
+});
+
+test("funding order: chosen campaign, own, recommended, others oldest first, general last", () => {
+  const pots = [
+    { key: GENERAL_POOL, label: "General", remaining: 100, oldestGiftAt: "2026-01-01" },
+    { key: "old", label: "Old", remaining: 100, oldestGiftAt: "2026-02-01" },
+    { key: "new", label: "New", remaining: 100, oldestGiftAt: "2026-05-01" },
+    { key: "rec", label: "Rec", remaining: 100, oldestGiftAt: "2026-06-01" },
+    { key: "own", label: "Own", remaining: 100, oldestGiftAt: "2026-07-01" },
+  ];
+  assert.deepEqual(
+    fundingOrder(pots, { ownKeys: ["own"], recommendedKeys: ["rec"] }).map((p) => p.key),
+    ["own", "rec", "old", "new", GENERAL_POOL],
+  );
+  assert.equal(fundingOrder(pots, { preferKey: "new", ownKeys: ["own"] })[0].key, "new");
+});
+
+test("one amount is funded across campaigns, and pots are not drawn twice", () => {
+  const pots = [
+    { key: "cannon", label: "Cannon", remaining: 3671, oldestGiftAt: null },
+    { key: "valley", label: "Valley Christian", remaining: 2000, oldestGiftAt: null },
+  ];
+  const first = fundFromPots(4715, pots);
+  assert.deepEqual(first.lines.map((l) => [l.key, l.amount]), [["cannon", 3671], ["valley", 1044]]);
+  const second = fundFromPots(1000, pots);
+  assert.deepEqual(second.lines.map((l) => [l.key, l.amount]), [["valley", 956]]);
+  assert.equal(second.unfunded, 44);
 });
 
 console.log(`allocation rules: ${passed} passed, ${failed} failed`);

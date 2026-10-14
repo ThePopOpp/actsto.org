@@ -1267,6 +1267,11 @@ model ScholarshipAward {
   schoolId        String?   @map("school_id") @db.Uuid
   /// The campaign whose donations this draws from (drives the campaign's funded bar).
   campaignId      String?   @map("campaign_id") @db.Uuid
+  /// Drawn from gifts made without a campaign (the general pool). Every award
+  /// names a campaign or sets this; an award with neither predates the rule.
+  drawsFromGeneral Boolean  @default(false) @map("draws_from_general")
+  /// Lines of one award that was funded from several campaigns share this id.
+  allocationGroupId String? @map("allocation_group_id") @db.Uuid
   /// A specific donation this draws from, when the allocator chose one.
   donationId      String?   @map("donation_id") @db.Uuid
   /// Fund the money comes from — same vocabulary as DonationFundSplit.

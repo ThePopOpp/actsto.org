@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { CampaignFundRow } from "@/lib/allocation/campaign-funds";
 import type { StudentEligibility } from "@/lib/allocation/rules";
 import { formatDate, isoDateInArizona } from "@/lib/format-date";
 
 type AwardRow = {
   id: string;
+  fundingSource: string;
   fundingLabel: string;
   amount: number;
   status: string;
@@ -19,6 +21,9 @@ type AwardRow = {
   reversalReason: string | null;
   note: string | null;
   campaignTitle: string | null;
+  /** Campaign id, "general", or null for an older award with no campaign. */
+  campaignKey: string | null;
+  allocationGroupId: string | null;
   createdAt: string;
   createdByEmail: string | null;
   sent: number;
@@ -62,11 +67,14 @@ async function post(url: string, body: unknown, method = "POST") {
 export function StudentAllocationDialog({
   studentId,
   schoolYear,
+  ledger,
   onClose,
   onChanged,
 }: {
   studentId: string;
   schoolYear: string;
+  /** Every campaign × fund balance, for moving an award to another campaign. */
+  ledger: CampaignFundRow[];
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -75,6 +83,7 @@ export function StudentAllocationDialog({
   const [pay, setPay] = useState<Record<string, { amount: string; paidAt: string; reference: string }>>({});
   const [tuition, setTuition] = useState({ value: "", reason: "" });
   const [dd, setDd] = useState({ value: "", reason: "" });
+  const [moving, setMoving] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const res = await fetch(
@@ -208,12 +217,60 @@ export function StudentAllocationDialog({
                           <p className="text-xs text-muted-foreground">
                             {formatDate(award.createdAt)}
                             {award.createdByEmail ? ` by ${award.createdByEmail}` : ""}
-                            {award.campaignTitle ? ` · from ${award.campaignTitle}` : ""}
                             {award.note ? ` · ${award.note}` : ""}
                           </p>
                         </div>
                         <Badge variant={award.status === "awarded" ? "secondary" : "outline"}>{STATUS_LABEL[award.status] ?? award.status}</Badge>
                       </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Campaign:</span>
+                        {award.campaignKey ? (
+                          <span className="font-medium text-foreground">
+                            {award.campaignTitle ?? (award.campaignKey === "general" ? "General gifts (no campaign)" : "Campaign")}
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="border-destructive/40 text-destructive">
+                            None. No campaign is credited.
+                          </Badge>
+                        )}
+                        {award.allocationGroupId && detail.awards.filter((a) => a.allocationGroupId === award.allocationGroupId).length > 1 ? (
+                          <span className="text-muted-foreground">· one line of a split award</span>
+                        ) : null}
+                      </div>
+                      {award.status !== "reversed" ? (
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <select
+                            aria-label="Move this award to another campaign"
+                            className="h-8 min-w-[14rem] rounded-md border border-input bg-background px-2"
+                            value={moving[award.id] ?? ""}
+                            onChange={(e) => setMoving({ ...moving, [award.id]: e.target.value })}
+                          >
+                            <option value="">{award.campaignKey ? "Change campaign…" : "Attach a campaign…"}</option>
+                            {ledger
+                              .filter((r) => r.fundingSource === award.fundingSource && r.key !== award.campaignKey)
+                              .map((r) => (
+                                <option key={r.key} value={r.key} disabled={r.remaining + 0.005 < award.amount}>
+                                  {r.label} ({usd(r.remaining)} left)
+                                </option>
+                              ))}
+                          </select>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            disabled={!moving[award.id]}
+                            onClick={() =>
+                              void act(
+                                () => post(`/api/admin/allocation/awards/${award.id}`, { action: "set_campaign", campaignId: moving[award.id] }),
+                                "Campaign saved. Nothing was reversed.",
+                              )
+                            }
+                          >
+                            Save campaign
+                          </Button>
+                        </div>
+                      ) : null}
                       <p className="text-xs tabular-nums text-muted-foreground">
                         Sent {usd(award.sent)} · can still send {usd(award.payable)}
                         {notPayable > 0 && award.status !== "reversed" ? ` · ${usd(notPayable)} awarded, not payable (tuition or cap)` : ""}

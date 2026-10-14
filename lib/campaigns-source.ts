@@ -7,13 +7,20 @@ import { editableCampaignWhere, getProfileForEmail, isSuperAdminViewer } from "@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { defaultCampaignEndDate } from "@/lib/campaign-dates";
+import { isoDateInArizona } from "@/lib/format-date";
 
 type PrismaCampaignForDisplay = Awaited<ReturnType<typeof loadPrismaCampaignsForDisplay>>[number];
 
+/**
+ * Whole days from today to the end date, on the Arizona calendar. The end date
+ * is a calendar day stored as midnight UTC; measuring to that instant closed a
+ * campaign at 5 PM Arizona time the evening before. 0 on the last day.
+ */
 function daysLeft(endDate: Date | null) {
   if (!endDate) return 60;
-  const diff = endDate.getTime() - Date.now();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  const today = Date.parse(`${isoDateInArizona(new Date())}T00:00:00Z`);
+  const end = Date.parse(`${endDate.toISOString().slice(0, 10)}T00:00:00Z`);
+  return Math.max(0, Math.round((end - today) / (1000 * 60 * 60 * 24)));
 }
 
 /** Name, contact details and photo for the person who owns a campaign. */

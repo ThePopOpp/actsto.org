@@ -15,6 +15,7 @@ import { can } from "@/lib/scholarship/capabilities";
 import { getStaffActor } from "@/lib/scholarship/scope";
 import { formatWindowDate } from "@/lib/scholarship/windows";
 import { cn } from "@/lib/utils";
+import { formatCalendarDate } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -179,7 +180,7 @@ export default async function VerificationPage({ params }: { params: Promise<{ i
                     <p className="truncate font-medium text-foreground">{d.fileName}</p>
                     <p className="text-xs text-muted-foreground">
                       {d.documentKind} · uploaded {formatWindowDate(d.uploadedAt)}
-                      {d.purgedAt ? ` · deleted ${formatWindowDate(d.purgedAt)}` : d.legalHold ? " · on hold" : d.purgeAfter ? ` · kept until ${formatWindowDate(d.purgeAfter)}` : " · kept until 4 years after the final payout year"}
+                      {d.purgedAt ? ` · deleted ${formatWindowDate(d.purgedAt)}` : d.legalHold ? " · on hold" : d.purgeAfter ? ` · kept until ${formatCalendarDate(d.purgeAfter)}` : " · kept until 4 years after the final payout year"}
                     </p>
                     {!d.purgedAt && can(actor.staffRole, "documents.view") ? (
                       <div className="flex flex-wrap items-center gap-2">

@@ -2,7 +2,6 @@ import "server-only";
 
 import { logAdminActivity } from "@/lib/admin/audit";
 import {
-  awardAmountError,
   disbursementError,
   fundEligibilityError,
   payableRoom,
@@ -21,7 +20,7 @@ import {
 import { gradeBand, isK12 } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/scholarship/notifications";
-import { isoDateInArizona } from "@/lib/format-date";
+import { arizonaDateToInstant, isoDateInArizona } from "@/lib/format-date";
 
 export class AllocationError extends Error {
   constructor(
@@ -95,24 +94,6 @@ export async function fundBalances(): Promise<FundBalance[]> {
       remaining: round2(received - allocated),
     };
   });
-}
-
-/** Unallocated money of one fund that came in through one campaign. */
-export async function campaignFundRemaining(campaignId: string, source: FundingSource): Promise<number> {
-  const [received, allocated] = await Promise.all([
-    prisma.donationFundSplit.aggregate({
-      where: {
-        fundingSource: source,
-        donation: { campaignId, status: "paid", AND: [EXCLUDE_ARCHIVED_TESTS] },
-      },
-      _sum: { amount: true },
-    }),
-    prisma.scholarshipAward.aggregate({
-      where: { campaignId, fundingSource: source, status: { not: "reversed" } },
-      _sum: { awardAmount: true },
-    }),
-  ]);
-  return round2(Number(received._sum.amount ?? 0) - Number(allocated._sum.awardAmount ?? 0));
 }
 
 // ── Student eligibility, grade and limits for a year ─────────────────────────
@@ -237,6 +218,8 @@ export type AllocationCandidate = {
   payableRoomThisFund: number | null;
   recommendedBy: number;
   campaigns: { id: string; title: string }[];
+  /** Campaigns whose donors recommended this student (paid gifts). */
+  recommendedCampaignIds: string[];
 };
 
 /**
@@ -247,7 +230,7 @@ export type AllocationCandidate = {
 export async function allocationCandidates(
   source: FundingSource,
   schoolYear: string,
-  opts: { includeIneligible?: boolean; schoolId?: string | null; campaignId?: string | null } = {},
+  opts: { includeIneligible?: boolean; schoolId?: string | null } = {},
 ): Promise<AllocationCandidate[]> {
   const base = await prisma.studentYearEligibility.findMany({
     where: {
@@ -255,7 +238,6 @@ export async function allocationCandidates(
       revokedAt: null,
       student: {
         ...(opts.schoolId ? { schoolId: opts.schoolId } : {}),
-        ...(opts.campaignId ? { campaignStudents: { some: { campaignId: opts.campaignId } } } : {}),
       },
     },
     select: {
@@ -268,6 +250,10 @@ export async function allocationCandidates(
           school: { select: { name: true } },
           campaignStudents: { select: { campaign: { select: { id: true, title: true } } } },
           _count: { select: { recommendedIn: true } },
+          recommendedIn: {
+            where: { donation: { status: "paid", campaignId: { not: null }, AND: [EXCLUDE_ARCHIVED_TESTS] } },
+            select: { donation: { select: { campaignId: true } } },
+          },
         },
       },
       sourceApplication: { select: { esaCurrentYear: true, school: { select: { id: true, name: true } } } },
@@ -311,6 +297,9 @@ export async function allocationCandidates(
       payableRoomThisFund: Number.isFinite(room) ? room : null,
       recommendedBy: row.student._count.recommendedIn,
       campaigns: row.student.campaignStudents.map((cs) => cs.campaign),
+      recommendedCampaignIds: Array.from(
+        new Set(row.student.recommendedIn.map((r) => r.donation.campaignId).filter((id): id is string => Boolean(id))),
+      ),
     });
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -318,96 +307,8 @@ export async function allocationCandidates(
 
 // ── Awards ───────────────────────────────────────────────────────────────────
 
-export type CreateAwardInput = {
-  studentId: string;
-  fundingSource: string;
-  schoolYear: string;
-  amount: number;
-  campaignId?: string | null;
-  donationId?: string | null;
-  note?: string | null;
-};
-
-/**
- * Award (allocate) money from one fund to one student. Enforced here, not in
- * the screen: the fund must have the money, restricted money only reaches an
- * eligible student, and a student under an ESA contract is awarded but held.
- */
-export async function createAward(actor: AllocationActor, input: CreateAwardInput) {
-  if (!isFundingSource(input.fundingSource)) throw new AllocationError("Choose a fund.");
-  const source = input.fundingSource;
-  const amount = round2(Number(input.amount));
-  if (!/^\d{4}\/\d{4}$/.test(input.schoolYear)) throw new AllocationError("Choose a school year.");
-  if (source === "corporate_other") {
-    throw new AllocationError("Assign these gifts to a corporate program (low-income or disabled/displaced) before awarding them.");
-  }
-
-  const student = await prisma.student.findUnique({
-    where: { id: input.studentId },
-    select: { id: true, firstName: true, lastName: true, schoolId: true },
-  });
-  if (!student) throw new AllocationError("Student not found.", 404);
-
-  const eligibility = await studentEligibility(student.id, input.schoolYear);
-  const ineligible = fundEligibilityError(source, eligibility);
-  if (ineligible) throw new AllocationError(ineligible, 422);
-
-  const balances = await fundBalances();
-  const fund = balances.find((b) => b.fundingSource === source)!;
-  const campaignRemaining = input.campaignId ? await campaignFundRemaining(input.campaignId, source) : null;
-  const amountProblem = awardAmountError(amount, fund.remaining, campaignRemaining);
-  if (amountProblem) throw new AllocationError(amountProblem, 422);
-
-  if (input.donationId) {
-    const donation = await prisma.donation.findUnique({
-      where: { id: input.donationId },
-      select: { status: true, fundSplits: { select: { fundingSource: true } } },
-    });
-    if (!donation || donation.status !== "paid") throw new AllocationError("That donation isn't a paid gift.");
-    if (!donation.fundSplits.some((s) => s.fundingSource === source)) {
-      throw new AllocationError("That donation didn't fund this program.");
-    }
-  }
-
-  const application = await prisma.scholarshipApplication.findFirst({
-    where: { studentId: student.id, schoolYear: input.schoolYear, status: "approved" },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, schoolId: true, esaCurrentYear: true },
-  });
-  const held = application?.esaCurrentYear === "yes";
-
-  const award = await prisma.scholarshipAward.create({
-    data: {
-      studentId: student.id,
-      applicationId: application?.id ?? null,
-      schoolId: application?.schoolId ?? student.schoolId,
-      campaignId: input.campaignId || null,
-      donationId: input.donationId || null,
-      fundingSource: source,
-      awardAmount: amount,
-      awardDate: new Date(),
-      schoolYear: input.schoolYear,
-      status: held ? "held_esa" : "awarded",
-      heldReason: held ? "ESA contract reported for this school year. Held until the Department of Education confirms it closed or lapsed." : null,
-      note: input.note?.trim() || null,
-      approvedBy: actor.id,
-      createdBy: actor.id,
-      createdByEmail: actor.email,
-    },
-  });
-
-  await logAdminActivity({
-    actorId: actor.id,
-    actorEmail: actor.email,
-    action: "award.create",
-    entityType: "scholarship_award",
-    entityId: award.id,
-    after: { studentId: student.id, fundingSource: source, amount, schoolYear: input.schoolYear, campaignId: input.campaignId, held },
-  });
-  if (award.campaignId) await recomputeCampaignAwarded(award.campaignId);
-  await notifyAwardChange(award.id, "awarded");
-  return award;
-}
+// Awards are created in lib/allocation/campaign-funds.ts (createAwardLines):
+// every award names the campaign it draws from.
 
 export async function reverseAward(actor: AllocationActor, awardId: string, reason: string) {
   if (!reason.trim()) throw new AllocationError("Record why this award is being reversed.");
@@ -479,8 +380,9 @@ export async function recordDisbursement(actor: AllocationActor, input: Disburse
   if (!award || !award.schoolYear) throw new AllocationError("Award not found.", 404);
   const source = isFundingSource(award.fundingSource) ? award.fundingSource : "unrestricted";
   const amount = round2(Number(input.amount));
-  const paidAt = new Date(input.paidAt);
-  if (Number.isNaN(paidAt.getTime())) throw new AllocationError("Enter the date the money was sent.");
+  // A typed calendar day, stored as noon Arizona time so it never shifts a day.
+  const paidAt = arizonaDateToInstant(String(input.paidAt ?? "").slice(0, 10));
+  if (!paidAt) throw new AllocationError("Enter the date the money was sent.");
 
   const [eligibility, money] = await Promise.all([
     studentEligibility(award.studentId, award.schoolYear),
@@ -663,6 +565,11 @@ export async function studentAwardSummaries(studentId: string): Promise<StudentA
   return Array.from(years.values()).sort((a, b) => b.schoolYear.localeCompare(a.schoolYear));
 }
 
+/** Tell the parent about a new award; `total` covers every campaign line of it. */
+export async function notifyAwardCreated(awardId: string, total: number) {
+  await notifyAwardChange(awardId, "awarded", total);
+}
+
 async function notifyAwardChange(awardId: string, kind: "awarded" | "sent", amount?: number) {
   try {
     const award = await prisma.scholarshipAward.findUnique({
@@ -683,7 +590,7 @@ async function notifyAwardChange(awardId: string, kind: "awarded" | "sent", amou
     if (!parent?.email) return;
     const source = isFundingSource(award.fundingSource) ? award.fundingSource : "unrestricted";
     const program = FUNDING_SOURCE_PARENT_LABEL[source];
-    const dollars = `$${Number(kind === "sent" ? amount : award.awardAmount).toLocaleString()}`;
+    const dollars = `$${Number(amount ?? award.awardAmount).toLocaleString()}`;
     const body =
       kind === "sent"
         ? [`We've sent ${dollars} of ${award.student.firstName}'s ${program.toLowerCase()} to the school for ${award.schoolYear}.`]

@@ -106,7 +106,7 @@ export async function sendDonationReceiptEmail(donationId: string): Promise<bool
           preheader: `Receipt ${fields.receipt_number} · ${amount}`,
           eyebrow: "Donation receipt",
           title: "Thank you for your gift",
-          subtitle: `${amount} toward ${campaignTitle}`,
+          subtitle: `${amount} given through ${campaignTitle}`,
           featuredImageUrl: null,
           firstName: fields.first_name,
           bodyHtml: `

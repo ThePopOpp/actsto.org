@@ -3,8 +3,7 @@ import { HoldToggle } from "@/components/dashboard/admin/eligibility/hold-toggle
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
-import { formatWindowDate } from "@/lib/scholarship/windows";
-import { formatDate } from "@/lib/format-date";
+import { formatCalendarDate, formatDate } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +77,8 @@ export default async function RetentionPage() {
                       <span className="text-muted-foreground">
                         · {owner(d)} · {d.documentKind}
                         {d.application?.schoolYear ? ` · ${d.application.schoolYear}` : ""} · deletes{" "}
-                        {d.purgeAfter ? formatWindowDate(d.purgeAfter) : "—"}
+                        {/* A calendar day (Sept 30), stored as midnight UTC. */}
+                        {formatCalendarDate(d.purgeAfter)}
                       </span>
                     </span>
                     <HoldToggle documentId={d.id} held={false} />

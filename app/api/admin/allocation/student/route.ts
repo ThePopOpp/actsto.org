@@ -87,6 +87,8 @@ export async function GET(request: Request) {
           reversalReason: award.reversalReason,
           note: award.note,
           campaignTitle: award.campaign?.title ?? null,
+          campaignKey: award.campaignId ?? (award.drawsFromGeneral ? "general" : null),
+          allocationGroupId: award.allocationGroupId,
           createdAt: award.createdAt.toISOString(),
           createdByEmail: award.createdByEmail,
           sent: sentHere,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
 import { getActSession } from "@/lib/auth/session-server";
-import { sanitizeRecommendation } from "@/lib/donations/recommendations";
+import { RELATIONSHIP_ACK_TEXT, sanitizeRecommendation } from "@/lib/donations/recommendations";
 import { isCorporateProgram, splitIndividualGift } from "@/lib/funding-sources";
 import { prisma } from "@/lib/prisma";
 import { createPaypalOrder, getPaypalEnv } from "@/lib/paypal/client";
@@ -188,6 +188,10 @@ export async function POST(req: Request) {
                   }
                 : {}),
               relationshipAck: taxCredit.relationshipAck,
+              // What the donor agreed to and when, kept with the gift.
+              ...(recommendation.relationshipAckRequired && taxCredit.relationshipAck
+                ? { relationshipAckText: RELATIONSHIP_ACK_TEXT, relationshipAckAt: new Date().toISOString() }
+                : {}),
               termsAccepted: taxCredit.termsAccepted,
               privacyConsent: taxCredit.privacyConsent,
               smsConsent: taxCredit.smsConsent,
@@ -279,7 +283,7 @@ export async function POST(req: Request) {
                   recommendedSchoolId: recommendation.schoolId ?? (recommendation.studentIds.length ? campaignSchool : null),
                   relationshipDisclosure: corporate
                     ? "Corporate gift: school recommendation only."
-                    : "Donor acknowledged relationship and dependent-benefit policy.",
+                    : `Acknowledged ${new Date().toISOString()}: ${RELATIONSHIP_ACK_TEXT}`,
                   isDependentOfDonor: false,
                   complianceStatus: "pending",
                 },
