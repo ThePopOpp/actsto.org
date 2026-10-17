@@ -1,5 +1,6 @@
 import "server-only";
 
+import { disabilityApprovalError, type DisabilityChecklist } from "@/lib/award-policy/disability";
 import { DISPLACED_SCOPE } from "@/lib/eligibility/flags";
 import { setFlag } from "@/lib/eligibility/flags-server";
 import { isK12 } from "@/lib/grades";
@@ -13,7 +14,10 @@ import { ScopeError, type StaffActor } from "@/lib/scholarship/scope";
  * A parent's claim never makes a student eligible by itself. It opens a
  * verification that a reviewer decides in the same queue as applications;
  * only an approval sets the eligibility flag. Displacement is confirmed with
- * DCS once and lasts all of K-12; disability is per school year.
+ * DCS once and lasts all of K-12. Disability is verified once by ACTSTO and
+ * carries forward to every later school year (award policy, Oct 16, 2026;
+ * ADOR STO Manual Q143-Q144). An updated plan for a verified student opens a
+ * review without touching the existing eligibility.
  *
  * Like application reviews, the decision log is append-only.
  */
@@ -128,8 +132,19 @@ export async function requestVerification(args: {
   }
 
   const schoolYear = args.kind === "displacement" ? DISPLACED_SCOPE : await currentSchoolYear(student.id);
+  // A disability verified in any year is verified for good, so a new claim is
+  // an updated plan: reviewed, but the eligibility it already has stays.
+  const verifiedDisability =
+    args.kind === "disability"
+      ? await prisma.studentEligibilityFlag.findFirst({ where: { studentId: student.id, flag: "disabled", status: "approved" } })
+      : null;
   const open = await prisma.studentVerification.findFirst({
-    where: { studentId: student.id, kind: args.kind, schoolYear, status: { in: ["pending_review", "awaiting_dcs", "info_requested", "approved"] } },
+    where: {
+      studentId: student.id,
+      kind: args.kind,
+      ...(verifiedDisability ? {} : { schoolYear }),
+      status: { in: verifiedDisability ? ["pending_review", "info_requested"] : ["pending_review", "awaiting_dcs", "info_requested", "approved"] },
+    },
   });
   if (open) return open;
 
@@ -142,9 +157,18 @@ export async function requestVerification(args: {
       sourceApplicationId: args.sourceApplicationId ?? null,
       requestedBy: args.parentId,
       parentNote: args.note?.trim() || null,
+      isUpdate: Boolean(verifiedDisability),
     },
   });
   await log(verification.id, "submit", { id: args.parentId, email: args.parentEmail }, { parentMessage: args.note });
+  if (verifiedDisability) {
+    const name = [student.firstName, student.lastName].filter(Boolean).join(" ");
+    await tellParent(verification.id, "We received your updated plan", [
+      `Thanks. ${student.firstName}'s disability is already verified, and that stays in place while we review the updated plan.`,
+    ]);
+    await tellStaff(verification.id, args.kind, name);
+    return verification;
+  }
   await setFlag({
     studentId: student.id,
     flag: args.kind === "disability" ? "disabled" : "displaced",
@@ -170,7 +194,7 @@ export async function requestVerification(args: {
 export type VerificationDecision =
   | { action: "claim" }
   | { action: "send_to_dcs"; dcsReference?: string | null; internalNote?: string | null }
-  | { action: "approve"; documentSummary: string; dcsReference?: string | null; internalNote?: string | null }
+  | ({ action: "approve"; documentSummary: string; dcsReference?: string | null; internalNote?: string | null } & Partial<DisabilityChecklist>)
   | { action: "deny"; parentMessage: string; internalNote?: string | null }
   | { action: "request_info"; parentMessage: string; internalNote?: string | null }
   | { action: "note"; internalNote: string };
@@ -211,7 +235,9 @@ export async function decideVerification(actor: StaffActor, verificationId: stri
       if (closed) throw new ScopeError("This verification is already decided.", 409);
       await prisma.studentVerification.update({ where: { id: v.id }, data: { status: "info_requested", parentMessage: decision.parentMessage.trim() } });
       await log(v.id, "request_info", who, { parentMessage: decision.parentMessage, internalNote: decision.internalNote });
-      await setFlag({ studentId: v.studentId, flag, schoolYear: v.schoolYear, status: "info_requested", source: "verification", actor: who, verificationId: v.id, reason: decision.parentMessage });
+      if (!v.isUpdate) {
+        await setFlag({ studentId: v.studentId, flag, schoolYear: v.schoolYear, status: "info_requested", source: "verification", actor: who, verificationId: v.id, reason: decision.parentMessage });
+      }
       await tellParent(v.id, "We need a little more information", [decision.parentMessage.trim()]);
       return;
     case "deny":
@@ -221,7 +247,9 @@ export async function decideVerification(actor: StaffActor, verificationId: stri
         data: { status: "denied", decidedBy: actor.profileId, decidedAt: new Date(), parentMessage: decision.parentMessage.trim() },
       });
       await log(v.id, "deny", who, { parentMessage: decision.parentMessage, internalNote: decision.internalNote });
-      await setFlag({ studentId: v.studentId, flag, schoolYear: v.schoolYear, status: "denied", source: "verification", actor: who, verificationId: v.id, reason: decision.parentMessage });
+      if (!v.isUpdate) {
+        await setFlag({ studentId: v.studentId, flag, schoolYear: v.schoolYear, status: "denied", source: "verification", actor: who, verificationId: v.id, reason: decision.parentMessage });
+      }
       await tellParent(v.id, `${VERIFICATION_LABEL[v.kind as VerificationKind]}: not approved`, [decision.parentMessage.trim()]);
       return;
     case "approve": {
@@ -230,6 +258,17 @@ export async function decideVerification(actor: StaffActor, verificationId: stri
       }
       if (v.kind === "displacement" && !v.dcsSentAt && !decision.dcsReference?.trim()) {
         throw new ScopeError("Displacement is approved on DCS confirmation. Mark it sent to DCS, or enter the DCS reference.", 400);
+      }
+      const checklist: DisabilityChecklist = {
+        documentType: decision.documentType ?? null,
+        issuedByAzPublic: decision.issuedByAzPublic ?? null,
+        disabilityNamed: decision.disabilityNamed ?? null,
+        spedCategory: decision.documentType === "504" ? null : decision.spedCategory || null,
+        gradeBand: decision.gradeBand ?? null,
+      };
+      if (v.kind === "disability") {
+        const problem = disabilityApprovalError(checklist);
+        if (problem) throw new ScopeError(problem, 400);
       }
       const doc = await prisma.applicationDocument.findFirst({
         where: { verificationId: v.id, purgedAt: null },
@@ -244,9 +283,41 @@ export async function decideVerification(actor: StaffActor, verificationId: stri
           decidedAt: new Date(),
           documentSummary: decision.documentSummary.trim(),
           dcsReference: decision.dcsReference?.trim() || v.dcsReference,
+          ...(v.kind === "disability"
+            ? {
+                documentType: checklist.documentType,
+                issuedByAzPublic: checklist.issuedByAzPublic,
+                disabilityNamed: checklist.disabilityNamed?.trim() || null,
+                spedCategory: checklist.spedCategory,
+                gradeBand: checklist.gradeBand,
+              }
+            : {}),
         },
       });
       await log(v.id, "approve", who, { internalNote: decision.internalNote });
+      if (v.isUpdate) {
+        // An updated plan: the student stays verified; the stored details and
+        // the special education category move to the new document.
+        const existing = await prisma.studentEligibilityFlag.findFirst({
+          where: { studentId: v.studentId, flag: "disabled", status: "approved" },
+          orderBy: { decidedAt: "asc" },
+        });
+        if (existing) {
+          await prisma.studentEligibilityFlag.update({
+            where: { id: existing.id },
+            data: {
+              details: {
+                ...((existing.details as Record<string, unknown>) ?? {}),
+                documentSummary: decision.documentSummary.trim(),
+                updatedByVerificationId: v.id,
+                ...checklist,
+              },
+            },
+          });
+        }
+        await tellParent(v.id, "Updated plan reviewed", [`We've updated ${v.student.firstName}'s records with the new plan. Nothing else changes.`]);
+        return;
+      }
       await setFlag({
         studentId: v.studentId,
         flag,
@@ -257,12 +328,16 @@ export async function decideVerification(actor: StaffActor, verificationId: stri
         verificationId: v.id,
         documentId: doc?.id ?? null,
         reason: null,
-        details: { documentSummary: decision.documentSummary.trim(), dcsReference: decision.dcsReference ?? v.dcsReference },
+        details: {
+          documentSummary: decision.documentSummary.trim(),
+          dcsReference: decision.dcsReference ?? v.dcsReference,
+          ...(v.kind === "disability" ? checklist : {}),
+        },
       });
       await tellParent(v.id, `${VERIFICATION_LABEL[v.kind as VerificationKind]} approved`, [
         v.kind === "displacement"
           ? `${v.student.firstName}'s displaced status is confirmed. It lasts through 12th grade, so you won't need to verify it again; just reapply for the scholarship each school year.`
-          : `${v.student.firstName}'s disability is verified for ${v.schoolYear}.`,
+          : `${v.student.firstName}'s disability is verified. It carries forward to every future school year, so you won't need to send the document again; just reapply for the scholarship each year.`,
       ]);
       return;
     }

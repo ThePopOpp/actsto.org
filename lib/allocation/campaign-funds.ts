@@ -19,7 +19,6 @@ import { awardAmountError, fundEligibilityError } from "@/lib/allocation/rules";
 import {
   AllocationError,
   fundBalances,
-  notifyAwardCreated,
   recomputeCampaignAwarded,
   studentEligibility,
   type AllocationActor,
@@ -405,14 +404,19 @@ export async function createAwardLines(actor: AllocationActor, entry: AwardEntry
   const application = await prisma.scholarshipApplication.findFirst({
     where: { studentId: student.id, schoolYear: entry.schoolYear, status: "approved" },
     orderBy: { createdAt: "desc" },
-    select: { id: true, schoolId: true, esaCurrentYear: true },
+    select: { id: true, schoolId: true },
   });
-  const held = application?.esaCurrentYear === "yes";
+  // An active ESA no longer holds the award itself: it blocks payment to the
+  // school until the ESA is closed (award policy, Oct 16, 2026).
   const groupId = randomUUID();
   const note = entry.note?.trim() || null;
 
-  const created = await prisma.$transaction(
-    lines.map((line) =>
+  const created = await prisma.$transaction([
+    // The committee's decision record, shared by every line of this award.
+    prisma.scholarshipAwardDecision.create({
+      data: { id: groupId, studentId: student.id, schoolYear: entry.schoolYear },
+    }),
+    ...lines.map((line) =>
       prisma.scholarshipAward.create({
         data: {
           studentId: student.id,
@@ -421,14 +425,12 @@ export async function createAwardLines(actor: AllocationActor, entry: AwardEntry
           campaignId: line.key === GENERAL_POOL ? null : line.key,
           drawsFromGeneral: line.key === GENERAL_POOL,
           allocationGroupId: groupId,
+          decisionId: groupId,
           fundingSource: source,
           awardAmount: line.amount,
           awardDate: arizonaTodayAsCalendarDate(),
           schoolYear: entry.schoolYear,
-          status: held ? "held_esa" : "awarded",
-          heldReason: held
-            ? "ESA contract reported for this school year. Held until the Department of Education confirms it closed or lapsed."
-            : null,
+          status: "awarded",
           note,
           approvedBy: actor.id,
           createdBy: actor.id,
@@ -436,7 +438,7 @@ export async function createAwardLines(actor: AllocationActor, entry: AwardEntry
         },
       }),
     ),
-  );
+  ]).then(([, ...awards]) => awards as Awaited<ReturnType<typeof prisma.scholarshipAward.create>>[]);
 
   await logAdminActivity({
     actorId: actor.id,
@@ -444,10 +446,10 @@ export async function createAwardLines(actor: AllocationActor, entry: AwardEntry
     action: "award.create",
     entityType: "scholarship_award",
     entityId: created[0].id,
-    after: { studentId: student.id, fundingSource: source, total, schoolYear: entry.schoolYear, lines, held, groupId },
+    after: { studentId: student.id, fundingSource: source, total, schoolYear: entry.schoolYear, lines, groupId },
   });
   for (const line of lines) if (line.key !== GENERAL_POOL) await recomputeCampaignAwarded(line.key);
-  await notifyAwardCreated(created[0].id, total);
+  // The family hears once the committee approves the award (decision record).
   return created;
 }
 
@@ -593,6 +595,7 @@ export async function backfillAwardCampaigns(actor: AllocationActor, apply: bool
             campaignId: line.key === GENERAL_POOL ? null : line.key,
             drawsFromGeneral: line.key === GENERAL_POOL,
             allocationGroupId: groupId,
+            decisionId: award.decisionId,
             fundingSource: source,
             awardAmount: line.amount,
             awardDate: award.awardDate,

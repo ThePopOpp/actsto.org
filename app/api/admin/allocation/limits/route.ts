@@ -17,9 +17,9 @@ function money(value: unknown): number | null | undefined {
  * PUT /api/admin/allocation/limits
  * Body: { studentId, schoolYear, tuitionCeiling?, tuitionReason?, ddCap?, ddCapReason? }
  *
- * The tuition ceiling overrides the application's tuition after discounts; the
- * disabled/displaced cap is the lesser of tuition or 90% of state aid
- * (A.R.S. §§ 43-1184, 43-1505). Both need a reason, and both are audit logged.
+ * The tuition ceiling overrides the application's tuition after discounts. The
+ * disabled/displaced cap normally comes from the state aid matrix; a cap sent
+ * here overrides it. Both need a reason, and both are audit logged.
  */
 export async function PUT(request: Request) {
   const auth = await requireAllocationActor();
@@ -47,7 +47,8 @@ export async function PUT(request: Request) {
     const before = await prisma.studentYearLimit.findUnique({ where: { studentId_schoolYear: { studentId, schoolYear } } });
     const data = {
       ...(tuitionCeiling !== undefined ? { tuitionCeiling, tuitionReason: tuitionReason || null } : {}),
-      ...(ddCap !== undefined ? { ddCap, ddCapReason: ddCapReason || null } : {}),
+      // A cap typed here overrides the state aid matrix, with its reason.
+      ...(ddCap !== undefined ? { ddCap, ddCapReason: ddCap === null ? null : ddCapReason || null, ddCapIsOverride: ddCap !== null } : {}),
       updatedBy: auth.actor.id,
       updatedByEmail: auth.actor.email,
     };

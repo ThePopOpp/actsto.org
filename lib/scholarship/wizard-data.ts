@@ -140,6 +140,10 @@ export async function loadWizardData(
     overflowComments: application.overflowComments,
     esaCurrentYear: application.esaCurrentYear,
     esaPriorYear: application.esaPriorYear,
+    otherStoAnswer: application.otherStoAnswer,
+    otherStoRows: (
+      await prisma.otherStoScholarship.findMany({ where: { applicationId: application.id, source: "application" }, orderBy: { createdAt: "asc" } })
+    ).map((r) => ({ stoName: r.stoName, program: r.program, amount: Number(r.amount) })),
     hasDisability: application.hasDisability,
     disabilityAutoSet: application.disabilityAutoSet,
     isDisplaced: application.isDisplaced,

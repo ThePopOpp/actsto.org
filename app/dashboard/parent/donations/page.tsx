@@ -21,11 +21,12 @@ function date(value: Date) {
   }).format(value);
 }
 
+/**
+ * Families never see who gave (award policy, donor privacy). This used to show
+ * the donor's legal name, or their email, for every gift.
+ */
 function donorName(row: Awaited<ReturnType<typeof getRows>>[number]) {
-  if (row.anonymous) return "Anonymous";
-  const detail = row.donationDetail;
-  const name = [detail?.donorFirstName, detail?.donorLastName].filter(Boolean).join(" ").trim();
-  return detail?.publicDisplayName || name || detail?.donorEmail || "Supporter";
+  return row.anonymous ? "Anonymous" : "A supporter";
 }
 
 async function getRows(userId: string) {
@@ -40,12 +41,9 @@ async function getRows(userId: string) {
     take: 100,
     include: {
       campaign: { select: { title: true, slug: true } },
-      donationDetail: true,
       donorRecommendation: {
         include: {
           recommendedCampaign: { select: { title: true, slug: true } },
-          recommendedStudent: { select: { firstName: true, lastName: true } },
-          recommendedSchool: { select: { name: true } },
         },
       },
       taxReceipts: {
@@ -125,7 +123,7 @@ export default async function ParentDonationsReceivedPage() {
                       <td className="px-4 py-3">
                         <Badge variant="outline">{row.donationType.replace(/_/g, " ")}</Badge>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.taxReceipts[0]?.receiptNumber ?? "-"}</td>
+                      <td className="px-4 py-3 text-xs">{row.taxReceipts[0] ? "Issued to the donor" : "-"}</td>
                       <td className="px-4 py-3 text-right font-medium tabular-nums">{money(row.amount)}</td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" className="h-8 text-primary" disabled>

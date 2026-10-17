@@ -23,7 +23,9 @@ export async function requireAllocationActor(): Promise<
 
 export function allocationErrorResponse(error: unknown) {
   if (error instanceof AllocationError) {
-    return NextResponse.json({ error: error.message }, { status: error.status });
+    // A payment over tuition once other STOs are counted can go ahead with a reason.
+    const needsReason = error.name === "NeedsReasonError";
+    return NextResponse.json({ error: error.message, ...(needsReason ? { needsReason: true } : {}) }, { status: error.status });
   }
   console.error("[allocation]", error);
   return NextResponse.json({ error: "Something went wrong. Nothing was saved." }, { status: 500 });

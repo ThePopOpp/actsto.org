@@ -94,15 +94,20 @@ async function getBackerData(email: string, role: string) {
       : [];
     const nameByUser = new Map(profiles.map((p) => [p.id, p.displayName || p.fullName || p.email]));
 
+    // Families (parents and students) never see who gave, or the donor's
+    // PayPal order and tax receipt (award policy, donor privacy).
+    const familyView = role === "parent" || role === "student";
     const rows: DonorRow[] = donations.map((d) => {
       const detailName = [d.donationDetail?.donorFirstName, d.donationDetail?.donorLastName].filter(Boolean).join(" ").trim();
       const donorName = d.anonymous
         ? "Anonymous"
-        : d.donationDetail?.publicDisplayName?.trim() ||
-          detailName ||
-          (d.userId ? nameByUser.get(d.userId) : null) ||
-          d.donationDetail?.donorEmail ||
-          "Supporter";
+        : familyView
+          ? "A supporter"
+          : d.donationDetail?.publicDisplayName?.trim() ||
+            detailName ||
+            (d.userId ? nameByUser.get(d.userId) : null) ||
+            d.donationDetail?.donorEmail ||
+            "Supporter";
       return {
         id: d.id,
         createdAt: d.createdAt,
@@ -112,8 +117,8 @@ async function getBackerData(email: string, role: string) {
         campaignTitle: d.campaign?.title ?? "General fund",
         campaignSlug: d.campaign?.slug ?? null,
         status: d.status,
-        orderId: d.paymentProviderOrderId,
-        receiptNumber: d.taxReceipts[0]?.receiptNumber ?? null,
+        orderId: familyView ? null : d.paymentProviderOrderId,
+        receiptNumber: familyView ? null : d.taxReceipts[0]?.receiptNumber ?? null,
         amount: Number(d.amount ?? 0),
       };
     });

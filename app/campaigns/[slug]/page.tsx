@@ -19,6 +19,7 @@ import { getDonorPrefill } from "@/lib/donations/prefill-server";
 import { prisma } from "@/lib/prisma";
 import { getSiteCampaignBySlug } from "@/lib/campaigns-source";
 import { cn, FACE_SAFE_CROP } from "@/lib/utils";
+import { AdorNotice } from "@/components/legal/ador-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -214,6 +215,7 @@ export default async function CampaignDetailPage({ params }: Props) {
             donorPrefill={donorPrefill}
           />
         </div>
+        <AdorNotice className="mt-10" />
       </div>
     </div>
   );

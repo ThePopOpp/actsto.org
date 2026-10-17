@@ -117,8 +117,11 @@ function safeExtension(fileName: string, mimeType: string): string {
 export async function uploadApplicationDocument(
   applicationId: string,
   file: File,
-  /** "verifications" for disability/displacement verification files. */
-  folder: "applications" | "verifications" = "applications",
+  /**
+   * "verifications" for disability/displacement verification files; "policy"
+   * for the Super-Admin-only Scholarship Award Policy.
+   */
+  folder: "applications" | "verifications" | "policy" = "applications",
 ): Promise<UploadResult> {
   const invalid = validateUpload(file);
   if (invalid) return { ok: false, error: invalid };

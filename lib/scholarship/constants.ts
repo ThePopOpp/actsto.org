@@ -55,14 +55,15 @@ export const OVERFLOW_QUALIFICATIONS: OverflowQualification[] = [
   {
     slug: "disability",
     title: "Student with a disability",
-    detail: "Has a MET, IEP, or 504 plan from an Arizona public school. Documentation required.",
+    detail:
+      "Has a MET, IEP, ISP or 504 plan from an Arizona public school or district (current or expired). 504 plans count for K-12 only. Documentation required.",
     needsDocs: true,
   },
   {
     slug: "preschool",
     title: "Preschooler with a disability",
     detail:
-      "Qualifies for preschool services through an Arizona public school. Documentation required.",
+      "Has an IEP, MET or ISP from an Arizona public school naming hearing impairment, visual impairment, developmental delay, preschool severe delay or speech/language impairment. A 504 plan doesn't qualify for preschool. Documentation required.",
     needsDocs: true,
   },
   {

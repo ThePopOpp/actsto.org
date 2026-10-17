@@ -4,7 +4,7 @@ export function parseCsv(text: string): string[][] {
   let row: string[] = [];
   let field = "";
   let inQuotes = false;
-  const input = text.replace(/^﻿/, "");
+  const input = text.replace(/^\uFEFF/, "");
   for (let i = 0; i < input.length; i++) {
     const ch = input[i];
     if (inQuotes) {
@@ -20,8 +20,12 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim()));
 }
 
-/** One CSV cell, quoted when it needs to be. */
+/**
+ * One CSV cell, quoted when it needs to be. Text a spreadsheet would run as a
+ * formula (starting =, +, -, @) is prefixed with an apostrophe; numbers aren't.
+ */
 export function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? "" : String(value);
+  const raw = value === null || value === undefined ? "" : String(value);
+  const text = typeof value === "string" && /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }

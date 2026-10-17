@@ -7,10 +7,14 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/admin/allocation/disbursements
- * Body: { awardId, amount, paidAt, reference?, method?, note? }
+ * Body: { awardId, amount, paidAt, reference?, method?, note?, tuitionOverrideReason? }
  *
  * Marks money as sent to the school. Refused, with the figures, when it would
- * exceed tuition, a cap, or what is left on the award, or while an ESA hold is on.
+ * exceed tuition (ACTSTO's own payments), a cap, or what is left on the award,
+ * while the student has an active ESA, before the committee approves the
+ * award, or (disabled/displaced) before the year's state aid matrix is in.
+ * Going over tuition once other STOs' reported scholarships are counted needs
+ * a reason (409 with needsReason) rather than being refused.
  */
 export async function POST(request: Request) {
   const auth = await requireAllocationActor();

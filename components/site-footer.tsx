@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ActLogo } from "@/components/act-logo";
 import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn } from "@/lib/utils";
+import { AWARD_SUMMARY_PATH } from "@/lib/award-policy/public-page";
 
 /** Footer sits on brand navy; keep links explicitly light across themes. */
 const footerLinkClass =
@@ -24,6 +25,7 @@ const discover = [
   { href: "/about-us", label: "About Us" },
   // "Our Team" (/team) intentionally hidden for now — will be re-added later.
   { href: "/faq", label: "FAQ" },
+  { href: AWARD_SUMMARY_PATH, label: "How We Award Scholarships" },
   { href: "/scholarship-reporting", label: "Scholarship Reporting" },
   { href: "/contact", label: "Contact Us" },
 ];
@@ -176,6 +178,9 @@ export function SiteFooter() {
             </Link>
             <Link href="/legal/terms/tax-disclosure" className={footerLinkClass}>
               Tax Credit Disclosure
+            </Link>
+            <Link href={AWARD_SUMMARY_PATH} className={footerLinkClass}>
+              How We Award Scholarships
             </Link>
           </div>
         </div>

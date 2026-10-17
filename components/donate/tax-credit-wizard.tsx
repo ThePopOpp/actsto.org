@@ -47,6 +47,7 @@ import type {
   DonationOptionSchool,
 } from "@/app/api/campaigns/donation-options/route";
 import { RELATIONSHIP_ACK_TEXT } from "@/lib/donations/recommendations";
+import { AdorNotice } from "@/components/legal/ador-notice";
 
 type StoRow = { id: string; organization: string; amount: number };
 type PaypalConfig = { clientId: string; environment: string };
@@ -2273,6 +2274,8 @@ export function TaxCreditWizard({
           )}
         </WizardShell>
       )}
+      {/* Required by ADOR on every donation page. */}
+      <AdorNotice className="mx-auto mt-6 max-w-3xl" />
     </div>
   );
 }

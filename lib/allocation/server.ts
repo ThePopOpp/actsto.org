@@ -5,10 +5,13 @@ import {
   disbursementError,
   fundEligibilityError,
   payableRoom,
+  tuitionWarning,
+  type DisbursementContext,
   type StudentEligibility,
 } from "@/lib/allocation/rules";
+import { ESA_HOLD_LABEL } from "@/lib/award-policy/limits";
+import { ddCapFor, esaStatusFor, otherStoTotals, type DdCapResult } from "@/lib/award-policy/limits-server";
 import { DISPLACED_SCOPE } from "@/lib/eligibility/flags";
-import { getEligibilitySettings } from "@/lib/eligibility/settings-server";
 import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import {
   FUNDING_SOURCE_LABEL,
@@ -35,6 +38,11 @@ export class AllocationError extends Error {
 export type AllocationActor = { id: string | null; email: string };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** What a payment left at the school: sent, less anything the school returned. */
+export function netPaid(p: { amount: unknown; returnedAmount?: unknown }): number {
+  return round2(Number(p.amount) - Number(p.returnedAmount ?? 0));
+}
 
 // ── Fund balances ────────────────────────────────────────────────────────────
 
@@ -69,7 +77,7 @@ export async function fundBalances(): Promise<FundBalance[]> {
     }),
     prisma.scholarshipPayment.findMany({
       where: { status: "sent" },
-      select: { amount: true, award: { select: { fundingSource: true } } },
+      select: { amount: true, returnedAmount: true, award: { select: { fundingSource: true } } },
     }),
   ]);
 
@@ -83,7 +91,7 @@ export async function fundBalances(): Promise<FundBalance[]> {
     const allocated = Number(awards.find((a) => a.fundingSource === source)?._sum.awardAmount ?? 0);
     const disbursed = payments
       .filter((p) => p.award.fundingSource === source)
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + netPaid(p), 0);
     return {
       fundingSource: source,
       label: FUNDING_SOURCE_LABEL[source],
@@ -111,7 +119,7 @@ export async function gradeForYear(studentId: string, schoolYear: string): Promi
 }
 
 export async function studentEligibility(studentId: string, schoolYear: string): Promise<StudentEligibility> {
-  const [base, flags, settings, grade] = await Promise.all([
+  const [base, flags, grade] = await Promise.all([
     prisma.studentYearEligibility.findUnique({
       where: { studentId_schoolYear: { studentId, schoolYear } },
     }),
@@ -119,7 +127,6 @@ export async function studentEligibility(studentId: string, schoolYear: string):
       where: { studentId, status: "approved" },
       select: { flag: true, schoolYear: true },
     }),
-    getEligibilitySettings(),
     gradeForYear(studentId, schoolYear),
   ]);
 
@@ -129,7 +136,8 @@ export async function studentEligibility(studentId: string, schoolYear: string):
     approvedApplication,
     overflow: approvedFor("overflow") || Boolean(approvedApplication && base?.overflowEligible),
     low_income: approvedFor("low_income"),
-    disabled: approvedFor("disabled") || (settings.disabilityCarriesOver && flags.some((f) => f.flag === "disabled")),
+    // Verified once, for every later school year (award policy; ADOR Q143-Q144).
+    disabled: flags.some((f) => f.flag === "disabled"),
     // Displaced is verified once for all of K-12, and never applies to preschool.
     displaced: approvedFor("displaced", DISPLACED_SCOPE) && isK12(grade),
   };
@@ -138,16 +146,24 @@ export async function studentEligibility(studentId: string, schoolYear: string):
 export type StudentYearMoney = {
   tuitionCeiling: number | null;
   tuitionSource: "override" | "application" | null;
+  /** The disabled/displaced cap: min(tuition, 90% state aid), or the override. */
   ddCap: number | null;
+  dd: DdCapResult;
   lowIncomeCap: number | null;
   grade: string | null;
+  /** Other STOs' scholarships this year (self-reported), all programs and disabled/displaced. */
+  otherStoAll: number;
+  otherStoDisabledDisplaced: number;
+  /** The student's ESA status for the year. */
+  esaStatus: "none" | "active" | "closed" | null;
+  /** Sent by ACTSTO, net of anything the school returned. */
   sentAllFunds: number;
   sentBySource: Partial<Record<FundingSource, number>>;
   awardedBySource: Partial<Record<FundingSource, number>>;
 };
 
 export async function studentYearMoney(studentId: string, schoolYear: string): Promise<StudentYearMoney> {
-  const [limits, application, grade, awards] = await Promise.all([
+  const [limits, application, grade, awards, other, esa] = await Promise.all([
     prisma.studentYearLimit.findUnique({ where: { studentId_schoolYear: { studentId, schoolYear } } }),
     prisma.scholarshipApplication.findFirst({
       where: { studentId, schoolYear, status: { notIn: ["denied", "withdrawn"] } },
@@ -160,9 +176,11 @@ export async function studentYearMoney(studentId: string, schoolYear: string): P
       select: {
         fundingSource: true,
         awardAmount: true,
-        payments: { where: { status: "sent" }, select: { amount: true } },
+        payments: { where: { status: "sent" }, select: { amount: true, returnedAmount: true } },
       },
     }),
+    otherStoTotals(studentId, schoolYear),
+    esaStatusFor(studentId, schoolYear),
   ]);
 
   const band = gradeBand(grade);
@@ -179,7 +197,7 @@ export async function studentYearMoney(studentId: string, schoolYear: string): P
   let sentAllFunds = 0;
   for (const award of awards) {
     const source = isFundingSource(award.fundingSource) ? award.fundingSource : "unrestricted";
-    const sent = award.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const sent = award.payments.reduce((sum, p) => sum + netPaid(p), 0);
     sentAllFunds += sent;
     sentBySource[source] = round2((sentBySource[source] ?? 0) + sent);
     awardedBySource[source] = round2((awardedBySource[source] ?? 0) + Number(award.awardAmount));
@@ -187,12 +205,18 @@ export async function studentYearMoney(studentId: string, schoolYear: string): P
 
   const override = limits?.tuitionCeiling != null ? Number(limits.tuitionCeiling) : null;
   const fromApplication = application?.tuitionAfterDiscounts != null ? Number(application.tuitionAfterDiscounts) : null;
+  const tuitionCeiling = override ?? fromApplication;
+  const dd = await ddCapFor(studentId, schoolYear, { grade, tuition: tuitionCeiling });
   return {
-    tuitionCeiling: override ?? fromApplication,
+    tuitionCeiling,
     tuitionSource: override !== null ? "override" : fromApplication !== null ? "application" : null,
-    ddCap: limits?.ddCap != null ? Number(limits.ddCap) : null,
+    ddCap: dd.cap,
+    dd,
     lowIncomeCap: cap ? Number(cap.amount) : null,
     grade,
+    otherStoAll: other.all,
+    otherStoDisabledDisplaced: other.disabledDisplaced,
+    esaStatus: (esa?.status as StudentYearMoney["esaStatus"]) ?? null,
     sentAllFunds: round2(sentAllFunds),
     sentBySource,
     awardedBySource,
@@ -279,6 +303,8 @@ export async function allocationCandidates(
       tuitionCeiling: money.tuitionCeiling,
       lowIncomeCap: money.lowIncomeCap,
       ddCap: money.ddCap,
+      otherStoAll: money.otherStoAll,
+      otherStoDisabledDisplaced: money.otherStoDisabledDisplaced,
     });
 
     rows.push({
@@ -289,7 +315,8 @@ export async function allocationCandidates(
       grade: money.grade,
       eligible: !reason,
       ineligibleReason: reason,
-      esaHold: row.sourceApplication.esaCurrentYear === "yes",
+      // An active ESA holds payment, never the award.
+      esaHold: money.esaStatus === "active",
       awardedThisFund,
       awardedAllFunds: round2(Object.values(money.awardedBySource).reduce((s, v) => s + (v ?? 0), 0)),
       sentAllFunds: money.sentAllFunds,
@@ -314,12 +341,14 @@ export async function reverseAward(actor: AllocationActor, awardId: string, reas
   if (!reason.trim()) throw new AllocationError("Record why this award is being reversed.");
   const award = await prisma.scholarshipAward.findUnique({
     where: { id: awardId },
-    include: { payments: { where: { status: "sent" }, select: { id: true } } },
+    include: { payments: { where: { status: "sent" }, select: { id: true, amount: true, returnedAmount: true } } },
   });
   if (!award) throw new AllocationError("Award not found.", 404);
   if (award.status === "reversed") throw new AllocationError("This award is already reversed.");
-  if (award.payments.length > 0) {
-    throw new AllocationError("Money has been sent to the school against this award. Void those payments first.");
+  if (award.payments.some((p) => netPaid(p) > 0.005)) {
+    throw new AllocationError(
+      "Money is at the school against this award. Void the payment, record the school's return, or release only the unsent part.",
+    );
   }
   const updated = await prisma.scholarshipAward.update({
     where: { id: awardId },
@@ -370,49 +399,81 @@ export type DisbursementInput = {
   reference?: string | null;
   method?: string | null;
   note?: string | null;
+  /** Required when the payment would take all STOs together over tuition. */
+  tuitionOverrideReason?: string | null;
 };
 
-export async function recordDisbursement(actor: AllocationActor, input: DisbursementInput) {
+/** Thrown when a payment needs a reason before it can go ahead (not a refusal). */
+export class NeedsReasonError extends AllocationError {
+  constructor(message: string) {
+    super(message, 409);
+    this.name = "NeedsReasonError";
+  }
+}
+
+/** The context the disbursement rules check, for one award and amount. */
+export async function disbursementContext(awardId: string, amount: number): Promise<{ ctx: DisbursementContext; award: { id: string; schoolId: string | null; studentId: string; schoolYear: string } }> {
   const award = await prisma.scholarshipAward.findUnique({
-    where: { id: input.awardId },
-    include: { payments: { where: { status: "sent" }, select: { amount: true } } },
+    where: { id: awardId },
+    include: {
+      payments: { where: { status: "sent" }, select: { amount: true, returnedAmount: true } },
+      decision: { select: { approvedAt: true } },
+    },
   });
   if (!award || !award.schoolYear) throw new AllocationError("Award not found.", 404);
   const source = isFundingSource(award.fundingSource) ? award.fundingSource : "unrestricted";
-  const amount = round2(Number(input.amount));
-  // A typed calendar day, stored as noon Arizona time so it never shifts a day.
-  const paidAt = arizonaDateToInstant(String(input.paidAt ?? "").slice(0, 10));
-  if (!paidAt) throw new AllocationError("Enter the date the money was sent.");
-
   const [eligibility, money] = await Promise.all([
     studentEligibility(award.studentId, award.schoolYear),
     studentYearMoney(award.studentId, award.schoolYear),
   ]);
-  const sentOnAward = award.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const sentOnAward = award.payments.reduce((sum, p) => sum + netPaid(p), 0);
+  return {
+    award: { id: award.id, schoolId: award.schoolId, studentId: award.studentId, schoolYear: award.schoolYear },
+    ctx: {
+      amount: round2(amount),
+      fundingSource: source,
+      awardStatus: award.status,
+      schoolYear: award.schoolYear,
+      awardUnsent: round2(Number(award.awardAmount) - sentOnAward),
+      sentAllFunds: money.sentAllFunds,
+      sentThisFund: money.sentBySource[source] ?? 0,
+      tuitionCeiling: money.tuitionCeiling,
+      otherStoAll: money.otherStoAll,
+      otherStoDisabledDisplaced: money.otherStoDisabledDisplaced,
+      lowIncomeCap: money.lowIncomeCap,
+      ddCap: money.ddCap,
+      ddMatrixLoaded: money.dd.matrixLoaded,
+      stillEligible: !fundEligibilityError(source, eligibility),
+      esaActive: money.esaStatus === "active",
+      committeeApproved: Boolean(award.decision?.approvedAt),
+    },
+  };
+}
 
-  const problem = disbursementError({
-    amount,
-    fundingSource: source,
-    awardStatus: award.status,
-    awardUnsent: round2(Number(award.awardAmount) - sentOnAward),
-    sentAllFunds: money.sentAllFunds,
-    sentThisFund: money.sentBySource[source] ?? 0,
-    tuitionCeiling: money.tuitionCeiling,
-    lowIncomeCap: money.lowIncomeCap,
-    ddCap: money.ddCap,
-    stillEligible: !fundEligibilityError(source, eligibility),
-  });
+export async function recordDisbursement(actor: AllocationActor, input: DisbursementInput) {
+  // A typed calendar day, stored as noon Arizona time so it never shifts a day.
+  const paidAt = arizonaDateToInstant(String(input.paidAt ?? "").slice(0, 10));
+  if (!paidAt) throw new AllocationError("Enter the date the money was sent.");
+  const { ctx, award } = await disbursementContext(input.awardId, Number(input.amount));
+
+  const problem = disbursementError(ctx);
   if (problem) throw new AllocationError(problem, 422);
+  // Over tuition only once other STOs' self-reported scholarships are counted:
+  // a warning. Staff may go ahead with a reason, which is logged.
+  const warning = tuitionWarning(ctx);
+  const overrideReason = input.tuitionOverrideReason?.trim() || null;
+  if (warning && !overrideReason) throw new NeedsReasonError(`${warning} Enter a reason to send it anyway.`);
 
   const payment = await prisma.scholarshipPayment.create({
     data: {
       awardId: award.id,
       schoolId: award.schoolId,
-      amount,
+      amount: ctx.amount,
       paidAt,
       paymentReference: input.reference?.trim() || null,
       paymentMethod: input.method?.trim() || null,
       note: input.note?.trim() || null,
+      tuitionOverrideReason: warning ? overrideReason : null,
       status: "sent",
       recordedBy: actor.id,
       recordedByEmail: actor.email,
@@ -424,10 +485,77 @@ export async function recordDisbursement(actor: AllocationActor, input: Disburse
     action: "disbursement.create",
     entityType: "scholarship_payment",
     entityId: payment.id,
-    after: { awardId: award.id, amount, paidAt: input.paidAt, reference: input.reference },
+    after: { awardId: award.id, amount: ctx.amount, paidAt: input.paidAt, reference: input.reference, tuitionWarning: warning, overrideReason: warning ? overrideReason : null },
   });
-  await notifyAwardChange(award.id, "sent", amount);
+  await notifyAwardChange(award.id, "sent", ctx.amount);
   return payment;
+}
+
+/**
+ * The school returned money on a payment (a prorated refund or an excess
+ * return). It goes back on the award, unsent: it can be paid again for the
+ * same student, or released from the award to be reallocated.
+ */
+export async function recordPaymentReturn(
+  actor: AllocationActor,
+  paymentId: string,
+  input: { amount: number; returnedOn: string; note: string },
+) {
+  if (!input.note?.trim()) throw new AllocationError("Record why the school returned the money.");
+  const payment = await prisma.scholarshipPayment.findUnique({ where: { id: paymentId } });
+  if (!payment || payment.status !== "sent") throw new AllocationError("Payment not found.", 404);
+  const amount = round2(Number(input.amount));
+  const left = netPaid(payment);
+  if (!(amount > 0)) throw new AllocationError("Enter the amount returned.");
+  if (amount > left + 0.005) throw new AllocationError(`Only ${left.toLocaleString("en-US", { style: "currency", currency: "USD" })} of this payment is still at the school.`);
+  const returnedAt = arizonaDateToInstant(String(input.returnedOn ?? "").slice(0, 10));
+  if (!returnedAt) throw new AllocationError("Enter the date the money came back.");
+  const updated = await prisma.scholarshipPayment.update({
+    where: { id: paymentId },
+    data: {
+      returnedAmount: round2(Number(payment.returnedAmount) + amount),
+      returnedAt,
+      returnNote: [payment.returnNote, `${input.returnedOn}: ${amount} (${input.note.trim()})`].filter(Boolean).join("\n"),
+    },
+  });
+  await logAdminActivity({
+    actorId: actor.id,
+    actorEmail: actor.email,
+    action: "disbursement.return",
+    entityType: "scholarship_payment",
+    entityId: paymentId,
+    before: { returnedAmount: Number(payment.returnedAmount) },
+    after: { returnedAmount: Number(updated.returnedAmount), amount, returnedOn: input.returnedOn, note: input.note.trim() },
+  });
+  return updated;
+}
+
+/**
+ * Release what is left unsent on an award back to its campaign, so it can be
+ * reallocated: the award is reduced to what the school kept.
+ */
+export async function releaseUnsent(actor: AllocationActor, awardId: string, reason: string) {
+  if (!reason.trim()) throw new AllocationError("Record why the rest of this award is being released.");
+  const award = await prisma.scholarshipAward.findUnique({
+    where: { id: awardId },
+    include: { payments: { where: { status: "sent" }, select: { amount: true, returnedAmount: true } } },
+  });
+  if (!award || award.status === "reversed") throw new AllocationError("Award not found.", 404);
+  const kept = round2(award.payments.reduce((s, p) => s + netPaid(p), 0));
+  const before = Number(award.awardAmount);
+  if (kept >= before - 0.005) throw new AllocationError("Nothing on this award is unsent.");
+  if (kept <= 0) throw new AllocationError("Nothing has been sent on this award. Reverse it instead.");
+  await prisma.scholarshipAward.update({ where: { id: awardId }, data: { awardAmount: kept } });
+  await logAdminActivity({
+    actorId: actor.id,
+    actorEmail: actor.email,
+    action: "award.release_unsent",
+    entityType: "scholarship_award",
+    entityId: awardId,
+    before: { amount: before },
+    after: { amount: kept, released: round2(before - kept), reason: reason.trim() },
+  });
+  if (award.campaignId) await recomputeCampaignAwarded(award.campaignId);
 }
 
 export async function voidDisbursement(actor: AllocationActor, paymentId: string, reason: string) {
@@ -520,7 +648,7 @@ export type StudentAwardSummary = {
     program: string;
     amount: number;
     sent: number;
-    status: "Awarded" | "Partially sent to school" | "Fully sent to school" | "Awarded, held (ESA documentation pending)";
+    status: "Awarded" | "Partially sent to school" | "Fully sent to school" | typeof ESA_HOLD_LABEL;
     payments: { amount: number; date: string }[];
   }[];
 };
@@ -532,12 +660,14 @@ export async function studentAwardSummaries(studentId: string): Promise<StudentA
     orderBy: { createdAt: "asc" },
     include: { payments: { where: { status: "sent" }, orderBy: { paidAt: "asc" } } },
   });
+  const esa = await prisma.studentEsaStatus.findMany({ where: { studentId, status: "active" }, select: { schoolYear: true } });
+  const esaActive = new Set(esa.map((e) => e.schoolYear));
   const years = new Map<string, StudentAwardSummary>();
   for (const award of awards) {
     const year = award.schoolYear!;
     const summary = years.get(year) ?? { schoolYear: year, awarded: 0, sent: 0, remaining: 0, lines: [] };
     const amount = Number(award.awardAmount);
-    const sent = award.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const sent = award.payments.reduce((s, p) => s + netPaid(p), 0);
     const source = isFundingSource(award.fundingSource) ? award.fundingSource : "unrestricted";
     summary.awarded = round2(summary.awarded + amount);
     summary.sent = round2(summary.sent + sent);
@@ -548,17 +678,19 @@ export async function studentAwardSummaries(studentId: string): Promise<StudentA
       amount,
       sent: round2(sent),
       status:
-        award.status === "held_esa"
-          ? "Awarded, held (ESA documentation pending)"
+        esaActive.has(year) && sent + 0.005 < amount
+          ? ESA_HOLD_LABEL
           : sent <= 0
             ? "Awarded"
             : sent + 0.005 >= amount
               ? "Fully sent to school"
               : "Partially sent to school",
-      payments: award.payments.map((p) => ({
-        amount: Number(p.amount),
-        date: isoDateInArizona(p.paidAt ?? p.createdAt),
-      })),
+      payments: award.payments
+        .filter((p) => netPaid(p) > 0)
+        .map((p) => ({
+          amount: netPaid(p),
+          date: isoDateInArizona(p.paidAt ?? p.createdAt),
+        })),
     });
     years.set(year, summary);
   }
@@ -579,10 +711,12 @@ async function notifyAwardChange(awardId: string, kind: "awarded" | "sent", amou
         status: true,
         awardAmount: true,
         fundingSource: true,
+        studentId: true,
         student: { select: { firstName: true, parentUserId: true } },
       },
     });
     if (!award) return;
+    const esa = award.schoolYear ? await esaStatusFor(award.studentId, award.schoolYear) : null;
     const parent = await prisma.profile.findUnique({
       where: { id: award.student.parentUserId },
       select: { id: true, email: true, displayName: true, fullName: true },
@@ -594,12 +728,16 @@ async function notifyAwardChange(awardId: string, kind: "awarded" | "sent", amou
     const body =
       kind === "sent"
         ? [`We've sent ${dollars} of ${award.student.firstName}'s ${program.toLowerCase()} to the school for ${award.schoolYear}.`]
-        : award.status === "held_esa"
+        : esa?.status === "active" || award.status === "held_esa"
           ? [
               `${award.student.firstName} has been awarded ${dollars} (${program.toLowerCase()}) for ${award.schoolYear}.`,
-              "Because an ESA contract was reported for this school year, we're holding the award until the Department of Education confirms the contract closed or lapsed. Send us that documentation when you have it.",
+              "Because an ESA contract is active for this school year, we can't send the money to the school until the ESA is closed. Send us the ESA closure notice when you have it.",
+              "If you'd like to appeal this decision, contact us within 30 days of this notice.",
             ]
-          : [`${award.student.firstName} has been awarded ${dollars} (${program.toLowerCase()}) for ${award.schoolYear}. We'll let you know when it is sent to the school.`];
+          : [
+              `${award.student.firstName} has been awarded ${dollars} (${program.toLowerCase()}) for ${award.schoolYear}. We'll let you know when it is sent to the school.`,
+              "If you'd like to appeal this decision, contact us within 30 days of this notice.",
+            ];
     await notify({
       to: { profileId: parent.id, email: parent.email, name: parent.displayName ?? parent.fullName },
       subject: kind === "sent" ? "Scholarship sent to your school" : "Scholarship awarded",

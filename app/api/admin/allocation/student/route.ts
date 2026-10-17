@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { allocationErrorResponse, requireAllocationActor } from "@/lib/allocation/api";
 import { payableRoom } from "@/lib/allocation/rules";
-import { studentEligibility, studentYearMoney } from "@/lib/allocation/server";
+import { netPaid, studentEligibility, studentYearMoney } from "@/lib/allocation/server";
+import { getDecision } from "@/lib/award-policy/decisions-server";
+import { otherStoTotals } from "@/lib/award-policy/limits-server";
+import { priorityFactors } from "@/lib/award-policy/priority-server";
 import { FUNDING_SOURCE_LABEL, isFundingSource } from "@/lib/funding-sources";
 import { prisma } from "@/lib/prisma";
 import { isoDateInArizona } from "@/lib/format-date";
@@ -12,8 +15,10 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/allocation/student?studentId=&year=
  *
- * One student's year: eligibility, limits, awards with their payments and how
- * much of each can still be paid, and donor recommendations as context only.
+ * One student's year: eligibility, limits (tuition, the all-STO disabled/
+ * displaced cap from the state aid matrix, other STOs' scholarships), ESA
+ * status, awards with their payments, returns and decision records, priority
+ * factors and narrative, and donor recommendations as context only.
  */
 export async function GET(request: Request) {
   const auth = await requireAllocationActor();
@@ -29,7 +34,7 @@ export async function GET(request: Request) {
     });
     if (!student || !year) return NextResponse.json({ error: "Student not found." }, { status: 404 });
 
-    const [eligibility, money, limits, awards, recommendations] = await Promise.all([
+    const [eligibility, money, limits, awards, recommendations, other, esa, application, priority, waiting] = await Promise.all([
       studentEligibility(studentId, year),
       studentYearMoney(studentId, year),
       prisma.studentYearLimit.findUnique({ where: { studentId_schoolYear: { studentId, schoolYear: year } } }),
@@ -56,7 +61,25 @@ export async function GET(request: Request) {
           },
         },
       }),
+      otherStoTotals(studentId, year),
+      prisma.studentEsaStatus.findUnique({ where: { studentId_schoolYear: { studentId, schoolYear: year } } }),
+      prisma.scholarshipApplication.findFirst({
+        where: { studentId, schoolYear: year, status: { notIn: ["withdrawn"] } },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          narrative: true,
+          otherStoAnswer: true,
+          esaCurrentYear: true,
+          documents: { where: { documentKind: "esa_closure", purgedAt: null }, select: { id: true, fileName: true, uploadedAt: true } },
+        },
+      }),
+      priorityFactors([studentId], year),
+      prisma.overflowWaitingListEntry.findFirst({ where: { studentId, removedAt: null }, select: { addedOn: true, note: true } }),
     ]);
+
+    const decisionIds = Array.from(new Set(awards.map((a) => a.decisionId).filter((id): id is string => Boolean(id))));
+    const decisions = (await Promise.all(decisionIds.map((id) => getDecision(id)))).filter(Boolean);
 
     return NextResponse.json({
       student: {
@@ -70,15 +93,30 @@ export async function GET(request: Request) {
       limits: {
         tuitionCeiling: limits?.tuitionCeiling != null ? Number(limits.tuitionCeiling) : null,
         tuitionReason: limits?.tuitionReason ?? null,
-        ddCap: limits?.ddCap != null ? Number(limits.ddCap) : null,
-        ddCapReason: limits?.ddCapReason ?? null,
+        ddCapOverride: limits?.ddCapIsOverride && limits.ddCap != null ? Number(limits.ddCap) : null,
+        ddCapReason: limits?.ddCapIsOverride ? limits.ddCapReason : null,
       },
+      otherSto: { ...other, answer: application?.otherStoAnswer ?? null },
+      esa: {
+        status: esa?.status ?? null,
+        closedOn: esa?.closedOn ? esa.closedOn.toISOString().slice(0, 10) : null,
+        note: esa?.note ?? null,
+        source: esa?.source ?? null,
+        closureDocumentId: esa?.closureDocumentId ?? null,
+        applicationAnswer: application?.esaCurrentYear ?? null,
+        closureDocuments: (application?.documents ?? []).map((d) => ({ id: d.id, fileName: d.fileName, uploadedOn: isoDateInArizona(d.uploadedAt) })),
+      },
+      priority: priority.get(studentId) ?? null,
+      narrative: application?.narrative ?? null,
+      waitingList: waiting ? { addedOn: isoDateInArizona(waiting.addedOn), note: waiting.note } : null,
+      decisions,
       awards: awards.map((award) => {
         const source = isFundingSource(award.fundingSource) ? award.fundingSource : "unrestricted";
-        const sentHere = award.payments.filter((p) => p.status === "sent").reduce((s, p) => s + Number(p.amount), 0);
+        const sentHere = award.payments.filter((p) => p.status === "sent").reduce((s, p) => s + netPaid(p), 0);
         const unsent = Number(award.awardAmount) - sentHere;
         return {
           id: award.id,
+          decisionId: award.decisionId,
           fundingSource: source,
           fundingLabel: FUNDING_SOURCE_LABEL[source],
           amount: Number(award.awardAmount),
@@ -91,9 +129,9 @@ export async function GET(request: Request) {
           allocationGroupId: award.allocationGroupId,
           createdAt: award.createdAt.toISOString(),
           createdByEmail: award.createdByEmail,
-          sent: sentHere,
-          // What could still go to the school under tuition and caps; the rest
-          // is "awarded, not payable".
+          sent: Math.round(sentHere * 100) / 100,
+          // What could still go to the school under tuition and caps, counting
+          // other STOs; the rest is "awarded, not payable".
           payable:
             award.status === "reversed"
               ? 0
@@ -105,14 +143,19 @@ export async function GET(request: Request) {
                   tuitionCeiling: money.tuitionCeiling,
                   lowIncomeCap: money.lowIncomeCap,
                   ddCap: money.ddCap,
+                  otherStoAll: money.otherStoAll,
+                  otherStoDisabledDisplaced: money.otherStoDisabledDisplaced,
                 }),
           payments: award.payments.map((p) => ({
             id: p.id,
             amount: Number(p.amount),
+            returned: Number(p.returnedAmount),
+            returnNote: p.returnNote,
             paidAt: isoDateInArizona(p.paidAt ?? p.createdAt),
             reference: p.paymentReference,
             status: p.status,
             voidReason: p.voidReason,
+            tuitionOverrideReason: p.tuitionOverrideReason,
           })),
         };
       }),

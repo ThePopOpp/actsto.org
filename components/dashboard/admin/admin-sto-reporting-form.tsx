@@ -64,6 +64,56 @@ export function AdminStoReportingForm() {
     touch();
   }
 
+  const [calc, setCalc] = useState<Record<number, string>>({});
+
+  /** Fill a year from payments and certified income, for staff to check before publishing. */
+  async function calculate(index: number) {
+    const year = years[index];
+    if (!/^\d{4}$/.test(year?.fiscalYear ?? "")) {
+      setCalc((c) => ({ ...c, [index]: "Enter the fiscal year first." }));
+      return;
+    }
+    setCalc((c) => ({ ...c, [index]: "Calculating…" }));
+    const res = await fetch(`/api/admin/sto-reporting/calculate?fiscalYear=${year.fiscalYear}`, { cache: "no-store" });
+    const data = (await res.json().catch(() => null)) as {
+      figures?: Record<StoProgramKey, { totalPaid: number; upTo185: number; from185To342: number; above342: number; incomeUnknown: number }>;
+      error?: string;
+    } | null;
+    if (!res.ok || !data?.figures) {
+      setCalc((c) => ({ ...c, [index]: data?.error ?? "Couldn't calculate." }));
+      return;
+    }
+    const figures = data.figures;
+    setYears((current) =>
+      current.map((y, i) =>
+        i === index
+          ? {
+              ...y,
+              programs: Object.fromEntries(
+                STO_PROGRAMS.map((p) => [
+                  p.key,
+                  {
+                    ...y.programs[p.key],
+                    offered: y.programs[p.key].offered || figures[p.key].totalPaid > 0,
+                    totalAwarded: figures[p.key].totalPaid,
+                    upTo185: figures[p.key].upTo185,
+                    from185To342: figures[p.key].from185To342,
+                  },
+                ]),
+              ) as StoReportingYear["programs"],
+            }
+          : y,
+      ),
+    );
+    const unknown = STO_PROGRAMS.reduce((sum, p) => sum + figures[p.key].incomeUnknown, 0);
+    const above = STO_PROGRAMS.reduce((sum, p) => sum + figures[p.key].above342, 0);
+    setCalc((c) => ({
+      ...c,
+      [index]: `Filled from payments in ${year.fiscalYear}. Check before saving.${unknown ? ` $${unknown.toLocaleString()} paid with no certified income on file.` : ""}${above ? ` $${above.toLocaleString()} paid above 342.25%.` : ""}`,
+    }));
+    touch();
+  }
+
   function patchProgram(index: number, key: StoProgramKey, patch: Partial<StoProgramFigures>) {
     setYears((current) =>
       current.map((y, i) =>
@@ -172,6 +222,9 @@ export function AdminStoReportingForm() {
                 <Checkbox checked={year.published} onCheckedChange={(v) => patchYear(index, { published: v === true })} />
                 Published on the website
               </label>
+              <Button type="button" variant="outline" size="sm" onClick={() => void calculate(index)}>
+                Calculate from payments
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -184,6 +237,7 @@ export function AdminStoReportingForm() {
               </Button>
             </div>
 
+            {calc[index] ? <p className="text-xs text-muted-foreground">{calc[index]}</p> : null}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="text-left text-xs uppercase text-muted-foreground">

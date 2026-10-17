@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { ApplicationReviewStep } from "@/components/dashboard/scholarship/steps/review-step";
+import { AdorNotice } from "@/components/legal/ador-notice";
 import { EsaStep } from "@/components/dashboard/scholarship/steps/esa-step";
 import { FamilyStep } from "@/components/dashboard/scholarship/steps/family-step";
 import { FinancialStep } from "@/components/dashboard/scholarship/steps/financial-step";
@@ -57,6 +58,7 @@ export type WizardValues = {
   overflowComments: string;
   esaCurrentYear: string;
   esaPriorYear: string;
+  otherStoAnswer: string;
   hasDisability: string;
   isDisplaced: string;
 };
@@ -89,6 +91,7 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
     overflowComments: data.application.overflowComments ?? "",
     esaCurrentYear: data.application.esaCurrentYear ?? "",
     esaPriorYear: data.application.esaPriorYear ?? "",
+    otherStoAnswer: data.application.otherStoAnswer ?? "",
     hasDisability: data.application.hasDisability ?? "",
     isDisplaced: data.application.isDisplaced ?? "",
   }));
@@ -157,7 +160,8 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           key === "grade" ||
           key === "schoolNameOther" ||
           key === "hasDisability" ||
-          key === "isDisplaced"
+          key === "isDisplaced" ||
+          key === "otherStoAnswer"
         ) {
           payload[key] = value === "" ? null : value;
         } else {
@@ -221,6 +225,9 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
     };
   }, [flush]);
 
+  // Other STOs' scholarships are saved by the ESA step itself; the count drives validation.
+  const [otherStoRowCount, setOtherStoRowCount] = useState(data.application.otherStoRows.length);
+
   // ── Validation ─────────────────────────────────────────────────────────────
   const issues = useMemo<ValidationIssue[]>(
     () =>
@@ -238,12 +245,14 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           overflowOrg: values.overflowOrg || null,
           esaCurrentYear: values.esaCurrentYear || null,
           esaPriorYear: values.esaPriorYear || null,
+          otherStoAnswer: values.otherStoAnswer || null,
+          otherStoRowCount,
           hasDisability: values.hasDisability || null,
           isDisplaced: values.isDisplaced || null,
         },
         household.length,
       ),
-    [values, incomeConfirmedAt, household.length],
+    [values, incomeConfirmedAt, household.length, otherStoRowCount],
   );
 
   const issuesForStep = useCallback(
@@ -407,6 +416,9 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           <EsaStep
             values={values}
             onPatch={patchValues}
+            applicationId={data.application.id}
+            otherStoRows={data.application.otherStoRows}
+            onOtherStoCount={setOtherStoRowCount}
             issues={showErrors ? stepIssues : []}
             readOnly={!sectionEditable}
           />
@@ -472,6 +484,8 @@ export function ApplicationWizard({ data }: { data: WizardData }) {
           </AlertDescription>
         </Alert>
       ) : null}
+      {/* Required by ADOR on the scholarship application. */}
+      <AdorNotice />
     </div>
   );
 }

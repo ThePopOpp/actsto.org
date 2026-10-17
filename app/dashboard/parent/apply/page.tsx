@@ -18,6 +18,8 @@ import {
   resolveWindowState,
 } from "@/lib/scholarship/windows";
 import { cn } from "@/lib/utils";
+import { AdorNotice } from "@/components/legal/ador-notice";
+import { AWARD_SUMMARY_PATH } from "@/lib/award-policy/public-page";
 
 export const metadata = {
   title: "Apply for a scholarship",
@@ -89,9 +91,15 @@ export default async function ApplyPage() {
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           One application per student, per school year. Your answers save as you go, so you can
-          leave and come back.
+          leave and come back. Read{" "}
+          <Link href={AWARD_SUMMARY_PATH} className="text-primary underline-offset-4 hover:underline">
+            how we award scholarships
+          </Link>
+          .
         </p>
       </header>
+
+      <AdorNotice />
 
       <WindowNotice
         phase={windowState.phase}

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DISPLACED_FORM_URL } from "@/lib/scholarship/constants";
 import { DISPLACED_RETENTION_NOTICE, RETENTION_NOTICE } from "@/lib/scholarship/retention-copy";
+import { DISABILITY_DOCUMENT_HELP } from "@/lib/award-policy/disability";
 
 /**
  * Mark a student disabled or displaced from the student profile. It goes to
@@ -91,10 +92,7 @@ export function StudentVerificationRequest({
             </DialogHeader>
             <div className="space-y-4 text-sm">
               {kind === "disability" ? (
-                <p className="text-muted-foreground">
-                  Upload the MET, IEP or 504 plan from an Arizona public school (or preschool services documentation for
-                  a preschooler).
-                </p>
+                <p className="text-muted-foreground">{DISABILITY_DOCUMENT_HELP}</p>
               ) : (
                 <div className="space-y-2 text-muted-foreground">
                   <p>{displacedDefinition}</p>

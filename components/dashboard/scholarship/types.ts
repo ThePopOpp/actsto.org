@@ -27,6 +27,9 @@ export type WizardApplication = {
   overflowComments: string | null;
   esaCurrentYear: string | null;
   esaPriorYear: string | null;
+  /** 'yes' | 'no' | null: scholarships from other STOs this year. */
+  otherStoAnswer: string | null;
+  otherStoRows: { stoName: string; program: string; amount: number }[];
   /** 'yes' | 'no' | null. Separate from the overflow reason. */
   hasDisability: string | null;
   /** The yes came from picking a disability overflow reason. */

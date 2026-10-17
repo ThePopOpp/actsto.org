@@ -85,8 +85,10 @@ const nav: NavEntry[] = [
       { href: "/dashboard/admin/scholarships/eligibility", label: "Eligibility", icon: ShieldCheck },
       { href: "/dashboard/admin/scholarships/income-table", label: "Low-income table", icon: Scale },
       { href: "/dashboard/admin/scholarships/caps", label: "Scholarship caps", icon: ClipboardList },
+      { href: "/dashboard/admin/scholarships/state-aid-matrix", label: "90% state aid matrix", icon: Scale },
       { href: "/dashboard/admin/scholarships/retention", label: "Records retention", icon: FileText },
       { href: "/dashboard/admin/scholarships/windows", label: "Application windows", icon: CalendarClock },
+      { href: "/dashboard/admin/award-policy", label: "Award policy", icon: FileText },
     ],
   },
   {

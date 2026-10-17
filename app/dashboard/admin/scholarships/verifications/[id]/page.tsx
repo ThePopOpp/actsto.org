@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/lib/button-variants";
 import { VERIFICATION_STATUS_LABEL } from "@/lib/eligibility/verifications-server";
+import { isK12 } from "@/lib/grades";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/scholarship/capabilities";
 import { getStaffActor } from "@/lib/scholarship/scope";
@@ -62,7 +63,13 @@ export default async function VerificationPage({ params }: { params: Promise<{ i
     <>
       <AdminPageHeader
         title={`${studentName} · ${kind === "displacement" ? "Displacement" : "Disability"} verification`}
-        description={`${VERIFICATION_STATUS_LABEL[v.status] ?? v.status} · ${v.schoolYear === "K-12" ? "covers all of K-12 once approved" : v.schoolYear}`}
+        description={`${VERIFICATION_STATUS_LABEL[v.status] ?? v.status} · ${
+          v.schoolYear === "K-12"
+            ? "covers all of K-12 once approved"
+            : v.isUpdate
+              ? "updated plan for a student already verified"
+              : "verified once, carries forward to every later school year"
+        }`}
       />
       <div className="mb-4">
         <Link href="/dashboard/admin/scholarships" className={cn(buttonVariants({ variant: "link", size: "sm" }), "h-auto p-0")}>
@@ -163,6 +170,15 @@ export default async function VerificationPage({ params }: { params: Promise<{ i
             claimedBy={v.claimedBy && v.claimedBy !== actor.profileId ? nameOf(v.claimedBy) : null}
             canDecide={can(actor.staffRole, "review.decide")}
             dcsReference={v.dcsReference}
+            isUpdate={v.isUpdate}
+            defaultGradeBand={isK12(v.student.grade) ? "k12" : v.student.grade ? "preschool" : ""}
+            checklist={{
+              documentType: v.documentType,
+              issuedByAzPublic: v.issuedByAzPublic,
+              disabilityNamed: v.disabilityNamed,
+              spedCategory: v.spedCategory,
+              gradeBand: v.gradeBand,
+            }}
           />
 
           <Card className="border-border/80">

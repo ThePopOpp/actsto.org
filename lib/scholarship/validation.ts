@@ -37,6 +37,10 @@ export type ValidatableApplication = {
   overflowOrg: string | null;
   esaCurrentYear: string | null;
   esaPriorYear: string | null;
+  /** 'yes' | 'no': scholarships from other STOs this year. Undefined for callers that predate the question. */
+  otherStoAnswer?: string | null;
+  /** How many other-STO scholarships the family listed. */
+  otherStoRowCount?: number;
   /** 'yes' | 'no'. Undefined for callers that predate the question. */
   hasDisability?: string | null;
   isDisplaced?: string | null;
@@ -147,6 +151,13 @@ export function validateApplication(
   }
   if (!application.esaPriorYear) {
     issues.push({ section: "esa", field: "esaPriorYear", message: "Pick an answer to continue." });
+  }
+  // Scholarships from other STOs this year (award policy, ADOR Q48 and Q150).
+  if (application.otherStoAnswer !== undefined && !application.otherStoAnswer) {
+    issues.push({ section: "esa", field: "otherStoAnswer", message: "Tell us whether another STO has given your student a scholarship this year." });
+  }
+  if (application.otherStoAnswer === "yes" && application.otherStoRowCount === 0) {
+    issues.push({ section: "esa", field: "otherStoRows", message: "List each scholarship from another STO, with the amount." });
   }
 
   return issues;

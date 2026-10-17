@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_ELIGIBILITY_SETTINGS, type EligibilitySettings } from "@/lib/eligibility/settings";
@@ -75,20 +74,10 @@ export function AdminSettingsForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={save} className="space-y-5">
-            <label className="flex cursor-pointer items-start gap-2 text-sm">
-              <Checkbox
-                className="mt-0.5"
-                checked={settings.disabilityCarriesOver}
-                onCheckedChange={(v) => setSettings((s) => ({ ...s, disabilityCarriesOver: v === true }))}
-              />
-              <span>
-                An approved disability verification carries into later school years.
-                <span className="block text-xs text-muted-foreground">
-                  Off means families re-document a disability each school year (the safer default until compliance
-                  confirms). Displaced status always lasts all of K-12.
-                </span>
-              </span>
-            </label>
+            <p className="text-sm text-muted-foreground">
+              An approved disability verification carries forward to every later school year, and displaced status
+              lasts all of K-12 (award policy, ADOR STO Manual Q143-Q144).
+            </p>
             <div>
               <Label htmlFor="displaced-definition">Definition of a displaced student (shown to parents)</Label>
               <Textarea

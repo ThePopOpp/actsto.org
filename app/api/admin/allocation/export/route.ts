@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { requireAllocationActor } from "@/lib/allocation/api";
 import { campaignLedger } from "@/lib/allocation/campaign-funds";
+import { decisionsCsv } from "@/lib/award-policy/decisions-server";
+import { awardsHeldForEsa } from "@/lib/award-policy/limits-server";
 import { allocationLedger, fundBalances } from "@/lib/allocation/server";
 import { FUNDING_SOURCE_LABEL, isFundingSource } from "@/lib/funding-sources";
 import { isoDateInArizona } from "@/lib/format-date";
@@ -16,7 +18,7 @@ function csvCell(value: unknown): string {
 }
 
 /**
- * GET /api/admin/allocation/export?year=&kind=ledger|reconciliation|campaigns
+ * GET /api/admin/allocation/export?year=&kind=ledger|reconciliation|campaigns|decisions|esa-held
  *
  * CSV for ADOR reporting and the annual report: every award with its payments,
  * the per-fund reconciliation (received, allocated, sent, remaining), or the
@@ -29,10 +31,33 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const year = url.searchParams.get("year") || undefined;
   const rawKind = url.searchParams.get("kind");
-  const kind = rawKind === "reconciliation" || rawKind === "campaigns" ? rawKind : "ledger";
+  const kind =
+    rawKind === "reconciliation" || rawKind === "campaigns" || rawKind === "decisions" || rawKind === "esa-held" ? rawKind : "ledger";
+
+  // Award decision records for the audit, one school year at a time.
+  if (kind === "decisions") {
+    if (!year) return NextResponse.json({ error: "Choose a school year." }, { status: 400 });
+    return new NextResponse(await decisionsCsv(year), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="award-decisions-${year.replace("/", "-")}.csv"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
 
   let lines: string[];
-  if (kind === "campaigns") {
+  if (kind === "esa-held") {
+    const held = await awardsHeldForEsa(year);
+    lines = [
+      ["School year", "Student", "Fund", "Campaign", "Awarded", "Held (unsent)", "ESA note"].join(","),
+      ...held.map((h) =>
+        [h.schoolYear, h.studentName, isFundingSource(h.fundingSource) ? FUNDING_SOURCE_LABEL[h.fundingSource] : h.fundingSource, h.campaign, h.awarded, h.unsent, h.esaNote]
+          .map(csvCell)
+          .join(","),
+      ),
+    ];
+  } else if (kind === "campaigns") {
     const ledger = await campaignLedger();
     lines = [
       ["Fund", "Campaign", "Received", "Awarded in campaign", "Awarded to others", "Remaining"].join(","),
@@ -101,8 +126,9 @@ export async function GET(request: Request) {
     ];
   }
 
-  const base = kind === "reconciliation" ? "fund-reconciliation" : kind === "campaigns" ? "campaign-reconciliation" : "allocations";
-  const name = `${base}${year && kind === "ledger" ? `-${year.replace("/", "-")}` : ""}.csv`;
+  const base =
+    kind === "reconciliation" ? "fund-reconciliation" : kind === "campaigns" ? "campaign-reconciliation" : kind === "esa-held" ? "esa-held-awards" : "allocations";
+  const name = `${base}${year && (kind === "ledger" || kind === "esa-held") ? `-${year.replace("/", "-")}` : ""}.csv`;
   return new NextResponse(lines.join("\n"), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

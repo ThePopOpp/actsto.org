@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { CampaignContext, CampaignFundRow, PlannedAward, BackfillProposal } from "@/lib/allocation/campaign-funds";
 import { GENERAL_POOL, toCents, toDollars } from "@/lib/allocation/funding-plan";
 import type { AllocationCandidate, FundBalance } from "@/lib/allocation/server";
@@ -25,11 +26,22 @@ type Payload = {
   campaigns: Pot[];
   context: CampaignContext | null;
   candidates: AllocationCandidate[];
+  priority: Record<string, Priority>;
+  esaHeld: { awardId: string; studentId: string; studentName: string; schoolYear: string; fundingSource: string | null; campaign: string | null; awarded: number; unsent: number; esaNote: string | null }[];
   ledger: CampaignFundRow[];
   unattached: { fundingSource: FundingSource; amount: number; count: number }[];
   error?: string;
 };
 
+type Priority = {
+  returning?: boolean;
+  sibling?: boolean;
+  waitingListSince?: string | null;
+  hasNarrative?: boolean;
+  pctOfRplLimit?: number | null;
+  /** On the Overflow waiting list, or a sibling of someone who is. */
+  waitingListHousehold?: boolean;
+};
 type PreviewLine = { key: string; amount: string };
 type PreviewRow = { studentId: string; lines: PreviewLine[]; unfunded: number };
 
@@ -56,7 +68,9 @@ export function AllocationTool() {
   const [campaignKey, setCampaignKey] = useState("");
   const [includeIneligible, setIncludeIneligible] = useState(false);
   const [noAwardOnly, setNoAwardOnly] = useState(false);
-  const [sort, setSort] = useState<"name" | "school" | "awarded">("name");
+  const [sort, setSort] = useState<"name" | "school" | "awarded" | "need">("name");
+  const [only, setOnly] = useState<{ returning: boolean; sibling: boolean; waiting: boolean }>({ returning: false, sibling: false, waiting: false });
+  const [narrativeFor, setNarrativeFor] = useState<{ name: string; text: string | null } | null>(null);
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -111,14 +125,39 @@ export function AllocationTool() {
     [context],
   );
 
+  const priorityOf = useCallback((id: string): Priority => data?.priority?.[id] ?? {}, [data]);
   const rows = useMemo(() => {
     let list = data?.candidates ?? [];
     if (noAwardOnly) list = list.filter((c) => c.awardedAllFunds === 0);
+    if (only.returning) list = list.filter((c) => priorityOf(c.studentId).returning);
+    if (only.sibling) list = list.filter((c) => priorityOf(c.studentId).sibling);
+    if (only.waiting) list = list.filter((c) => priorityOf(c.studentId).waitingListSince);
     const sorted = [...list];
     if (sort === "school") sorted.sort((a, b) => (a.schoolName ?? "").localeCompare(b.schoolName ?? "") || a.name.localeCompare(b.name));
     if (sort === "awarded") sorted.sort((a, b) => a.awardedAllFunds - b.awardedAllFunds);
+    if (sort === "need") {
+      sorted.sort((a, b) => (priorityOf(a.studentId).pctOfRplLimit ?? Infinity) - (priorityOf(b.studentId).pctOfRplLimit ?? Infinity));
+    }
+    // Overflow: waiting-list students and their siblings first, earliest added first.
+    if (source === "individual_overflow") {
+      sorted.sort((a, b) => {
+        const pa = priorityOf(a.studentId);
+        const pb = priorityOf(b.studentId);
+        return (
+          Number(Boolean(pb.waitingListHousehold)) - Number(Boolean(pa.waitingListHousehold)) ||
+          (pa.waitingListSince ?? "9999").localeCompare(pb.waitingListSince ?? "9999")
+        );
+      });
+    }
     return { own: sorted.filter(isOwn), others: sorted.filter((c) => !isOwn(c)) };
-  }, [data, noAwardOnly, sort, isOwn]);
+  }, [data, noAwardOnly, sort, isOwn, only, priorityOf, source]);
+
+  async function openNarrative(c: AllocationCandidate) {
+    setNarrativeFor({ name: c.name, text: null });
+    const res = await fetch(`/api/admin/allocation/student?studentId=${encodeURIComponent(c.studentId)}&year=${encodeURIComponent(year)}`, { cache: "no-store" });
+    const json = (await res.json().catch(() => null)) as { narrative?: string | null } | null;
+    setNarrativeFor({ name: c.name, text: json?.narrative?.trim() || "No narrative on this year's application." });
+  }
   const ownIneligible = context && !context.isSchoolLevel
     ? context.studentIds.filter((id) => !(data?.candidates ?? []).some((c) => c.studentId === id)).length
     : 0;
@@ -251,8 +290,25 @@ export function AllocationTool() {
         <td className="py-2 pr-3 text-right tabular-nums">{usd(c.sentAllFunds)}</td>
         <td className="py-2 pr-3 text-right tabular-nums">{usd(c.tuitionCeiling)}</td>
         <td className="py-2 pr-3 text-right tabular-nums">{usd(c.payableRoomThisFund)}</td>
+        <td className="py-2 pr-3 text-right tabular-nums" title="Household income as a percent of the reduced-price lunch limit">
+          {priorityOf(c.studentId).pctOfRplLimit != null ? `${priorityOf(c.studentId).pctOfRplLimit}%` : "—"}
+        </td>
         <td className="py-2 pr-3">
           <div className="flex flex-wrap gap-1">
+            {priorityOf(c.studentId).returning ? <Badge variant="outline">Returning</Badge> : null}
+            {priorityOf(c.studentId).sibling ? <Badge variant="outline">Sibling</Badge> : null}
+            {priorityOf(c.studentId).waitingListSince ? (
+              <Badge variant="outline" title={`On the Overflow waiting list since ${priorityOf(c.studentId).waitingListSince?.slice(0, 10)}`}>
+                Waiting list
+              </Badge>
+            ) : priorityOf(c.studentId).waitingListHousehold ? (
+              <Badge variant="outline">Waiting-list sibling</Badge>
+            ) : null}
+            {priorityOf(c.studentId).hasNarrative ? (
+              <button type="button" className="text-xs text-primary underline-offset-2 hover:underline" onClick={() => void openNarrative(c)}>
+                Narrative
+              </button>
+            ) : null}
             {!c.eligible ? (
               <Badge variant="outline" className="border-destructive/40 text-destructive" title={c.ineligibleReason ?? ""}>
                 Not eligible
@@ -289,7 +345,7 @@ export function AllocationTool() {
       </tr>
     );
   };
-  const columnCount = context ? 12 : 11;
+  const columnCount = context ? 13 : 12;
 
   return (
     <div className="space-y-6">
@@ -382,6 +438,24 @@ export function AllocationTool() {
             <input type="checkbox" className="size-4" checked={noAwardOnly} onChange={(e) => setNoAwardOnly(e.target.checked)} />
             Only students with no award yet this year
           </label>
+          <div className="flex flex-wrap items-center gap-4 text-sm sm:col-span-4">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">Only</span>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" className="size-4" checked={only.returning} onChange={(e) => setOnly({ ...only, returning: e.target.checked })} />
+              Returning students
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" className="size-4" checked={only.sibling} onChange={(e) => setOnly({ ...only, sibling: e.target.checked })} />
+              Siblings of recipients
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" className="size-4" checked={only.waiting} onChange={(e) => setOnly({ ...only, waiting: e.target.checked })} />
+              Overflow waiting list
+            </label>
+            {source === "individual_overflow" ? (
+              <span className="text-xs text-muted-foreground">Waiting-list students and their siblings are listed first.</span>
+            ) : null}
+          </div>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input type="checkbox" className="size-4" checked={includeIneligible} onChange={(e) => setIncludeIneligible(e.target.checked)} />
             Also list students who aren&apos;t eligible for this fund (with the reason)
@@ -435,6 +509,7 @@ export function AllocationTool() {
               <option value="name">Name</option>
               <option value="school">School</option>
               <option value="awarded">Least awarded first</option>
+              <option value="need">Greatest need first (% RPL)</option>
             </select>
           </div>
         </CardHeader>
@@ -468,7 +543,10 @@ export function AllocationTool() {
                     <th className="py-2 pr-3 text-right" title="What could still be sent from this fund under tuition and caps">
                       Payable room
                     </th>
-                    <th className="py-2 pr-3">Notes</th>
+                    <th className="py-2 pr-3 text-right" title="Household income as a percent of the reduced-price lunch limit">
+                      % RPL
+                    </th>
+                    <th className="py-2 pr-3">Priority · notes</th>
                     <th className="py-2 pr-3">Award</th>
                     <th className="py-2" />
                   </tr>
@@ -683,7 +761,67 @@ export function AllocationTool() {
         </CardContent>
       </Card>
 
+      <Card className="border-border/80">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="font-heading text-primary">Held for an active ESA · {year || "—"}</CardTitle>
+            <CardDescription>
+              Awards are allowed while a student has an active ESA, but nothing is sent to the school until the ESA is
+              closed. Close it on the student&apos;s Details and the award becomes payable again.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-muted"
+              href={`/api/admin/allocation/export?kind=esa-held${year ? `&year=${encodeURIComponent(year)}` : ""}`}
+            >
+              <Download className="size-4" /> ESA holds CSV
+            </a>
+            {year ? (
+              <a
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-muted"
+                href={`/api/admin/allocation/export?kind=decisions&year=${encodeURIComponent(year)}`}
+              >
+                <Download className="size-4" /> Decision records CSV
+              </a>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(data?.esaHeld ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No awards are held for an active ESA this year.</p>
+          ) : (
+            <ul className="divide-y divide-border/60 text-sm">
+              {(data?.esaHeld ?? []).map((h) => (
+                <li key={h.awardId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>
+                    <span className="font-medium text-foreground">{h.studentName}</span>{" "}
+                    <span className="text-muted-foreground">
+                      · {h.fundingSource ? FUNDING_SOURCE_LABEL[h.fundingSource as FundingSource] ?? h.fundingSource : ""}
+                      {h.campaign ? ` · ${h.campaign}` : ""} · {usd(h.unsent)} held of {usd(h.awarded)}
+                    </span>
+                  </span>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setOpenStudent(h.studentId)}>
+                    Details
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
       <ReconciliationCard data={data} year={year} />
+
+      <Sheet open={Boolean(narrativeFor)} onOpenChange={(o) => !o && setNarrativeFor(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle className="font-heading text-primary">{narrativeFor?.name ?? "Student"}</SheetTitle>
+            <SheetDescription>Student narrative · {year}</SheetDescription>
+          </SheetHeader>
+          <p className="whitespace-pre-wrap px-4 pb-6 text-sm text-muted-foreground">{narrativeFor?.text ?? "Loading…"}</p>
+        </SheetContent>
+      </Sheet>
 
       {openStudent && year ? (
         <StudentAllocationDialog

@@ -12,7 +12,9 @@
 
 import assert from "node:assert/strict";
 
-const { awardAmountError, disbursementError, fundEligibilityError, payableRoom } = await import("@/lib/allocation/rules");
+const { awardAmountError, disbursementError, fundEligibilityError, payableRoom, tuitionWarning } = await import("@/lib/allocation/rules");
+const { disabilityApprovalError } = await import("@/lib/award-policy/disability");
+const { capCategory, ddGradeBand, parseMatrixCsv } = await import("@/lib/award-policy/limits");
 const { calculateLowIncome, incomeLimitFor, validateIncomeTable } = await import("@/lib/eligibility/income-table");
 const { canonicalGrade, gradeBand, isK12, normalizeGradeInput } = await import("@/lib/grades");
 const { splitIndividualGift, isCorporateProgram } = await import("@/lib/funding-sources");
@@ -85,13 +87,19 @@ const base = {
   amount: 1000,
   fundingSource: "individual_original" as const,
   awardStatus: "awarded",
+  schoolYear: "2026/2027",
   awardUnsent: 5000,
   sentAllFunds: 0,
   sentThisFund: 0,
   tuitionCeiling: 10000,
+  otherStoAll: 0,
+  otherStoDisabledDisplaced: 0,
   lowIncomeCap: null,
   ddCap: null,
+  ddMatrixLoaded: true,
   stillEligible: true,
+  esaActive: false,
+  committeeApproved: true,
 };
 
 test("a payment within tuition is allowed", () => {
@@ -111,10 +119,31 @@ test("low-income payments stop at the grade-band cap", () => {
 test("low-income payments need a cap on file", () => {
   assert.match(disbursementError({ ...base, fundingSource: "corporate_low_income" }) ?? "", /No low-income cap/);
 });
-test("disabled/displaced payments stop at the lesser of tuition and the entered cap", () => {
-  const ctx = { ...base, fundingSource: "corporate_disabled_displaced" as const, ddCap: 7000, sentThisFund: 6500 };
-  assert.match(disbursementError(ctx) ?? "", /disabled\/displaced cap/);
-  assert.match(disbursementError({ ...base, fundingSource: "corporate_disabled_displaced" }) ?? "", /Enter this student's disabled/);
+test("disabled/displaced payments stop at the cap across all STOs, with the figures", () => {
+  const ctx = { ...base, fundingSource: "corporate_disabled_displaced" as const, ddCap: 7000, sentThisFund: 3000, otherStoDisabledDisplaced: 3500 };
+  const msg = disbursementError(ctx) ?? "";
+  assert.match(msg, /across all STOs/);
+  assert.match(msg, /\$7,000 cap/);
+  assert.match(msg, /\$3,500 from other STOs/);
+  assert.match(msg, /\$500 of room left/);
+  assert.equal(disbursementError({ ...ctx, amount: 500 }), null);
+  assert.match(disbursementError({ ...base, fundingSource: "corporate_disabled_displaced" }) ?? "", /No 90% state aid amount/);
+});
+test("disabled/displaced payments wait for the year's ADOR matrix", () => {
+  const ctx = { ...base, fundingSource: "corporate_disabled_displaced" as const, ddCap: 7000, ddMatrixLoaded: false, schoolYear: "2027/2028" };
+  assert.match(disbursementError(ctx) ?? "", /Waiting for ADOR 2027\/2028 state aid matrix/);
+});
+test("an active ESA blocks the payment, not the award", () => {
+  assert.equal(disbursementError({ ...base, esaActive: true }), "Active ESA: award held until the ESA is closed.");
+});
+test("nothing is paid without the committee's approval", () => {
+  assert.match(disbursementError({ ...base, committeeApproved: false }) ?? "", /committee/);
+});
+test("other STOs' scholarships over tuition warn rather than block", () => {
+  const ctx = { ...base, otherStoAll: 9500 };
+  assert.equal(disbursementError(ctx), null);
+  assert.match(tuitionWarning(ctx) ?? "", /other STOs/);
+  assert.equal(tuitionWarning({ ...ctx, amount: 500 }), null);
 });
 test("held, reversed and no-longer-eligible awards can't be paid", () => {
   assert.match(disbursementError({ ...base, awardStatus: "held_esa" }) ?? "", /ESA/);
@@ -334,6 +363,49 @@ test("one amount is funded across campaigns, and pots are not drawn twice", () =
   const second = fundFromPots(1000, pots);
   assert.deepEqual(second.lines.map((l) => [l.key, l.amount]), [["valley", 956]]);
   assert.equal(second.unfunded, 44);
+});
+
+
+// ── Award policy: disability verification and the cap category ───────────────
+
+const CHECK = { documentType: "IEP", issuedByAzPublic: true, disabilityNamed: "Autism", spedCategory: "A", gradeBand: "k12" };
+test("a complete K-12 IEP checklist can be approved", () => {
+  assert.equal(disabilityApprovalError(CHECK), null);
+});
+test("documents not from an Arizona public school are denied", () => {
+  assert.match(disabilityApprovalError({ ...CHECK, issuedByAzPublic: false }) ?? "", /Arizona public school/);
+});
+test("a 504 plan never qualifies a preschooler", () => {
+  assert.match(disabilityApprovalError({ ...CHECK, documentType: "504", spedCategory: null, gradeBand: "preschool" }) ?? "", /K-12 only/);
+  assert.equal(disabilityApprovalError({ ...CHECK, documentType: "504", spedCategory: null }), null);
+});
+test("a preschooler needs one of the five preschool disabilities", () => {
+  assert.match(disabilityApprovalError({ ...CHECK, gradeBand: "preschool", spedCategory: "A" }) ?? "", /preschooler qualifies only/);
+  assert.equal(disabilityApprovalError({ ...CHECK, gradeBand: "preschool", spedCategory: "SLI" }), null);
+});
+test("displaced students and 504 plans use regular education", () => {
+  assert.equal(capCategory({ grade: "3rd grade", verifiedCategory: null, verifiedDocumentType: null, disabled: false, displaced: true }).category, "REG");
+  assert.equal(capCategory({ grade: "3rd grade", verifiedCategory: "SLD", verifiedDocumentType: "504", disabled: true, displaced: false }).category, "REG");
+  assert.equal(capCategory({ grade: "3rd grade", verifiedCategory: "SLD", verifiedDocumentType: "IEP", disabled: true, displaced: false }).category, "SLD");
+});
+test("a preschool category stops at kindergarten and flags an MET check", () => {
+  const out = capCategory({ grade: "Kindergarten", verifiedCategory: "PSD", verifiedDocumentType: "IEP", disabled: true, displaced: false });
+  assert.deepEqual(out, { category: "REG", needsMetCheck: true });
+  assert.equal(capCategory({ grade: "Preschool", verifiedCategory: "PSD", verifiedDocumentType: "IEP", disabled: true, displaced: false }).category, "PSD");
+});
+test("matrix grade bands", () => {
+  assert.equal(ddGradeBand("Preschool"), "preschool");
+  assert.equal(ddGradeBand("Kindergarten"), "k8");
+  assert.equal(ddGradeBand("10th grade"), "9_12");
+  assert.equal(ddGradeBand(null), null);
+});
+test("the state aid matrix imports from CSV and reports bad rows", () => {
+  const out = parseMatrixCsv("sped_category,grade_band,amount_90pct\nREG,K-8,\"$5,120.50\"\nA,9-12,22000\nA,9-12,1\nX,college,5");
+  assert.deepEqual(out.rows, [
+    { spedCategory: "REG", gradeBand: "k8", amount90pct: 5120.5 },
+    { spedCategory: "A", gradeBand: "9_12", amount90pct: 22000 },
+  ]);
+  assert.equal(out.errors.length, 2);
 });
 
 console.log(`allocation rules: ${passed} passed, ${failed} failed`);

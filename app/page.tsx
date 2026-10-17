@@ -2,6 +2,7 @@ import { HomeHero } from "@/components/home/home-hero";
 import { HomeBelowHero } from "@/components/home/home-sections";
 import { getSiteCampaigns } from "@/lib/campaigns-source";
 import { getCtaBlockByPlacement } from "@/lib/site-cta-blocks";
+import { AdorNotice } from "@/components/legal/ador-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,10 @@ export default async function HomePage() {
         }}
       />
       <HomeBelowHero campaigns={campaigns} />
+      {/* ADOR prefers the required notice on the home page. */}
+      <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">
+        <AdorNotice />
+      </section>
     </>
   );
 }

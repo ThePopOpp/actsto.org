@@ -102,6 +102,7 @@ type ApplicationPatch = {
   overflowComments?: string | null;
   esaCurrentYear?: string | null;
   esaPriorYear?: string | null;
+  otherStoAnswer?: string | null;
   hasDisability?: string | null;
   isDisplaced?: string | null;
 };
@@ -120,6 +121,7 @@ const FIELD_SECTION: Record<keyof ApplicationPatch, ApplicationStepId> = {
   overflowComments: "overflow",
   esaCurrentYear: "esa",
   esaPriorYear: "esa",
+  otherStoAnswer: "esa",
   // Student circumstances sit on the overflow step, beside the reason list.
   hasDisability: "overflow",
   isDisplaced: "overflow",
@@ -206,6 +208,9 @@ export function parseApplicationPatch(
       patch[key] = value ? String(value) : null;
     }
   }
+  if ("otherStoAnswer" in raw) {
+    patch.otherStoAnswer = raw.otherStoAnswer === "yes" || raw.otherStoAnswer === "no" ? raw.otherStoAnswer : null;
+  }
   if ("esaPriorYear" in raw) {
     const value = raw.esaPriorYear;
     if (value !== null && value !== "" && !["yes", "no"].includes(String(value))) {
@@ -272,6 +277,7 @@ export async function patchApplication(
   if (patch.overflowComments !== undefined) data.overflowComments = patch.overflowComments;
   if (patch.esaCurrentYear !== undefined) data.esaCurrentYear = patch.esaCurrentYear;
   if (patch.esaPriorYear !== undefined) data.esaPriorYear = patch.esaPriorYear;
+  if (patch.otherStoAnswer !== undefined) data.otherStoAnswer = patch.otherStoAnswer;
 
   // The disability yes/no and the overflow reason write one value. Picking a
   // disability reason sets Yes automatically; moving to another reason clears
@@ -371,6 +377,8 @@ function validatable(application: {
   overflowOrg: string | null;
   esaCurrentYear: string | null;
   esaPriorYear: string | null;
+  otherStoAnswer?: string | null;
+  otherStoRowCount?: number;
   hasDisability: string | null;
   isDisplaced: string | null;
   incomeProofStatus?: string;
@@ -436,8 +444,9 @@ export async function submitApplication(
   const window = await assertWindowOpenForSubmit(application.schoolYear);
 
   const members = await listHouseholdMembers(parent.profileId);
+  const otherStoRowCount = await prisma.otherStoScholarship.count({ where: { applicationId: application.id } });
   const issues = validateApplication(
-    validatable({ ...application, documents: application.documents }),
+    validatable({ ...application, otherStoRowCount, documents: application.documents }),
     members.length,
   );
   if (issues.length > 0) {
@@ -491,6 +500,29 @@ export async function submitApplication(
     attemptNumber: application.attemptNumber,
     esaHold: application.esaCurrentYear === "yes",
   });
+
+  // The year's ESA status comes from the family's answer unless staff already
+  // set it. An active (or unsure) ESA holds payment to the school, not the award.
+  if (application.schoolYear && application.esaCurrentYear) {
+    const status = application.esaCurrentYear === "no" ? "none" : "active";
+    const existing = await prisma.studentEsaStatus.findUnique({
+      where: { studentId_schoolYear: { studentId: application.studentId, schoolYear: application.schoolYear } },
+      select: { source: true },
+    });
+    if (!existing || existing.source === "application") {
+      await prisma.studentEsaStatus.upsert({
+        where: { studentId_schoolYear: { studentId: application.studentId, schoolYear: application.schoolYear } },
+        create: {
+          studentId: application.studentId,
+          schoolYear: application.schoolYear,
+          status,
+          source: "application",
+          note: application.esaCurrentYear === "unsure" ? 'Family answered "unsure" on the application.' : null,
+        },
+        update: { status, note: application.esaCurrentYear === "unsure" ? 'Family answered "unsure" on the application.' : null },
+      });
+    }
+  }
 
   // A displaced answer starts the one-time DCS verification (lasts all of
   // K-12). Its outcome never blocks the application itself.
@@ -598,4 +630,47 @@ export async function purgedDocumentsFrom(deniedApplicationId: string) {
     where: { applicationId: deniedApplicationId, purgedAt: { not: null } },
     select: { fileName: true, documentKind: true },
   });
+}
+
+// ── Scholarships from other STOs ─────────────────────────────────────────────
+
+export type OtherStoRowInput = { stoName: string; program: string; amount: number };
+
+/**
+ * Replace the family's list of other STOs' scholarships for this application's
+ * student and year. Rows staff entered are kept. Counted against tuition, and
+ * disabled/displaced amounts against the all-STO cap.
+ */
+export async function saveOtherStoRows(applicationId: string, parent: ParentActor, rows: OtherStoRowInput[]) {
+  const application = await requireOwnedApplication(applicationId, parent.profileId);
+  assertWritable(application, "esa");
+  if (!application.schoolYear) throw new ScopeError("Choose the school year first.", 400);
+  const programs = ["disabled_displaced", "low_income", "original", "switcher", "unknown"];
+  const clean = rows
+    .map((r) => ({
+      stoName: String(r.stoName ?? "").trim().slice(0, 160),
+      program: programs.includes(String(r.program)) ? String(r.program) : "unknown",
+      amount: Math.round(Number(String(r.amount ?? "").replace(/[$,\s]/g, "")) * 100) / 100,
+    }))
+    .filter((r) => r.stoName || r.amount);
+  for (const r of clean) {
+    if (!r.stoName) throw new ScopeError("Enter the name of each STO.", 400);
+    if (!Number.isFinite(r.amount) || r.amount < 0) throw new ScopeError(`Enter the amount from ${r.stoName}.`, 400);
+  }
+  await prisma.$transaction([
+    prisma.otherStoScholarship.deleteMany({ where: { applicationId, source: "application" } }),
+    prisma.otherStoScholarship.createMany({
+      data: clean.slice(0, 20).map((r) => ({
+        studentId: application.studentId,
+        schoolYear: application.schoolYear!,
+        applicationId,
+        stoName: r.stoName,
+        program: r.program,
+        amount: r.amount,
+        source: "application",
+        updatedBy: parent.profileId,
+      })),
+    }),
+  ]);
+  return prisma.otherStoScholarship.findMany({ where: { applicationId, source: "application" }, orderBy: { createdAt: "asc" } });
 }

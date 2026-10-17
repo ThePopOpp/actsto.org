@@ -32,6 +32,7 @@ import {
 import { DISPLACED_RETENTION_NOTICE, RETENTION_NOTICE } from "@/lib/scholarship/retention-copy";
 import type { ValidationIssue } from "@/lib/scholarship/validation";
 import { cn } from "@/lib/utils";
+import { DISABILITY_DOCUMENT_HELP } from "@/lib/award-policy/disability";
 
 export function OverflowStep({
   applicationId,
@@ -187,10 +188,7 @@ export function OverflowStep({
         <CardContent className="space-y-6">
           <fieldset className="space-y-2">
             <legend className="font-medium text-foreground">Does your student have a disability?</legend>
-            <p className="text-sm text-muted-foreground">
-              A MET, IEP or 504 plan from an Arizona public school, or preschool services documentation for a
-              preschooler. Upload it below.
-            </p>
+            <p className="text-sm text-muted-foreground">{DISABILITY_DOCUMENT_HELP} Upload it below.</p>
             <YesNo
               name="has-disability"
               value={values.hasDisability}

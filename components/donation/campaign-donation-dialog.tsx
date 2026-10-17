@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { CampaignGivingLevel } from "@/lib/campaigns";
 import { currentTaxYearLimits, DEFAULT_TAX_CREDIT_LIMITS, type TaxCreditLimitConfig } from "@/lib/tax-credit";
 import { cn, parseDateValue } from "@/lib/utils";
+import { AdorNotice } from "@/components/legal/ador-notice";
 
 const QUICK_CHOOSE_PILLS = [250, 1500, 3750] as const;
 
@@ -220,6 +221,7 @@ export function CampaignDonationDialog({
             </DialogHeader>
 
             <div className="mt-4 space-y-4">
+              <AdorNotice />
               <button
                 type="button"
                 onClick={() => goQuickFromChoose()}
