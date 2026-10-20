@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { DecisionRecordPanel, type DecisionData } from "@/components/dashboard/admin/allocation/decision-record-panel";
+import { AwardDecisionSection, type DecisionData } from "@/components/dashboard/admin/allocation/award-decision-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import type { CampaignFundRow } from "@/lib/allocation/campaign-funds";
 import type { StudentEligibility } from "@/lib/allocation/rules";
 import { spedLabel } from "@/lib/award-policy/disability";
-import { ESA_HOLD_LABEL, ESA_STATUSES, OTHER_STO_PROGRAMS } from "@/lib/award-policy/limits";
+import { awardCardStatus } from "@/lib/award-policy/decisions";
+import { ddBandLabel, ESA_STATUSES, OTHER_STO_PROGRAMS } from "@/lib/award-policy/limits";
 import { formatDate, isoDateInArizona } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,8 @@ type AwardRow = {
   amount: number;
   status: string;
   reversalReason: string | null;
+  reversedAt: string | null;
+  reversedByEmail: string | null;
   note: string | null;
   campaignTitle: string | null;
   /** Campaign id, "general", or null for an older award with no campaign. */
@@ -47,9 +50,22 @@ type AwardRow = {
   payments: Payment[];
 };
 
+type Need = {
+  householdIncome: number | null;
+  householdSize: number | null;
+  pctOfRplLimit: number | null;
+  tuition: number | null;
+  otherSto: number;
+  otherStoCount: number;
+  actSent: number;
+  tuitionRoom: number | null;
+};
+
 type Detail = {
   student: { id: string; name: string; school: string | null; grade: string | null };
+  viewerId: string | null;
   eligibility: StudentEligibility;
+  needAssessment: Need;
   money: {
     tuitionCeiling: number | null;
     tuitionSource: string | null;
@@ -58,7 +74,9 @@ type Detail = {
       matrixLoaded: boolean;
       category: string;
       gradeBand: string | null;
+      matrixRow: string | null;
       matrixAmount: number | null;
+      problem: string | null;
       cap: number | null;
       source: "override" | "matrix" | "legacy" | null;
       overrideReason: string | null;
@@ -100,10 +118,13 @@ function usd(n: number | null | undefined) {
   return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  awarded: "Awarded",
-  held_esa: ESA_HOLD_LABEL,
-  reversed: "Reversed",
+const STATUS_STYLE: Record<string, string> = {
+  Awarded: "border-amber-500/50 text-amber-700 dark:text-amber-400",
+  Reviewed: "border-sky-500/50 text-sky-700 dark:text-sky-400",
+  Approved: "",
+  "Sent to school": "",
+  "Held: active ESA": "border-amber-500/50 text-amber-700 dark:text-amber-400",
+  Reversed: "text-muted-foreground",
 };
 
 class NeedsReason extends Error {}
@@ -120,11 +141,14 @@ export function StudentAllocationDialog({
   studentId,
   schoolYear,
   ledger,
+  openAwardId,
   onClose,
   onChanged,
 }: {
   studentId: string;
   schoolYear: string;
+  /** An award (or decision) to open on arrival, e.g. from the committee list. */
+  openAwardId?: string | null;
   /** Every campaign × fund balance, for moving an award to another campaign. */
   ledger: CampaignFundRow[];
   onClose: () => void;
@@ -141,6 +165,7 @@ export function StudentAllocationDialog({
   const [moving, setMoving] = useState<Record<string, string>>({});
   const [showNarrative, setShowNarrative] = useState(false);
   const [waitNote, setWaitNote] = useState("");
+  const [showReversed, setShowReversed] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(
@@ -181,6 +206,36 @@ export function StudentAllocationDialog({
 
   const today = isoDateInArizona(new Date());
   const esaActive = detail?.esa.status === "active";
+
+  // One card per allocation: its campaign lines share a decision record.
+  const groups = (() => {
+    if (!detail) return [];
+    const byKey = new Map<string, AwardRow[]>();
+    for (const award of detail.awards) {
+      const key = award.decisionId ?? award.allocationGroupId ?? award.id;
+      byKey.set(key, [...(byKey.get(key) ?? []), award]);
+    }
+    return Array.from(byKey, ([key, lines]) => {
+      const active = lines.filter((l) => l.status !== "reversed");
+      return {
+        key,
+        lines,
+        reversed: active.length === 0,
+        fundingLabel: lines[0].fundingLabel,
+        total: active.length ? active.reduce((s, l) => s + l.amount, 0) : lines.reduce((s, l) => s + l.amount, 0),
+        sent: lines.reduce((s, l) => s + l.sent, 0),
+        decision: detail.decisions.find((d) => d.id === lines[0].decisionId) ?? null,
+      };
+    });
+  })();
+  const reversedGroups = groups.filter((g) => g.reversed);
+  const visibleGroups = showReversed ? groups : groups.filter((g) => !g.reversed);
+  const openKey = openAwardId ? groups.find((g) => g.key === openAwardId || g.lines.some((l) => l.id === openAwardId))?.key ?? null : null;
+
+  useEffect(() => {
+    if (!openKey) return;
+    document.getElementById(`award-${openKey}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [openKey]);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -228,6 +283,44 @@ export function StudentAllocationDialog({
               {showNarrative && detail.narrative ? (
                 <p className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/30 p-3 text-muted-foreground">{detail.narrative}</p>
               ) : null}
+            </section>
+
+            {/* Need assessment: once per student and year */}
+            <section className="space-y-2 rounded-lg border border-border/60 p-3">
+              <p className="font-medium text-foreground">Need assessment · {schoolYear}</p>
+              <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
+                <div>
+                  <dt className="text-muted-foreground">Household</dt>
+                  <dd>
+                    {detail.needAssessment.householdSize != null ? `${detail.needAssessment.householdSize} people` : "Size not on file"} ·{" "}
+                    {usd(detail.needAssessment.householdIncome)} income
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Reduced-price lunch limit</dt>
+                  <dd>{detail.needAssessment.pctOfRplLimit != null ? `${detail.needAssessment.pctOfRplLimit}% of the limit` : "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Tuition (after discounts)</dt>
+                  <dd>{usd(detail.needAssessment.tuition)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Other aid: other STOs reported</dt>
+                  <dd>
+                    {usd(detail.needAssessment.otherSto)}
+                    {detail.needAssessment.otherStoCount ? ` (${detail.needAssessment.otherStoCount})` : ""}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Sent by ACTSTO</dt>
+                  <dd>{usd(detail.needAssessment.actSent)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Tuition room remaining</dt>
+                  <dd className="font-medium text-foreground">{usd(detail.needAssessment.tuitionRoom)}</dd>
+                </div>
+              </dl>
+              <p className="text-[11px] text-muted-foreground">From the application&apos;s certified household and the payments recorded. Read-only.</p>
             </section>
 
             {/* ESA status for the year */}
@@ -332,8 +425,14 @@ export function StudentAllocationDialog({
                     Waiting for ADOR {schoolYear} state aid matrix. No disabled/displaced payment can be sent until it&apos;s entered.
                   </p>
                 ) : null}
+                {detail.money.dd.problem && detail.money.dd.source !== "override" ? (
+                  <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                    {detail.money.dd.problem} Disabled/displaced payments wait until it&apos;s fixed.
+                  </p>
+                ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Category {spedLabel(detail.money.dd.category)} · grade band {detail.money.dd.gradeBand ?? "unknown"} · 90% state aid{" "}
+                  Category {spedLabel(detail.money.dd.category)} · {ddBandLabel(detail.money.dd.gradeBand)}
+                  {detail.money.dd.matrixRow ? ` · row "${detail.money.dd.matrixRow}"` : ""} · 90% state aid{" "}
                   {usd(detail.money.dd.matrixAmount)} · cap {usd(detail.money.dd.cap)}
                   {detail.money.dd.source === "override" ? ` (override: ${detail.money.dd.overrideReason})` : detail.money.dd.source === "legacy" ? " (typed in before the matrix)" : ""}
                   {" · "}other STOs {usd(detail.money.otherStoDisabledDisplaced)}
@@ -424,251 +523,287 @@ export function StudentAllocationDialog({
               </div>
             </section>
 
-            {/* Awards */}
+            {/* Awards: one card per allocation, with its lines, payments and decision */}
             <section className="space-y-3">
-              <h3 className="font-heading text-base font-semibold text-primary">Awards</h3>
-              {detail.awards.length === 0 ? (
-                <p className="text-muted-foreground">No awards for {schoolYear} yet.</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-heading text-base font-semibold text-primary">Awards</h3>
+                {reversedGroups.length ? (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input type="checkbox" className="size-4" checked={showReversed} onChange={(e) => setShowReversed(e.target.checked)} />
+                    Show reversed ({reversedGroups.length})
+                  </label>
+                ) : null}
+              </div>
+              {visibleGroups.length === 0 ? (
+                <p className="text-muted-foreground">
+                  {groups.length ? `No active awards for ${schoolYear}.` : `No awards for ${schoolYear} yet.`}
+                </p>
               ) : (
-                detail.awards.map((award) => {
-                  const form = pay[award.id] ?? { amount: "", paidAt: today, reference: "", overrideReason: "", warning: null };
-                  const notPayable = Math.max(0, award.amount - award.sent - award.payable);
-                  const decision = detail.decisions.find((d) => d.id === award.decisionId) ?? null;
+                visibleGroups.map((group) => {
+                  const decision = group.decision;
+                  const status = awardCardStatus({
+                    reversed: group.reversed,
+                    stage: decision?.stage ?? "awarded",
+                    awarded: group.total,
+                    sent: group.sent,
+                    esaActive,
+                  });
                   return (
-                    <div key={award.id} className="space-y-2 rounded-lg border border-border/60 p-3">
+                    <div
+                      key={group.key}
+                      id={`award-${group.key}`}
+                      className={cn("space-y-3 rounded-lg border p-3", group.reversed ? "border-dashed border-border/60 bg-muted/30 opacity-75" : "border-border/60")}
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="font-medium text-foreground">
-                            {award.fundingLabel} · {usd(award.amount)}
+                            {group.fundingLabel} · {usd(group.total)} · {schoolYear}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatDate(award.createdAt)}
-                            {award.createdByEmail ? ` by ${award.createdByEmail}` : ""}
-                            {award.note ? ` · ${award.note}` : ""}
+                            Allocated {formatDate(group.lines[0].createdAt)}
+                            {group.lines[0].createdByEmail ? ` by ${group.lines[0].createdByEmail}` : ""}
+                            {group.lines[0].note ? ` · ${group.lines[0].note}` : ""}
+                            {group.lines.length > 1 ? ` · ${group.lines.length} campaign lines` : ""}
                           </p>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          <Badge variant={award.status === "awarded" ? "secondary" : "outline"}>
-                            {award.status === "awarded" && esaActive && award.sent + 0.005 < award.amount ? ESA_HOLD_LABEL : STATUS_LABEL[award.status] ?? award.status}
-                          </Badge>
-                          {award.status !== "reversed" ? (
-                            <Badge variant={decision?.approvedAt ? "secondary" : "outline"} className={decision?.approvedAt ? "" : "border-amber-500/50 text-amber-700 dark:text-amber-400"}>
-                              {decision?.approvedAt ? "Committee approved" : "Awaiting committee approval"}
-                            </Badge>
-                          ) : null}
-                        </div>
+                        <Badge variant={status === "Approved" || status === "Sent to school" ? "secondary" : "outline"} className={STATUS_STYLE[status]}>
+                          {status}
+                        </Badge>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">Campaign:</span>
-                        {award.campaignKey ? (
-                          <span className="font-medium text-foreground">
-                            {award.campaignTitle ?? (award.campaignKey === "general" ? "General gifts (no campaign)" : "Campaign")}
-                          </span>
-                        ) : (
-                          <Badge variant="outline" className="border-destructive/40 text-destructive">
-                            None. No campaign is credited.
-                          </Badge>
-                        )}
-                        {award.allocationGroupId && detail.awards.filter((a) => a.allocationGroupId === award.allocationGroupId).length > 1 ? (
-                          <span className="text-muted-foreground">· one line of a split award</span>
-                        ) : null}
-                      </div>
-                      {award.status !== "reversed" ? (
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <select
-                            aria-label="Move this award to another campaign"
-                            className="h-8 min-w-[14rem] rounded-md border border-input bg-background px-2"
-                            value={moving[award.id] ?? ""}
-                            onChange={(e) => setMoving({ ...moving, [award.id]: e.target.value })}
-                          >
-                            <option value="">{award.campaignKey ? "Change campaign…" : "Attach a campaign…"}</option>
-                            {ledger
-                              .filter((r) => r.fundingSource === award.fundingSource && r.key !== award.campaignKey)
-                              .map((r) => (
-                                <option key={r.key} value={r.key} disabled={r.remaining + 0.005 < award.amount}>
-                                  {r.label} ({usd(r.remaining)} left)
-                                </option>
-                              ))}
-                          </select>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8"
-                            disabled={!moving[award.id]}
-                            onClick={() =>
-                              void act(
-                                () => post(`/api/admin/allocation/awards/${award.id}`, { action: "set_campaign", campaignId: moving[award.id] }),
-                                "Campaign saved. Nothing was reversed.",
-                              )
-                            }
-                          >
-                            Save campaign
-                          </Button>
-                        </div>
-                      ) : null}
-                      <p className="text-xs tabular-nums text-muted-foreground">
-                        At the school {usd(award.sent)} · can still send {usd(award.payable)}
-                        {notPayable > 0 && award.status !== "reversed" ? ` · ${usd(notPayable)} awarded, not payable (tuition or cap)` : ""}
-                      </p>
-                      {award.reversalReason ? <p className="text-xs text-muted-foreground">Reversed: {award.reversalReason}</p> : null}
-                      {award.payments.length ? (
-                        <ul className="space-y-2 text-xs">
-                          {award.payments.map((p) => {
-                            const r = ret[p.id] ?? { amount: "", returnedOn: today, note: "" };
-                            return (
-                              <li key={p.id} className="space-y-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={p.status === "void" ? "line-through" : ""}>
-                                    {usd(p.amount)} sent {p.paidAt}
-                                    {p.reference ? ` · ref ${p.reference}` : ""}
-                                    {p.returned > 0 ? ` · ${usd(p.returned)} returned by the school` : ""}
-                                  </span>
-                                  {p.status === "void" ? (
-                                    <span className="text-muted-foreground">void: {p.voidReason}</span>
-                                  ) : (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="text-destructive underline-offset-2 hover:underline"
-                                        onClick={() => {
-                                          const reason = window.prompt("Why is this payment being voided?");
-                                          if (reason) void act(() => post(`/api/admin/allocation/disbursements/${p.id}`, { action: "void", reason }), "Payment voided.");
-                                        }}
-                                      >
-                                        Void
-                                      </button>
-                                      <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setRet({ ...ret, [p.id]: r })}>
-                                        Record a return
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                                {p.tuitionOverrideReason ? <p className="text-muted-foreground">Sent over tuition with other STOs: {p.tuitionOverrideReason}</p> : null}
-                                {p.returnNote ? <p className="whitespace-pre-wrap text-muted-foreground">{p.returnNote}</p> : null}
-                                {ret[p.id] ? (
-                                  <div className="grid gap-2 sm:grid-cols-[7rem_10rem_1fr_auto] sm:items-end">
-                                    <Input aria-label="Amount returned" placeholder="$" inputMode="decimal" value={r.amount} onChange={(e) => setRet({ ...ret, [p.id]: { ...r, amount: e.target.value } })} />
-                                    <Input type="date" aria-label="Date returned" value={r.returnedOn} onChange={(e) => setRet({ ...ret, [p.id]: { ...r, returnedOn: e.target.value } })} />
-                                    <Input aria-label="Why it was returned" placeholder="Prorated refund, excess return…" value={r.note} onChange={(e) => setRet({ ...ret, [p.id]: { ...r, note: e.target.value } })} />
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      onClick={() =>
-                                        void act(async () => {
-                                          await policy({ action: "payment_return", paymentId: p.id, amount: Number(r.amount.replace(/[^0-9.]/g, "")), returnedOn: r.returnedOn, note: r.note });
-                                          setRet((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== p.id)));
-                                        }, "Return recorded. The money is back on the award, unsent.")
-                                      }
-                                    >
-                                      Save return
-                                    </Button>
-                                  </div>
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      ) : null}
 
-                      {award.status === "awarded" ? (
-                        <div className="space-y-2">
-                          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-                            <div>
-                              <Label className="text-xs">Send to school $</Label>
-                              <Input value={form.amount} inputMode="decimal" onChange={(e) => setPay({ ...pay, [award.id]: { ...form, amount: e.target.value, warning: null } })} />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Date sent</Label>
-                              <Input type="date" value={form.paidAt} onChange={(e) => setPay({ ...pay, [award.id]: { ...form, paidAt: e.target.value } })} />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Check or reference</Label>
-                              <Input value={form.reference} onChange={(e) => setPay({ ...pay, [award.id]: { ...form, reference: e.target.value } })} />
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() =>
-                                void act(async () => {
-                                  try {
-                                    await post("/api/admin/allocation/disbursements", {
-                                      awardId: award.id,
-                                      amount: Number(form.amount.replace(/[^0-9.]/g, "")),
-                                      paidAt: form.paidAt,
-                                      reference: form.reference,
-                                      tuitionOverrideReason: form.overrideReason || null,
-                                    });
-                                  } catch (e) {
-                                    if (e instanceof NeedsReason) {
-                                      setPay((all) => ({ ...all, [award.id]: { ...form, warning: e.message } }));
-                                      throw new Error("Enter a reason below to send it anyway.");
-                                    }
-                                    throw e;
-                                  }
-                                }, "Recorded as sent to school.")
-                              }
-                            >
-                              Mark sent
-                            </Button>
+                      {group.lines.map((award) => {
+                        const form = pay[award.id] ?? { amount: "", paidAt: today, reference: "", overrideReason: "", warning: null };
+                        const notPayable = Math.max(0, award.amount - award.sent - award.payable);
+                        return (
+                          <div key={award.id} className={cn("space-y-2", group.lines.length > 1 && "rounded-md border border-border/50 p-2")}>
+                            {group.lines.length > 1 ? (
+                              <p className="text-xs font-medium text-foreground">
+                                {usd(award.amount)}
+                                {award.status === "reversed" ? " · reversed" : ""}
+                              </p>
+                            ) : null}
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Campaign:</span>
+                            {award.campaignKey ? (
+                              <span className="font-medium text-foreground">
+                                {award.campaignTitle ?? (award.campaignKey === "general" ? "General gifts (no campaign)" : "Campaign")}
+                              </span>
+                            ) : (
+                              <Badge variant="outline" className="border-destructive/40 text-destructive">
+                                None. No campaign is credited.
+                              </Badge>
+                            )}
                           </div>
-                          {form.warning ? (
-                            <div className="space-y-1 rounded-md bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                              <p>{form.warning}</p>
-                              <Input
-                                aria-label="Reason to send over tuition"
-                                placeholder="Why it should go anyway (logged)"
-                                value={form.overrideReason}
-                                onChange={(e) => setPay({ ...pay, [award.id]: { ...form, overrideReason: e.target.value } })}
-                              />
+                          {award.status !== "reversed" ? (
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <select
+                                aria-label="Move this award to another campaign"
+                                className="h-8 min-w-[14rem] rounded-md border border-input bg-background px-2"
+                                value={moving[award.id] ?? ""}
+                                onChange={(e) => setMoving({ ...moving, [award.id]: e.target.value })}
+                              >
+                                <option value="">{award.campaignKey ? "Change campaign…" : "Attach a campaign…"}</option>
+                                {ledger
+                                  .filter((r) => r.fundingSource === award.fundingSource && r.key !== award.campaignKey)
+                                  .map((r) => (
+                                    <option key={r.key} value={r.key} disabled={r.remaining + 0.005 < award.amount}>
+                                      {r.label} ({usd(r.remaining)} left)
+                                    </option>
+                                  ))}
+                              </select>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8"
+                                disabled={!moving[award.id]}
+                                onClick={() =>
+                                  void act(
+                                    () => post(`/api/admin/allocation/awards/${award.id}`, { action: "set_campaign", campaignId: moving[award.id] }),
+                                    "Campaign saved. Nothing was reversed.",
+                                  )
+                                }
+                              >
+                                Save campaign
+                              </Button>
                             </div>
                           ) : null}
-                        </div>
-                      ) : null}
+                          <p className="text-xs tabular-nums text-muted-foreground">
+                            At the school {usd(award.sent)} · can still send {usd(award.payable)}
+                            {notPayable > 0 && award.status !== "reversed" ? ` · ${usd(notPayable)} awarded, not payable (tuition or cap)` : ""}
+                          </p>
+                          {award.status === "reversed" ? (
+                            <p className="text-xs text-muted-foreground">
+                              Reversed {award.reversedAt ?? ""}
+                              {award.reversedByEmail ? ` by ${award.reversedByEmail}` : ""}
+                              {award.reversalReason ? `: ${award.reversalReason}` : ""}
+                            </p>
+                          ) : null}
+                          {award.payments.length ? (
+                            <ul className="space-y-2 text-xs">
+                              {award.payments.map((p) => {
+                                const r = ret[p.id] ?? { amount: "", returnedOn: today, note: "" };
+                                return (
+                                  <li key={p.id} className="space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={p.status === "void" ? "line-through" : ""}>
+                                        {usd(p.amount)} sent {p.paidAt}
+                                        {p.reference ? ` · ref ${p.reference}` : ""}
+                                        {p.returned > 0 ? ` · ${usd(p.returned)} returned by the school` : ""}
+                                      </span>
+                                      {p.status === "void" ? (
+                                        <span className="text-muted-foreground">void: {p.voidReason}</span>
+                                      ) : (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="text-destructive underline-offset-2 hover:underline"
+                                            onClick={() => {
+                                              const reason = window.prompt("Why is this payment being voided?");
+                                              if (reason) void act(() => post(`/api/admin/allocation/disbursements/${p.id}`, { action: "void", reason }), "Payment voided.");
+                                            }}
+                                          >
+                                            Void
+                                          </button>
+                                          <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setRet({ ...ret, [p.id]: r })}>
+                                            Record a return
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                    {p.tuitionOverrideReason ? <p className="text-muted-foreground">Sent over tuition with other STOs: {p.tuitionOverrideReason}</p> : null}
+                                    {p.returnNote ? <p className="whitespace-pre-wrap text-muted-foreground">{p.returnNote}</p> : null}
+                                    {ret[p.id] ? (
+                                      <div className="grid gap-2 sm:grid-cols-[7rem_10rem_1fr_auto] sm:items-end">
+                                        <Input aria-label="Amount returned" placeholder="$" inputMode="decimal" value={r.amount} onChange={(e) => setRet({ ...ret, [p.id]: { ...r, amount: e.target.value } })} />
+                                        <Input type="date" aria-label="Date returned" value={r.returnedOn} onChange={(e) => setRet({ ...ret, [p.id]: { ...r, returnedOn: e.target.value } })} />
+                                        <Input aria-label="Why it was returned" placeholder="Prorated refund, excess return…" value={r.note} onChange={(e) => setRet({ ...ret, [p.id]: { ...r, note: e.target.value } })} />
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          onClick={() =>
+                                            void act(async () => {
+                                              await policy({ action: "payment_return", paymentId: p.id, amount: Number(r.amount.replace(/[^0-9.]/g, "")), returnedOn: r.returnedOn, note: r.note });
+                                              setRet((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== p.id)));
+                                            }, "Return recorded. The money is back on the award, unsent.")
+                                          }
+                                        >
+                                          Save return
+                                        </Button>
+                                      </div>
+                                    ) : null}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : null}
 
-                      <div className="flex flex-wrap gap-2">
-                        {award.status !== "reversed" && award.sent > 0 && award.sent + 0.005 < award.amount ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const reason = window.prompt(`Release ${usd(award.amount - award.sent)} back to the campaign for reallocation? Why?`);
-                              if (reason) void act(() => policy({ action: "release_unsent", awardId: award.id, reason }), "Unsent money released to the campaign.");
-                            }}
-                          >
-                            Release unsent
-                          </Button>
-                        ) : null}
-                        {award.status !== "reversed" ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="text-destructive"
-                            onClick={() => {
-                              const reason = window.prompt("Why is this award being reversed?");
-                              if (reason) void act(() => post(`/api/admin/allocation/awards/${award.id}`, { action: "reverse", reason }), "Award reversed.");
-                            }}
-                          >
-                            Reverse
-                          </Button>
-                        ) : null}
-                      </div>
+                          {award.status === "awarded" ? (
+                            <div className="space-y-2">
+                              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+                                <div>
+                                  <Label className="text-xs">Send to school $</Label>
+                                  <Input value={form.amount} inputMode="decimal" onChange={(e) => setPay({ ...pay, [award.id]: { ...form, amount: e.target.value, warning: null } })} />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Date sent</Label>
+                                  <Input type="date" value={form.paidAt} onChange={(e) => setPay({ ...pay, [award.id]: { ...form, paidAt: e.target.value } })} />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Check or reference</Label>
+                                  <Input value={form.reference} onChange={(e) => setPay({ ...pay, [award.id]: { ...form, reference: e.target.value } })} />
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() =>
+                                    void act(async () => {
+                                      try {
+                                        await post("/api/admin/allocation/disbursements", {
+                                          awardId: award.id,
+                                          amount: Number(form.amount.replace(/[^0-9.]/g, "")),
+                                          paidAt: form.paidAt,
+                                          reference: form.reference,
+                                          tuitionOverrideReason: form.overrideReason || null,
+                                        });
+                                      } catch (e) {
+                                        if (e instanceof NeedsReason) {
+                                          setPay((all) => ({ ...all, [award.id]: { ...form, warning: e.message } }));
+                                          throw new Error("Enter a reason below to send it anyway.");
+                                        }
+                                        throw e;
+                                      }
+                                    }, "Recorded as sent to school.")
+                                  }
+                                >
+                                  Mark sent
+                                </Button>
+                              </div>
+                              {form.warning ? (
+                                <div className="space-y-1 rounded-md bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                                  <p>{form.warning}</p>
+                                  <Input
+                                    aria-label="Reason to send over tuition"
+                                    placeholder="Why it should go anyway (logged)"
+                                    value={form.overrideReason}
+                                    onChange={(e) => setPay({ ...pay, [award.id]: { ...form, overrideReason: e.target.value } })}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+
+                          <div className="flex flex-wrap gap-2">
+                            {award.status !== "reversed" && award.sent > 0 && award.sent + 0.005 < award.amount ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const reason = window.prompt(`Release ${usd(award.amount - award.sent)} back to the campaign for reallocation? Why?`);
+                                  if (reason) void act(() => policy({ action: "release_unsent", awardId: award.id, reason }), "Unsent money released to the campaign.");
+                                }}
+                              >
+                                Release unsent
+                              </Button>
+                            ) : null}
+                            {award.status !== "reversed" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive"
+                                onClick={() => {
+                                  const reason = window.prompt("Why is this award being reversed?");
+                                  if (reason) void act(() => post(`/api/admin/allocation/awards/${award.id}`, { action: "reverse", reason }), "Award reversed.");
+                                }}
+                              >
+                                Reverse
+                              </Button>
+                            ) : null}
+                          </div>
+                          </div>
+                        );
+                      })}
+
+                      {decision && !group.reversed ? (
+                        <details className="rounded-md border border-border/50 px-3 py-2" open={decision.stage !== "approved" || group.key === openKey}>
+                          <summary className="cursor-pointer text-sm font-medium text-foreground">
+                            Decision ·{" "}
+                            {decision.stage === "approved"
+                              ? "approved as allocated"
+                              : decision.stage === "reviewed"
+                                ? `reviewed by ${decision.reviewedByName ?? "staff"}, awaiting the committee`
+                                : "needs review"}
+                          </summary>
+                          <AwardDecisionSection key={`${decision.id}-${decision.stage}`} decision={decision} viewerId={detail.viewerId} act={(body, ok) => act(() => policy(body), ok)} />
+                        </details>
+                      ) : null}
                     </div>
                   );
                 })
               )}
             </section>
-
-            {detail.decisions.length ? (
-              <section className="space-y-3">
-                <h3 className="font-heading text-base font-semibold text-primary">Decision records</h3>
-                {detail.decisions.map((d) => (
-                  <DecisionRecordPanel key={d.id} decision={d} onSave={(body, ok) => act(() => policy(body), ok)} />
-                ))}
-              </section>
-            ) : null}
 
             <section className="space-y-2 rounded-lg border border-border/60 p-3">
               <p className="font-medium text-foreground">Overflow waiting list</p>

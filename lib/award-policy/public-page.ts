@@ -26,7 +26,7 @@ export const AWARD_SUMMARY_STARTER_HTML = `<h2>Our commitment</h2>
 <h2>Who may apply</h2>
 <p>[Summary.]</p>
 <h2>How applications are reviewed</h2>
-<p>[Summary: need assessment, factors considered, reviewers and committee approval.]</p>
+<p>[Summary: need assessment, factors considered, the review and committee approval.]</p>
 <h2>Donor recommendations</h2>
 <p>A school tuition organization cannot award, restrict or reserve scholarships solely on the basis of donor recommendation.</p>
 <h2>Appeals</h2>

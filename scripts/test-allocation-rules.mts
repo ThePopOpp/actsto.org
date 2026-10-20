@@ -14,7 +14,12 @@ import assert from "node:assert/strict";
 
 const { awardAmountError, disbursementError, fundEligibilityError, payableRoom, tuitionWarning } = await import("@/lib/allocation/rules");
 const { disabilityApprovalError } = await import("@/lib/award-policy/disability");
-const { capCategory, ddGradeBand, parseMatrixCsv } = await import("@/lib/award-policy/limits");
+const { capCategory, checkMatrix, compareMatrices, ddGradeBand, parseAdorMatrix, rateFor, schoolYearFromFileName } = await import(
+  "@/lib/award-policy/limits"
+);
+const { awardCardStatus, decisionApprovalError, normalizeDecision, roundOrDefault } = await import("@/lib/award-policy/decisions");
+const { parseCsv } = await import("@/lib/csv");
+const { existsSync, readFileSync } = await import("node:fs");
 const { calculateLowIncome, incomeLimitFor, validateIncomeTable } = await import("@/lib/eligibility/income-table");
 const { canonicalGrade, gradeBand, isK12, normalizeGradeInput } = await import("@/lib/grades");
 const { splitIndividualGift, isCorporateProgram } = await import("@/lib/funding-sources");
@@ -393,19 +398,131 @@ test("a preschool category stops at kindergarten and flags an MET check", () => 
   assert.deepEqual(out, { category: "REG", needsMetCheck: true });
   assert.equal(capCategory({ grade: "Preschool", verifiedCategory: "PSD", verifiedDocumentType: "IEP", disabled: true, displaced: false }).category, "PSD");
 });
-test("matrix grade bands", () => {
+test("matrix grade bands: ADOR's five", () => {
   assert.equal(ddGradeBand("Preschool"), "preschool");
-  assert.equal(ddGradeBand("Kindergarten"), "k8");
-  assert.equal(ddGradeBand("10th grade"), "9_12");
+  assert.equal(ddGradeBand("Kindergarten"), "k");
+  assert.equal(ddGradeBand("1st grade"), "1_3");
+  assert.equal(ddGradeBand("3rd grade"), "1_3");
+  assert.equal(ddGradeBand("4th grade"), "4_8");
+  assert.equal(ddGradeBand("8th grade"), "4_8");
+  assert.equal(ddGradeBand("9th grade"), "9_12");
+  assert.equal(ddGradeBand("12th grade"), "9_12");
   assert.equal(ddGradeBand(null), null);
 });
-test("the state aid matrix imports from CSV and reports bad rows", () => {
-  const out = parseMatrixCsv("sped_category,grade_band,amount_90pct\nREG,K-8,\"$5,120.50\"\nA,9-12,22000\nA,9-12,1\nX,college,5");
-  assert.deepEqual(out.rows, [
-    { spedCategory: "REG", gradeBand: "k8", amount90pct: 5120.5 },
-    { spedCategory: "A", gradeBand: "9_12", amount90pct: 22000 },
-  ]);
-  assert.equal(out.errors.length, 2);
+
+const ADOR_CSV = `﻿Special Education Category,Preschool,Kindergarten,1st - 3rd,4th - 8th,9th - 12th
+Preschooler,3403.13,,,,
+HI,14600.62,14150.00,28299.99,27830.59,28346.93
+"MD, A, SID - SC",,17006.28,34012.56,33543.16,34059.50
+MDSSI,,21604.03,43208.06,42738.66,43255.00
+OI R,,10364.30,20728.60,20259.21,20775.55
+PS D,11840.55,,,,
+"ED, MIID, SLD, SLI, OHI, DD",,3637.84,7275.66,6806.27,7322.61
+EDP,,14269.69,28539.38,28069.98,28586.32
+MOID,,13328.55,26657.09,26187.70,26704.04
+VI,14682.76,14232.14,28464.27,27994.88,28511.22
+Regular Education (displaced pupils or children with a 504 plan),,2952.51,5905.02,5435.63,5951.96
+
+`;
+const adorFile = "docs/updates/act-updates/FY2026-2027_DD_Scholarship_Payment_Matrix.csv";
+const adorText = existsSync(adorFile) ? readFileSync(adorFile, "utf8") : ADOR_CSV;
+
+test("ADOR's FY2026-2027 file imports as published, no hand editing", () => {
+  for (const text of [ADOR_CSV, adorText]) {
+    const out = parseAdorMatrix(parseCsv(text));
+    assert.deepEqual(out.errors, []);
+    assert.equal(out.rows.length, 11);
+    const multi = out.rows.find((r) => r.rowLabel === "ED, MIID, SLD, SLI, OHI, DD")!;
+    assert.deepEqual(multi.codes, ["ED", "MIID", "SLD", "SLI", "OHI", "DD"]);
+    assert.equal(multi.amounts.preschool, null);
+    assert.equal(multi.amounts["1_3"], 7275.66);
+    assert.deepEqual(out.rows.find((r) => r.rowLabel === "Preschooler")!.codes, ["P"]);
+    assert.deepEqual(out.rows.find((r) => r.rowLabel === "PS D")!.codes, ["PSD"]);
+    assert.deepEqual(out.rows.find((r) => r.rowLabel === "MD, A, SID - SC")!.codes, ["MD", "A", "SID-SC"]);
+    const reg = out.rows.filter((r) => r.isRegularEducation);
+    assert.equal(reg.length, 1);
+    assert.deepEqual(reg[0].codes, ["REG"]);
+    const check = checkMatrix(out.rows);
+    assert.deepEqual(check.errors, []);
+    // SID-SC and OIR aren't codes we knew: a warning to acknowledge, not an error.
+    assert.ok(check.warnings.some((w) => w.includes("SID-SC")));
+  }
+});
+test("matrix headers match flexibly; a missing band rejects the file", () => {
+  const out = parseAdorMatrix(parseCsv('Category,PRESCHOOL,kindergarten,1st–3rd,Grades 4-8,9TH-12TH\nHI,"$1,000",2,3,4,5'));
+  assert.deepEqual(out.errors, []);
+  assert.equal(out.rows[0].amounts.preschool, 1000);
+  assert.equal(out.rows[0].amounts["9_12"], 5);
+  const missing = parseAdorMatrix(parseCsv("Category,Preschool,Kindergarten,1st - 3rd,4th - 8th\nHI,1,2,3,4"));
+  assert.equal(missing.rows.length, 0);
+  assert.match(missing.errors[0], /9th - 12th/);
+  const bad = parseAdorMatrix(parseCsv("Category,Preschool,Kindergarten,1st - 3rd,4th - 8th,9th - 12th\nHI,abc,0,3,4,5"));
+  assert.equal(bad.errors.length, 2);
+});
+test("matrix validation: codes in one row only, exactly one Regular Education row", () => {
+  const rows = parseAdorMatrix(parseCsv(ADOR_CSV)).rows;
+  const dup = rows.map((r) => (r.rowLabel === "VI" ? { ...r, codes: ["VI", "HI"] } : r));
+  assert.ok(checkMatrix(dup).errors.some((e) => e.includes("HI appears in two rows")));
+  assert.ok(checkMatrix(rows.filter((r) => !r.isRegularEducation)).errors.some((e) => /no Regular Education/.test(e)));
+  assert.deepEqual(checkMatrix(rows, ["SID-SC", "OIR"]).warnings, []);
+});
+test("school year from ADOR's file name", () => {
+  assert.equal(schoolYearFromFileName("FY2026-2027_DD_Scholarship_Payment_Matrix.csv"), "2026/2027");
+  assert.equal(schoolYearFromFileName("FY 2027-28 matrix.xlsx"), "2027/2028");
+  assert.equal(schoolYearFromFileName("FY2028.xlsx"), "2027/2028");
+  assert.equal(schoolYearFromFileName("matrix.csv"), null);
+});
+test("cap lookup: code row, Regular Education, blank cell blocks with a message", () => {
+  const rows = parseAdorMatrix(parseCsv(ADOR_CSV)).rows;
+  assert.equal(rateFor(rows, "SLD", "4_8").amount, 6806.27);
+  assert.equal(rateFor(rows, "REG", "k").amount, 2952.51);
+  assert.equal(rateFor(rows, "PSD", "preschool").amount, 11840.55);
+  const blank = rateFor(rows, "SLI", "preschool");
+  assert.equal(blank.amount, null);
+  assert.equal(blank.problem, "No state aid rate for SLI in Preschool: check the category.");
+  assert.match(rateFor(rows, "TBI", "1_3").problem ?? "", /No state aid rate for TBI in 1st - 3rd/);
+  assert.match(rateFor(rows, "HI", null).problem ?? "", /grade/);
+  // Preschool categories become Regular Education at kindergarten, with a MET check.
+  const k = capCategory({ grade: "Kindergarten", verifiedCategory: "P", verifiedDocumentType: "IEP", disabled: true, displaced: false });
+  assert.deepEqual(k, { category: "REG", needsMetCheck: true });
+});
+test("year-over-year changes over 15% are flagged", () => {
+  const next = parseAdorMatrix(parseCsv(ADOR_CSV)).rows;
+  const prior = next.map((r) => (r.rowLabel === "HI" ? { ...r, amounts: { ...r.amounts, k: 10000 } } : r));
+  const changes = compareMatrices(prior, next);
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].band, "k");
+  assert.equal(changes[0].flagged, true);
+  assert.equal(compareMatrices(next, next).length, 0);
+});
+
+test("decision records: financial need first and on by default; one review; round optional", () => {
+  const empty = normalizeDecision({});
+  assert.equal(empty.factors.financialNeed, true);
+  assert.equal(normalizeDecision({ factors: { financialNeed: false } }).factors.financialNeed, false);
+  const committee = { round: "", meetingDate: "2026-10-20", vote: "4-0", recusals: [] };
+  assert.match(decisionApprovalError({ reviewed: false, committee }) ?? "", /reviewed/);
+  assert.equal(decisionApprovalError({ reviewed: true, committee }), null);
+  assert.match(decisionApprovalError({ reviewed: true, committee: { ...committee, vote: "" } }) ?? "", /vote/);
+  assert.match(decisionApprovalError({ reviewed: true, committee: { ...committee, recusals: [{ member: "A", reason: "" }] } }) ?? "", /recusal/);
+  assert.equal(roundOrDefault(committee), "Committee 2026-10-20");
+  assert.equal(roundOrDefault({ ...committee, round: "Fall" }), "Fall");
+});
+test("award card status", () => {
+  const card = { reversed: false, stage: "awarded" as const, awarded: 1000, sent: 0, esaActive: false };
+  assert.equal(awardCardStatus(card), "Awarded");
+  assert.equal(awardCardStatus({ ...card, stage: "reviewed" }), "Reviewed");
+  assert.equal(awardCardStatus({ ...card, stage: "approved" }), "Approved");
+  assert.equal(awardCardStatus({ ...card, stage: "approved", esaActive: true }), "Held: active ESA");
+  assert.equal(awardCardStatus({ ...card, stage: "approved", sent: 1000 }), "Sent to school");
+  assert.equal(awardCardStatus({ ...card, reversed: true }), "Reversed");
+});
+test("a blank matrix cell blocks disabled/displaced payment with its message, never a $0 cap", () => {
+  const ctx = { ...base, fundingSource: "corporate_disabled_displaced" as const, ddMatrixLoaded: true, ddCap: null };
+  assert.equal(
+    disbursementError({ ...ctx, ddProblem: "No state aid rate for SLI in Preschool: check the category." }),
+    "No state aid rate for SLI in Preschool: check the category.",
+  );
 });
 
 console.log(`allocation rules: ${passed} passed, ${failed} failed`);

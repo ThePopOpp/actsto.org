@@ -223,6 +223,30 @@ export async function studentYearMoney(studentId: string, schoolYear: string): P
   };
 }
 
+/**
+ * Every disabled or displaced student with an approved application that year,
+ * and their disabled/displaced cap now. Taken before and after a state aid
+ * matrix is saved, to list the students whose cap changed.
+ */
+export async function ddCapSnapshot(schoolYear: string): Promise<Map<string, { name: string; cap: number | null; problem: string | null }>> {
+  const base = await prisma.studentYearEligibility.findMany({
+    where: { schoolYear, revokedAt: null },
+    select: { studentId: true, student: { select: { firstName: true, lastName: true } } },
+  });
+  const out = new Map<string, { name: string; cap: number | null; problem: string | null }>();
+  for (const row of base) {
+    const eligibility = await studentEligibility(row.studentId, schoolYear);
+    if (!eligibility.disabled && !eligibility.displaced) continue;
+    const money = await studentYearMoney(row.studentId, schoolYear);
+    out.set(row.studentId, {
+      name: [row.student.firstName, row.student.lastName].filter(Boolean).join(" "),
+      cap: money.ddCap,
+      problem: money.dd.problem,
+    });
+  }
+  return out;
+}
+
 // ── Candidates for a fund ────────────────────────────────────────────────────
 
 export type AllocationCandidate = {
@@ -352,7 +376,7 @@ export async function reverseAward(actor: AllocationActor, awardId: string, reas
   }
   const updated = await prisma.scholarshipAward.update({
     where: { id: awardId },
-    data: { status: "reversed", reversedAt: new Date(), reversedBy: actor.id, reversalReason: reason.trim() },
+    data: { status: "reversed", reversedAt: new Date(), reversedBy: actor.id, reversedByEmail: actor.email, reversalReason: reason.trim() },
   });
   await logAdminActivity({
     actorId: actor.id,
@@ -443,6 +467,7 @@ export async function disbursementContext(awardId: string, amount: number): Prom
       lowIncomeCap: money.lowIncomeCap,
       ddCap: money.ddCap,
       ddMatrixLoaded: money.dd.matrixLoaded,
+      ddProblem: money.dd.problem,
       stillEligible: !fundEligibilityError(source, eligibility),
       esaActive: money.esaStatus === "active",
       committeeApproved: Boolean(award.decision?.approvedAt),

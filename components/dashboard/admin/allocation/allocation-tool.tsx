@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Plus, X } from "lucide-react";
 
+import { CommitteeApprovals, type QueuedDecision } from "@/components/dashboard/admin/allocation/committee-approvals";
 import { StudentAllocationDialog } from "@/components/dashboard/admin/allocation/student-allocation-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,8 @@ type Payload = {
   candidates: AllocationCandidate[];
   priority: Record<string, Priority>;
   esaHeld: { awardId: string; studentId: string; studentName: string; schoolYear: string; fundingSource: string | null; campaign: string | null; awarded: number; unsent: number; esaNote: string | null }[];
+  committeeQueue: QueuedDecision[];
+  decisionSettings: { reviewerMustDifferFromAllocator: boolean };
   ledger: CampaignFundRow[];
   unattached: { fundingSource: FundingSource; amount: number; count: number }[];
   error?: string;
@@ -80,7 +83,10 @@ export function AllocationTool() {
   const [results, setResults] = useState<{ name: string; ok: boolean; error?: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [openStudent, setOpenStudent] = useState<string | null>(null);
+  const [openStudent, setOpenStudentState] = useState<{ studentId: string; awardId: string | null } | null>(null);
+  const setOpenStudent = useCallback((studentId: string | null, awardId: string | null = null) => {
+    setOpenStudentState(studentId ? { studentId, awardId } : null);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,6 +106,18 @@ export function AllocationTool() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load on mount, as elsewhere in admin
     void load();
   }, [load]);
+
+  // A link to one student's award (?student=&year=&award=) opens it here; the
+  // old separate decision record links land on the same award card.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const student = params.get("student");
+    if (!student) return;
+    const linkedYear = params.get("year");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read the link once on arrival
+    if (linkedYear && /^\d{4}\/\d{4}$/.test(linkedYear)) setYear(linkedYear);
+    setOpenStudent(student, params.get("award") ?? params.get("decision"));
+  }, [setOpenStudent]);
 
   const fund = data?.balances.find((b) => b.fundingSource === source) ?? null;
   const pots = useMemo(() => data?.campaigns ?? [], [data]);
@@ -761,6 +779,15 @@ export function AllocationTool() {
         </CardContent>
       </Card>
 
+      <CommitteeApprovals
+        key={year}
+        year={year}
+        queue={data?.committeeQueue ?? []}
+        reviewerMustDiffer={Boolean(data?.decisionSettings?.reviewerMustDifferFromAllocator)}
+        onOpen={(studentId, decisionId) => setOpenStudent(studentId, decisionId)}
+        onChanged={() => void load()}
+      />
+
       <Card className="border-border/80">
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <div>
@@ -825,7 +852,8 @@ export function AllocationTool() {
 
       {openStudent && year ? (
         <StudentAllocationDialog
-          studentId={openStudent}
+          studentId={openStudent.studentId}
+          openAwardId={openStudent.awardId}
           schoolYear={year}
           ledger={data?.ledger ?? []}
           onClose={() => setOpenStudent(null)}

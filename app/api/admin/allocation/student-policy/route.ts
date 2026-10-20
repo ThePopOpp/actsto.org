@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 
 import { allocationErrorResponse, requireAllocationActor } from "@/lib/allocation/api";
 import { AllocationError, recordPaymentReturn, releaseUnsent } from "@/lib/allocation/server";
-import { approveDecision, saveDecision } from "@/lib/award-policy/decisions-server";
+import {
+  approveDecision,
+  approveDecisions,
+  markReviewed,
+  reverseDecision,
+  saveDecision,
+  saveDecisionSettings,
+  undoReview,
+} from "@/lib/award-policy/decisions-server";
 import { isOtherStoProgram } from "@/lib/award-policy/limits";
 import { addToWaitingList, removeFromWaitingList } from "@/lib/award-policy/priority-server";
 import { logAdminActivity } from "@/lib/admin/audit";
@@ -21,7 +29,8 @@ const year = (v: unknown) => (typeof v === "string" && /^\d{4}\/\d{4}$/.test(v) 
  * The award-policy records on one student, each audit logged:
  *   set_esa, save_other_sto, delete_other_sto, dd_override, waiting_list_add,
  *   waiting_list_remove, payment_return, release_unsent, decision_save,
- *   decision_approve.
+ *   decision_review, decision_unreview, decision_approve, decision_reverse,
+ *   decision_bulk_approve, decision_settings.
  */
 export async function POST(request: Request) {
   const auth = await requireAllocationActor();
@@ -170,8 +179,26 @@ export async function POST(request: Request) {
       case "decision_save":
         await saveDecision(actor, text(body.decisionId, 40), (body.record ?? {}) as Parameters<typeof saveDecision>[2]);
         break;
+      case "decision_review":
+        await markReviewed(actor, text(body.decisionId, 40));
+        break;
+      case "decision_unreview":
+        await undoReview(actor, text(body.decisionId, 40));
+        break;
       case "decision_approve":
-        await approveDecision(actor, text(body.decisionId, 40));
+        await approveDecision(actor, text(body.decisionId, 40), body.committee);
+        break;
+      case "decision_reverse":
+        await reverseDecision(actor, text(body.decisionId, 40), text(body.reason, 1000));
+        break;
+      case "decision_bulk_approve": {
+        const ids = Array.isArray(body.decisionIds) ? body.decisionIds.map((v) => text(v, 40)).filter(Boolean) : [];
+        if (!ids.length) throw new AllocationError("Choose the awards to approve.");
+        const results = await approveDecisions(actor, ids, body.committee);
+        return NextResponse.json({ ok: true, results });
+      }
+      case "decision_settings":
+        await saveDecisionSettings(actor, { reviewerMustDifferFromAllocator: body.reviewerMustDifferFromAllocator === true });
         break;
       default:
         return NextResponse.json({ error: "Unknown action." }, { status: 400 });

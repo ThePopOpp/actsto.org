@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { allocationErrorResponse, requireAllocationActor } from "@/lib/allocation/api";
 import { payableRoom } from "@/lib/allocation/rules";
 import { netPaid, studentEligibility, studentYearMoney } from "@/lib/allocation/server";
-import { getDecision } from "@/lib/award-policy/decisions-server";
+import { getDecisions, needAssessmentFor } from "@/lib/award-policy/decisions-server";
 import { otherStoTotals } from "@/lib/award-policy/limits-server";
 import { priorityFactors } from "@/lib/award-policy/priority-server";
 import { FUNDING_SOURCE_LABEL, isFundingSource } from "@/lib/funding-sources";
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     });
     if (!student || !year) return NextResponse.json({ error: "Student not found." }, { status: 404 });
 
-    const [eligibility, money, limits, awards, recommendations, other, esa, application, priority, waiting] = await Promise.all([
+    const [eligibility, money, limits, awards, recommendations, other, esa, application, priority, waiting, need] = await Promise.all([
       studentEligibility(studentId, year),
       studentYearMoney(studentId, year),
       prisma.studentYearLimit.findUnique({ where: { studentId_schoolYear: { studentId, schoolYear: year } } }),
@@ -76,10 +76,10 @@ export async function GET(request: Request) {
       }),
       priorityFactors([studentId], year),
       prisma.overflowWaitingListEntry.findFirst({ where: { studentId, removedAt: null }, select: { addedOn: true, note: true } }),
+      needAssessmentFor(studentId, year),
     ]);
 
-    const decisionIds = Array.from(new Set(awards.map((a) => a.decisionId).filter((id): id is string => Boolean(id))));
-    const decisions = (await Promise.all(decisionIds.map((id) => getDecision(id)))).filter(Boolean);
+    const decisions = await getDecisions(Array.from(new Set(awards.map((a) => a.decisionId).filter((id): id is string => Boolean(id)))));
 
     return NextResponse.json({
       student: {
@@ -88,8 +88,10 @@ export async function GET(request: Request) {
         school: student.school?.name ?? null,
         grade: money.grade,
       },
+      viewerId: auth.actor.id,
       eligibility,
       money,
+      needAssessment: need,
       limits: {
         tuitionCeiling: limits?.tuitionCeiling != null ? Number(limits.tuitionCeiling) : null,
         tuitionReason: limits?.tuitionReason ?? null,
@@ -123,6 +125,8 @@ export async function GET(request: Request) {
           status: award.status,
           heldReason: award.heldReason,
           reversalReason: award.reversalReason,
+          reversedAt: award.reversedAt ? isoDateInArizona(award.reversedAt) : null,
+          reversedByEmail: award.reversedByEmail,
           note: award.note,
           campaignTitle: award.campaign?.title ?? null,
           campaignKey: award.campaignId ?? (award.drawsFromGeneral ? "general" : null),

@@ -36,6 +36,7 @@ export function VerificationPanel({
   isUpdate = false,
   defaultGradeBand = "",
   checklist,
+  matrixCodes = [],
 }: {
   verificationId: string;
   kind: "disability" | "displacement";
@@ -49,6 +50,8 @@ export function VerificationPanel({
   defaultGradeBand?: "preschool" | "k12" | "";
   /** What was recorded on a decided verification. */
   checklist?: DisabilityChecklist;
+  /** Codes used in the state aid matrix (e.g. OIR, SID-SC), offered for K-12 so the cap finds its row. */
+  matrixCodes?: string[];
 }) {
   const router = useRouter();
   const [action, setAction] = useState<Action>(null);
@@ -222,6 +225,15 @@ export function VerificationPanel({
                             {c.label} ({c.code})
                           </option>
                         ))}
+                      {check.gradeBand !== "preschool"
+                        ? matrixCodes
+                            .filter((code) => code !== "REG" && !SPED_CATEGORIES.some((c) => c.code === code))
+                            .map((code) => (
+                              <option key={code} value={code}>
+                                {code} (from the state aid matrix)
+                              </option>
+                            ))
+                        : null}
                     </select>
                   </div>
                 ) : (

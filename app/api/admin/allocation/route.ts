@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { allocationErrorResponse, requireAllocationActor } from "@/lib/allocation/api";
 import { campaignContext, campaignLedger, potsFor } from "@/lib/allocation/campaign-funds";
 import { allocationCandidates, fundBalances } from "@/lib/allocation/server";
+import { decisionQueue, decisionSettings } from "@/lib/award-policy/decisions-server";
 import { awardsHeldForEsa } from "@/lib/award-policy/limits-server";
 import { priorityFactors, waitingListHouseholdIds } from "@/lib/award-policy/priority-server";
 import { isFundingSource } from "@/lib/funding-sources";
@@ -64,10 +65,12 @@ export async function GET(request: Request) {
     // Priority factors from the award policy; Overflow lists waiting-list
     // students and their siblings first (A.R.S. § 43-1603).
     const ids = candidates.map((c) => c.studentId);
-    const [factors, waitingHouseholds, esaHeld] = await Promise.all([
+    const [factors, waitingHouseholds, esaHeld, committeeQueue, settings] = await Promise.all([
       year ? priorityFactors(ids, year) : Promise.resolve(new Map()),
       source === "individual_overflow" ? waitingListHouseholdIds(ids) : Promise.resolve(new Set<string>()),
       year ? awardsHeldForEsa(year) : Promise.resolve([]),
+      year ? decisionQueue(year) : Promise.resolve([]),
+      decisionSettings(),
     ]);
     const priority = Object.fromEntries(
       ids.map((id) => [id, { ...(factors.get(id) ?? {}), waitingListHousehold: waitingHouseholds.has(id) }]),
@@ -83,6 +86,8 @@ export async function GET(request: Request) {
       candidates,
       priority,
       esaHeld,
+      committeeQueue,
+      decisionSettings: settings,
       ledger: ledger.rows,
       unattached: ledger.unattached,
       potCount: potsFor(ledger, source).length,

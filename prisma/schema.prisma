@@ -1299,6 +1299,7 @@ model ScholarshipAward {
   holdReleaseNote   String?   @map("hold_release_note")
   reversedAt        DateTime? @map("reversed_at")
   reversedBy        String?   @map("reversed_by") @db.Uuid
+  reversedByEmail   String?   @map("reversed_by_email")
   reversalReason    String?   @map("reversal_reason")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
@@ -2678,34 +2679,65 @@ model ContactConsent {
 /// category and grade band. The disabled/displaced cap is the lesser of tuition
 /// and this amount, across all STOs combined.
 model DdCapMatrixRow {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolYear         String   @map("school_year")
+  /// The row label exactly as ADOR printed it, for the audit trail.
+  rowLabel           String   @map("row_label")
+  /// The SPED category codes this row covers (one rate shared by all of them).
+  codes              String[] @default([])
+  /// The Regular Education row: displaced students and 504 plans.
+  isRegularEducation Boolean  @default(false) @map("is_regular_education")
+  /// 90% of state aid per grade band; null = no rate for that band.
+  amountPreschool    Decimal? @map("amount_preschool") @db.Decimal(12, 2)
+  amountK            Decimal? @map("amount_k") @db.Decimal(12, 2)
+  amount1to3         Decimal? @map("amount_1_3") @db.Decimal(12, 2)
+  amount4to8         Decimal? @map("amount_4_8") @db.Decimal(12, 2)
+  amount9to12        Decimal? @map("amount_9_12") @db.Decimal(12, 2)
+  sortOrder          Int      @default(0) @map("sort_order")
+  updatedBy          String?  @map("updated_by") @db.Uuid
+  updatedByEmail     String?  @map("updated_by_email")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([schoolYear], map: "dd_state_aid_rows_year_idx")
+  @@map("dd_state_aid_rows")
+}
+
+/// The codes staff confirmed for an ADOR row label, reused when next year's
+/// file prints the same label.
+model DdCapCodeAlias {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  schoolYear     String   @map("school_year")
-  /// A SPED category code, or REG for regular education.
-  spedCategory   String   @map("sped_category")
-  /// preschool | k8 | 9_12
-  gradeBand      String   @map("grade_band")
-  amount90pct    Decimal  @map("amount_90pct") @db.Decimal(12, 2)
+  /// The label lower-cased with spaces collapsed.
+  labelKey       String   @unique(map: "dd_cap_code_aliases_label_key") @map("label_key")
+  rowLabel       String   @map("row_label")
+  codes          String[] @default([])
   updatedBy      String?  @map("updated_by") @db.Uuid
   updatedByEmail String?  @map("updated_by_email")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  @@unique([schoolYear, spedCategory, gradeBand], map: "dd_cap_matrix_year_category_band_key")
-  @@map("dd_cap_matrix_rows")
+  @@map("dd_cap_code_aliases")
 }
 
 /// Append-only history of the matrix.
 model DdCapMatrixEvent {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  schoolYear String   @map("school_year")
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schoolYear     String   @map("school_year")
   /// import | save | delete
-  action     String
-  before     Json     @default("[]")
-  after      Json     @default("[]")
-  actorId    String?  @map("actor_id") @db.Uuid
-  actorEmail String?  @map("actor_email")
-  note       String?
-  createdAt  DateTime @default(now()) @map("created_at")
+  action         String
+  before         Json     @default("[]")
+  after          Json     @default("[]")
+  actorId        String?  @map("actor_id") @db.Uuid
+  actorEmail     String?  @map("actor_email")
+  note           String?
+  /// The uploaded ADOR file, kept for the audit.
+  sourceFileName String?  @map("source_file_name")
+  sourceMimeType String?  @map("source_mime_type")
+  /// The file itself (ADOR's matrix is a few KB).
+  sourceFile     Bytes?   @map("source_file")
+  /// Students whose cap changed when this version was saved.
+  capChanges     Json     @default("[]") @map("cap_changes")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([schoolYear, createdAt], map: "dd_cap_matrix_events_year_idx")
   @@map("dd_cap_matrix_events")
@@ -2768,12 +2800,18 @@ model ScholarshipAwardDecision {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   studentId       String    @map("student_id") @db.Uuid
   schoolYear      String?   @map("school_year")
-  /// { householdIncome, householdSize, pctOfRplLimit, tuition, otherAid, note }
+  /// History only (Oct 2026 records). The need assessment is now shown once
+  /// per student, from the application.
   needAssessment  Json      @default("{}") @map("need_assessment")
-  /// { narrative, returning, sibling, waitingList, donorRecommendation, rationale }
+  /// { financialNeed, narrative, returning, sibling, waitingList, donorRecommendation, rationale }
   factors         Json      @default("{}")
-  /// [{ name, amount, fundingSource }]
+  /// History only: typed reviewers from the first version of the record.
   reviewers       Json      @default("[]")
+  /// One reviewer, recorded by "Mark reviewed" as the signed-in user.
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewedBy      String?   @map("reviewed_by") @db.Uuid
+  reviewedByEmail String?   @map("reviewed_by_email")
+  reviewedByName  String?   @map("reviewed_by_name")
   /// { round, meetingDate, vote, recusals: [{ member, reason }] }
   committee       Json      @default("{}")
   approvedAt      DateTime? @map("approved_at")

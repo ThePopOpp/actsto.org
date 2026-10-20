@@ -72,6 +72,8 @@ export type DisbursementContext = {
   ddCap: number | null;
   /** ADOR's state aid matrix for this school year has been entered. */
   ddMatrixLoaded: boolean;
+  /** Why the matrix gives no rate for this student (code or grade band), or null. */
+  ddProblem?: string | null;
   /** Eligibility still holds at the moment of sending. */
   stillEligible: boolean;
   /** The student has an active ESA contract for this school year. */
@@ -90,7 +92,7 @@ export function disbursementError(ctx: DisbursementContext): string | null {
   if (!(amount > 0)) return "Enter an amount above zero.";
   if (ctx.awardStatus === "reversed") return "This award was reversed.";
   if (!ctx.committeeApproved) {
-    return "Record the committee's approval on this award (Decision record) before sending money to the school.";
+    return "This award needs its review and the committee's approval (in the award's Decision section) before money can be sent to the school.";
   }
   if (ctx.esaActive || ctx.awardStatus === "held_esa") return "Active ESA: award held until the ESA is closed.";
   if (!ctx.stillEligible) {
@@ -118,7 +120,10 @@ export function disbursementError(ctx: DisbursementContext): string | null {
   if (ctx.fundingSource === "corporate_disabled_displaced") {
     if (!ctx.ddMatrixLoaded) return `Waiting for ADOR ${ctx.schoolYear} state aid matrix.`;
     if (ctx.ddCap === null) {
-      return "No 90% state aid amount matches this student's category and grade. Check the student's grade, or add the row to the state aid matrix.";
+      return (
+        ctx.ddProblem ??
+        "No 90% state aid amount matches this student's category and grade. Check the student's grade, or the codes in the state aid matrix."
+      );
     }
     const room = ctx.ddCap - ctx.otherStoDisabledDisplaced - ctx.sentThisFund;
     if (amount > room + 0.005) {

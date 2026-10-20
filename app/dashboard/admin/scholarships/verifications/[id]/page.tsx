@@ -8,6 +8,7 @@ import { VerificationPanel } from "@/components/dashboard/admin/eligibility/veri
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { knownMatrixCodes } from "@/lib/award-policy/limits-server";
 import { buttonVariants } from "@/lib/button-variants";
 import { VERIFICATION_STATUS_LABEL } from "@/lib/eligibility/verifications-server";
 import { isK12 } from "@/lib/grades";
@@ -179,6 +180,7 @@ export default async function VerificationPage({ params }: { params: Promise<{ i
               spedCategory: v.spedCategory,
               gradeBand: v.gradeBand,
             }}
+            matrixCodes={kind === "disability" ? await knownMatrixCodes() : []}
           />
 
           <Card className="border-border/80">
