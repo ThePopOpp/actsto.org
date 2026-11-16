@@ -11,12 +11,14 @@ import type { SiteCtaBlockData } from "@/lib/site-cta-block-types";
 function isBareLayoutPath(pathname: string | null): boolean {
   if (!pathname) return false;
   // Dashboard renders its own shell; the public digital business card (/c/<slug>)
-  // is a standalone, chrome-free page (no site header or footer).
+  // is a standalone, chrome-free page (no site header or footer), and so is a
+  // private, link-only donor proposal (/p/<token>).
   return (
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
     pathname === "/c" ||
-    pathname.startsWith("/c/")
+    pathname.startsWith("/c/") ||
+    pathname.startsWith("/p/")
   );
 }
 

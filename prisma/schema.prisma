@@ -2885,3 +2885,43 @@ model AwardPolicyDocument {
 
   @@map("award_policy_documents")
 }
+
+/// A private donor proposal (e.g. the Musk Scholars Fund). The copy lives in
+/// code (lib/proposals/*); this row holds what staff manage: the secret link
+/// token, whether the link is live, and who signs it.
+model DonorProposal {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Which proposal in code this row belongs to, e.g. "musk-scholars-fund".
+  key            String   @unique
+  /// The secret in the link-only URL /p/<token>. Regenerating it kills old links.
+  token          String   @unique
+  /// Off by default: the link 404s until a Super Admin turns it on.
+  enabled        Boolean  @default(false)
+  signerName     String?  @map("signer_name")
+  signerTitle    String?  @map("signer_title")
+  signerPhone    String?  @map("signer_phone")
+  signerEmail    String?  @map("signer_email")
+  updatedByEmail String?  @map("updated_by_email")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  views DonorProposalView[]
+
+  @@map("donor_proposals")
+}
+
+/// One visitor per day on a proposal's link-only page. Salted hash, no IP.
+model DonorProposalView {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposalId  String   @map("proposal_id") @db.Uuid
+  viewedOn    DateTime @map("viewed_on") @db.Date
+  visitorHash String   @map("visitor_hash")
+  referrer    String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  proposal DonorProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, viewedOn, visitorHash], map: "donor_proposal_views_unique_daily")
+  @@index([proposalId, viewedOn], map: "donor_proposal_views_day_idx")
+  @@map("donor_proposal_views")
+}

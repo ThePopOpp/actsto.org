@@ -18,6 +18,19 @@ const nextConfig: NextConfig = {
   // Natural guesses at the donor dashboards' addresses. The individual donor
   // dashboard lives at /dashboard/donor, and a reviewer reaching for another
   // spelling got a 404.
+  // Private, link-only donor proposals (/p/<token>) are never indexed, and the
+  // secret link is never sent on as a Referer when someone clicks out.
+  async headers() {
+    return [
+      {
+        source: "/p/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       ...["individual", "individual-donor", "donor-individual", "donor_individual"].map((alias) => ({

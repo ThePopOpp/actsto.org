@@ -12,6 +12,7 @@ import {
   Contact,
   CreditCard,
   FileText,
+  Gift,
   GraduationCap,
   Images,
   KeyRound,
@@ -73,6 +74,7 @@ const nav: NavEntry[] = [
       { href: "/dashboard/admin/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/dashboard/admin/campaigns/home-order", label: "Home page order", icon: LayoutDashboard },
       { href: "/dashboard/admin/backers", label: "Donors", icon: UserRoundCheck },
+      { href: "/dashboard/admin/proposals/musk-scholars-fund", label: "Musk Scholars Fund", icon: Gift },
     ],
   },
   {
