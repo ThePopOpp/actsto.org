@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     from: url.searchParams.get("from") ?? undefined,
     to: url.searchParams.get("to") ?? undefined,
     missingReceipt: url.searchParams.get("missingReceipt") === "1",
+    method: url.searchParams.get("method") ?? undefined,
   };
   const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(1000, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") ?? "25", 10) || 25));

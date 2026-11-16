@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     campaignId: url.searchParams.get("campaignId") ?? undefined,
     from: url.searchParams.get("from") ?? undefined,
     to: url.searchParams.get("to") ?? undefined,
+    method: url.searchParams.get("method") ?? undefined,
   });
 
   const donors = await donorLeaderboard(where);

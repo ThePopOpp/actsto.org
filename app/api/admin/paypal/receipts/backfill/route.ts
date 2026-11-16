@@ -10,9 +10,9 @@ export async function POST() {
 
   const donations = await prisma.donation.findMany({
     where: {
-      paymentProvider: "paypal",
+      // Any payment method: a recorded check needs a receipt as much as PayPal.
       status: "paid",
-      taxReceipts: { none: {} },
+      taxReceipts: { none: { status: { not: "void" } } },
     },
     select: {
       id: true,

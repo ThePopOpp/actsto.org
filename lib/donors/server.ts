@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 
+import { isPaymentMethod, paymentReference } from "@/lib/donations/payment-methods";
 import { isoDateInArizona } from "@/lib/format-date";
 import { prisma } from "@/lib/prisma";
 
@@ -19,13 +20,18 @@ export type DonorRow = {
   status: string;
   donationType: string;
   amount: number;
+  /** PayPal order id, or "Check #1234" for a recorded check. */
   orderId: string | null;
+  /** paypal | check | cashiers_check | money_order */
+  paymentMethod: string;
+  /** Recorded by a Super Admin rather than paid online. */
+  manual: boolean;
   receiptNumber: string | null;
   taxYear: number | null;
   userId: string | null;
 };
 
-export type DonorFilters = { q?: string; status?: string; campaignId?: string; from?: string; to?: string; missingReceipt?: boolean };
+export type DonorFilters = { q?: string; status?: string; campaignId?: string; from?: string; to?: string; missingReceipt?: boolean; method?: string };
 
 /**
  * Donations archived as pre-launch sandbox tests.
@@ -45,9 +51,11 @@ export const EXCLUDE_ARCHIVED_TESTS: Prisma.DonationWhereInput = {
 
 export function buildDonorWhere(p: DonorFilters): Prisma.DonationWhereInput {
   const and: Prisma.DonationWhereInput[] = [EXCLUDE_ARCHIVED_TESTS];
-  if (p.missingReceipt) and.push({ status: "paid", taxReceipts: { none: {} } });
+  if (p.missingReceipt) and.push({ status: "paid", taxReceipts: { none: { status: { not: "void" } } } });
   else if (p.status && p.status !== "all") and.push({ status: p.status });
   if (p.campaignId) and.push({ campaignId: p.campaignId });
+  if (p.method === "offline") and.push({ paymentProvider: { not: "paypal" } });
+  else if (isPaymentMethod(p.method)) and.push({ paymentProvider: p.method });
   if (p.from) and.push({ createdAt: { gte: new Date(p.from) } });
   if (p.to) {
     const d = new Date(p.to);
@@ -63,6 +71,8 @@ export function buildDonorWhere(p: DonorFilters): Prisma.DonationWhereInput {
         { donationDetail: { donorEmail: { contains: q, mode: "insensitive" } } },
         { donationDetail: { publicDisplayName: { contains: q, mode: "insensitive" } } },
         { paymentProviderOrderId: { contains: q, mode: "insensitive" } },
+        { donationDetail: { businessName: { contains: q, mode: "insensitive" } } },
+        { offlinePayment: { checkNumber: { contains: q.replace(/^#/, ""), mode: "insensitive" } } },
       ],
     });
   }
@@ -72,7 +82,8 @@ export function buildDonorWhere(p: DonorFilters): Prisma.DonationWhereInput {
 const DONATION_INCLUDE = {
   campaign: { select: { title: true, slug: true } },
   donationDetail: { select: { donorFirstName: true, donorLastName: true, publicDisplayName: true, donorEmail: true, donorPhone: true } },
-  taxReceipts: { orderBy: { createdAt: "desc" as const }, take: 1, select: { receiptNumber: true } },
+  taxReceipts: { where: { status: { not: "void" } }, orderBy: { createdAt: "desc" as const }, take: 1, select: { receiptNumber: true } },
+  offlinePayment: { select: { checkNumber: true } },
 } satisfies Prisma.DonationInclude;
 
 export type DonorSort = { field: "createdAt" | "amount"; dir: "asc" | "desc" };
@@ -108,7 +119,12 @@ export async function fetchDonorRows(where: Prisma.DonationWhereInput, opts: { s
       status: d.status,
       donationType: d.donationType,
       amount: Number(d.amount ?? 0),
-      orderId: d.paymentProviderOrderId,
+      orderId:
+        d.paymentProvider === "paypal"
+          ? d.paymentProviderOrderId
+          : paymentReference({ paymentProvider: d.paymentProvider, checkNumber: d.offlinePayment?.checkNumber }),
+      paymentMethod: d.paymentProvider,
+      manual: Boolean(d.offlinePayment),
       receiptNumber: d.taxReceipts[0]?.receiptNumber ?? null,
       taxYear: d.taxYear,
       userId: d.userId,

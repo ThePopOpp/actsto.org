@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Receipt } from "lucide-react";
 
+import { EmailReceiptButton } from "@/components/dashboard/admin/manual-check/email-receipt-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { paymentReference } from "@/lib/donations/payment-methods";
+import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
 
 function money(value: unknown) {
@@ -17,17 +20,18 @@ function statusBadge(status: string) {
   if (status === "emailed") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Emailed</Badge>;
   if (status === "generated") return <Badge variant="secondary">Generated</Badge>;
   if (status === "error") return <Badge variant="destructive">Error</Badge>;
+  if (status === "void") return <Badge variant="outline" className="border-destructive/50 text-destructive">Void</Badge>;
   return <Badge variant="outline">{status}</Badge>;
 }
 
 async function getData() {
   const [rows, total, generated, emailed, pendingErr, missing] = await Promise.all([
-    prisma.taxReceipt.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { donation: { select: { campaign: { select: { title: true } } } } } }),
+    prisma.taxReceipt.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { donation: { select: { paymentProvider: true, paymentProviderOrderId: true, paymentProviderCaptureId: true, offlinePayment: { select: { checkNumber: true } }, donationDetail: { select: { donorEmail: true } }, campaign: { select: { title: true } } } } } }),
     prisma.taxReceipt.count(),
     prisma.taxReceipt.count({ where: { status: "generated" } }),
     prisma.taxReceipt.count({ where: { status: "emailed" } }),
     prisma.taxReceipt.count({ where: { status: { in: ["pending", "error"] } } }),
-    prisma.donation.count({ where: { status: "paid", paymentProvider: "paypal", taxReceipts: { none: {} } } }),
+    prisma.donation.count({ where: { status: "paid", AND: [EXCLUDE_ARCHIVED_TESTS], taxReceipts: { none: { status: { not: "void" } } } } }),
   ]);
   return { rows, total, generated, emailed, pendingErr, missing };
 }
@@ -47,13 +51,14 @@ export async function AdminReceiptsList() {
       <Card className="border-border/80">
         <CardContent className="p-4">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[880px] text-sm">
               <thead className="border-b border-border text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="py-2 pr-4">Receipt #</th>
                   <th className="py-2 pr-4">Issued to</th>
                   <th className="py-2 pr-4 text-right">Amount</th>
                   <th className="py-2 pr-4">Tax year</th>
+                  <th className="py-2 pr-4">Payment</th>
                   <th className="py-2 pr-4">Status</th>
                   <th className="py-2 pr-4">Issued</th>
                   <th className="py-2">PDF</th>
@@ -70,7 +75,20 @@ export async function AdminReceiptsList() {
                       </td>
                       <td className="py-2.5 pr-4 text-right tabular-nums">{money(r.amount)}</td>
                       <td className="py-2.5 pr-4 text-muted-foreground">{r.taxYear ?? "-"}</td>
-                      <td className="py-2.5 pr-4">{statusBadge(r.status)}</td>
+                      <td className="py-2.5 pr-4 font-mono text-xs">
+                        {paymentReference({
+                          paymentProvider: r.donation.paymentProvider,
+                          checkNumber: r.donation.offlinePayment?.checkNumber,
+                          paymentProviderCaptureId: r.donation.paymentProviderCaptureId,
+                          paymentProviderOrderId: r.donation.paymentProviderOrderId,
+                        }) || "-"}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {statusBadge(r.status)}
+                        {r.status === "void" && r.voidReason ? (
+                          <p className="mt-1 max-w-[16rem] text-xs text-muted-foreground">{r.voidReason}</p>
+                        ) : null}
+                      </td>
                       <td className="py-2.5 pr-4 text-muted-foreground">{dt(r.issuedAt)}</td>
                       <td className="py-2.5">
                         {/* Rendered on request; receipt_pdf_url was never populated. */}
@@ -81,14 +99,17 @@ export async function AdminReceiptsList() {
                         >
                           View
                         </Link>
+                        {r.status === "generated" && !r.emailedAt && (r.issuedToEmail || r.donation.donationDetail?.donorEmail) ? (
+                          <EmailReceiptButton receiptId={r.id} />
+                        ) : null}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
                       <Receipt className="mx-auto mb-2 size-6 opacity-50" />
-                      No tax receipts yet. Receipts generate automatically for paid PayPal donations.
+                      No tax receipts yet. Receipts generate automatically for paid PayPal donations and recorded checks.
                     </td>
                   </tr>
                 )}

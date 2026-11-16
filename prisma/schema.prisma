@@ -746,10 +746,15 @@ model Donation {
   processingFeeAmount      Decimal  @default(0) @map("processing_fee_amount") @db.Decimal(14, 2)
   totalAmount              Decimal? @map("total_amount") @db.Decimal(14, 2)
   currency                 String   @default("USD")
-  /// quick | tax_credit | business | general | campaign | manual_check
+  /// quick | tax_credit | business | general | campaign | manual_check (legacy)
+  /// A check keeps the type of the gift it is (tax_credit or business); how it
+  /// was paid is paymentProvider.
   donationType             String   @default("quick") @map("donation_type")
-  /// pending | paid | failed | cancelled | refunded | partially_refunded
+  /// pending | paid | failed | cancelled | refunded | partially_refunded |
+  /// returned (check bounced) | void (entered in error). Only paid counts anywhere.
   status                   String   @default("pending")
+  /// The payment method: paypal | check | cashiers_check | money_order.
+  /// See lib/donations/payment-methods.ts.
   paymentProvider          String   @default("paypal") @map("payment_provider")
   paymentProviderOrderId   String?  @map("payment_provider_order_id")
   paymentProviderCaptureId String?  @map("payment_provider_capture_id")
@@ -774,8 +779,57 @@ model Donation {
   fundSplits          DonationFundSplit[]
   awards              ScholarshipAward[]
   invoices            Invoice[]
+  offlinePayment      DonationOfflinePayment?
 
   @@map("donations")
+}
+
+/// A gift a Super Admin recorded by hand: a check, cashier's check or money
+/// order. The donation itself is an ordinary paid donation, so every total,
+/// Allocation and receipt treats it like an online gift; this row holds what
+/// only an offline payment has. Never holds bank routing or account numbers.
+model DonationOfflinePayment {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donationId                 String    @unique @map("donation_id") @db.Uuid
+  /// check | cashiers_check | money_order (mirrors donations.payment_provider)
+  method                     String
+  checkNumber                String?   @map("check_number")
+  /// Name printed on the check when it differs from the donor.
+  drawerName                 String?   @map("drawer_name")
+  checkDate                  DateTime? @map("check_date") @db.Date
+  dateReceived               DateTime  @map("date_received") @db.Date
+  dateDeposited              DateTime? @map("date_deposited") @db.Date
+  /// Staff only; never on a receipt or donor-facing page.
+  internalNotes              String?   @map("internal_notes")
+  /// Who confirmed the tax year with the donor, and when (free text).
+  taxYearConfirmation        String?   @map("tax_year_confirmation")
+  taxYearConfirmedAt         DateTime? @map("tax_year_confirmed_at") @db.Timestamptz(6)
+  /// staff_attested | paper_form — how the relationship acknowledgment was given.
+  relationshipAckMethod      String?   @map("relationship_ack_method")
+  relationshipAckByEmail     String?   @map("relationship_ack_by_email")
+  relationshipAckAt          DateTime? @map("relationship_ack_at") @db.Timestamptz(6)
+  /// Private bucket path of a scan of the check or enclosed letter.
+  attachmentPath             String?   @map("attachment_path")
+  attachmentName             String?   @map("attachment_name")
+  attachmentMime             String?   @map("attachment_mime")
+  attachmentSize             Int?      @map("attachment_size")
+  attachmentPurgeAfter       DateTime? @map("attachment_purge_after") @db.Date
+  /// Audit hold: the attachment is never purged while this is set.
+  attachmentHold             Boolean   @default(false) @map("attachment_hold")
+  recordedBy                 String?   @map("recorded_by") @db.Uuid
+  recordedByEmail            String?   @map("recorded_by_email")
+  recordedAt                 DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  returnedAt                 DateTime? @map("returned_at") @db.Timestamptz(6)
+  returnedReason             String?   @map("returned_reason")
+  returnedByEmail            String?   @map("returned_by_email")
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@index([checkNumber], map: "donation_offline_payments_check_number_idx")
+  @@index([dateReceived], map: "donation_offline_payments_date_received_idx")
+  @@map("donation_offline_payments")
 }
 
 /// Which program a donation's dollars belong to. A gift may span several
@@ -1550,8 +1604,13 @@ model TaxReceipt {
   amount        Decimal?  @db.Decimal(14, 2)
   issuedAt      DateTime? @map("issued_at")
   emailedAt     DateTime? @map("emailed_at")
-  /// pending | generated | emailed | error
+  /// pending | generated | emailed | error | void
   status        String    @default("pending")
+  voidedAt      DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidedByEmail String?   @map("voided_by_email")
+  voidReason    String?   @map("void_reason")
+  /// The receipt issued in place of this one, when it was re-issued.
+  replacedById  String?   @map("replaced_by_id") @db.Uuid
   createdAt     DateTime  @default(now()) @map("created_at")
 
   donation Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)

@@ -11,6 +11,7 @@ import {
 } from "@/components/receipts/tax-receipt-pdf";
 import { streamToBuffer } from "@/lib/admin/invoices";
 import { getActSession } from "@/lib/auth/session-server";
+import { paymentReference } from "@/lib/donations/payment-methods";
 import { prisma } from "@/lib/prisma";
 import { getOriginalOverflowForYear } from "@/lib/tax-credit";
 import { getTaxCreditLimitConfig } from "@/lib/tax-credit-limits-server";
@@ -128,6 +129,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           include: {
             donationDetail: true,
             campaign: { select: { title: true } },
+            offlinePayment: { select: { checkNumber: true, dateReceived: true } },
           },
         },
       },
@@ -187,7 +189,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const data: TaxReceiptPdfData = {
     receiptNumber: receipt.receiptNumber,
     issuedAt: phoenixDate(receipt.issuedAt ?? receipt.createdAt),
-    giftDate: phoenixDate(donation.createdAt),
+    // A check's gift date is the day it was received (a calendar date, so read in UTC).
+    giftDate: donation.offlinePayment
+      ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" }).format(
+          donation.offlinePayment.dateReceived,
+        )
+      : phoenixDate(donation.createdAt),
     donorName:
       detail?.businessName ||
       receipt.issuedToName ||
@@ -204,7 +211,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     giftType: giftTypeLabel(donation.donationType),
     isTaxCredit: donation.donationType === "tax_credit",
     designation: donation.campaign?.title ?? metaTitle ?? "ACT general scholarship fund",
-    paymentReference: donation.paymentProviderCaptureId ?? donation.paymentProviderOrderId ?? "",
+    paymentReference: paymentReference({
+      paymentProvider: donation.paymentProvider,
+      checkNumber: donation.offlinePayment?.checkNumber,
+      paymentProviderCaptureId: donation.paymentProviderCaptureId,
+      paymentProviderOrderId: donation.paymentProviderOrderId,
+    }),
     isVoid: receipt.status === "void",
     breakdown,
     corporate:
