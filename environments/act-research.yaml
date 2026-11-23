@@ -1,0 +1,65 @@
+# Environment for ACT's research agents (Ava, Eli). Sync with:
+#   ant apply environments/act-research.yaml
+#
+# Limited networking: the agents reach the ACT MCP server and, through
+# web_search / web_fetch, only the public sources listed here. Social networks
+# (LinkedIn, Facebook, Instagram, X, TikTok) are deliberately absent: agents
+# never scrape them or use personal profiles.
+#
+# To let Ava read a school's or business's own website, add its host here AND
+# to allowed_domains in the agent file, then re-run ant apply. Switching to
+# `type: unrestricted` would open the whole web to the sandbox; that's a
+# decision for a Super Admin, not a default.
+name: act-research
+description: ACT lead research - public Arizona sources only, ACT MCP server
+config:
+  type: cloud
+  networking:
+    type: limited
+    allow_mcp_servers: true
+    allowed_hosts:
+      - actsto.org
+      - arizonachristiantuition.com
+      - "*.arizonachristiantuition.com"
+      - azdor.gov
+      - "*.azdor.gov"
+      - azcc.gov
+      - "*.azcc.gov"
+      - azleg.gov
+      - "*.azleg.gov"
+      - azed.gov
+      - "*.azed.gov"
+      - az.gov
+      - "*.az.gov"
+      - acsi.org
+      - "*.acsi.org"
+      - privateschoolreview.com
+      - "*.privateschoolreview.com"
+      - greatschools.org
+      - "*.greatschools.org"
+      - niche.com
+      - "*.niche.com"
+      - azchamber.com
+      - "*.azchamber.com"
+      - phoenixchamber.com
+      - "*.phoenixchamber.com"
+      - tucsonchamber.org
+      - "*.tucsonchamber.org"
+      - mesachamber.org
+      - "*.mesachamber.org"
+      - scottsdalechamber.com
+      - "*.scottsdalechamber.com"
+      - chandlerchamber.com
+      - "*.chandlerchamber.com"
+      - ascpa.com
+      - "*.ascpa.com"
+      - bbb.org
+      - "*.bbb.org"
+      - candid.org
+      - "*.candid.org"
+      - guidestar.org
+      - "*.guidestar.org"
+      - bizjournals.com
+      - "*.bizjournals.com"
+      - azcentral.com
+      - "*.azcentral.com"

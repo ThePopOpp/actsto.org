@@ -12,6 +12,13 @@ export type SendEmailArgs = {
   templateKey?: string;
   replyTo?: string;
   attachments?: { filename: string; content: Buffer; contentType?: string }[];
+  /**
+   * Send as someone other than the configured default (an AI agent's mailbox).
+   * Must be on a domain the provider has verified; callers check that.
+   */
+  from?: { name: string; email: string };
+  /** Extra headers, e.g. List-Unsubscribe for agent outreach. */
+  headers?: Record<string, string>;
 };
 
 export type SendResult = {
@@ -65,7 +72,7 @@ async function sendViaResend(
     method: "POST",
     headers: { Authorization: `Bearer ${cfg.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `${cfg.fromName} <${cfg.fromEmail}>`,
+      from: `${args.from?.name ?? cfg.fromName} <${args.from?.email ?? cfg.fromEmail}>`,
       // Resend needs an array; SMTP splits a comma list itself. Going through
       // recipientList means a multi-recipient setting behaves the same on both.
       to: recipientList(args.to),
@@ -74,6 +81,7 @@ async function sendViaResend(
       html: args.html,
       reply_to: args.replyTo ?? cfg.replyTo,
       attachments: args.attachments?.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })),
+      headers: args.headers,
     }),
   });
   const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
@@ -81,11 +89,12 @@ async function sendViaResend(
     await logEmail(args, "resend", "", "failed", { error: data.message ?? `HTTP ${res.status}` });
     throw new Error(`Resend error: ${data.message ?? `HTTP ${res.status}`}`);
   }
-  await logEmail(args, "resend", data.id ?? "", "sent", { from: cfg.fromEmail });
+  const from = args.from ?? { name: cfg.fromName, email: cfg.fromEmail };
+  await logEmail(args, "resend", data.id ?? "", "sent", { from: from.email });
   return {
     messageId: data.id ?? "",
     provider: "resend",
-    from: { name: cfg.fromName, email: cfg.fromEmail },
+    from,
   };
 }
 
@@ -97,17 +106,19 @@ async function sendViaSmtp(args: SendEmailArgs): Promise<SendResult> {
     secure: config.secure,
     auth: { user: config.user, pass: config.pass },
   });
+  const from = args.from ?? { name: config.fromName, email: config.fromEmail };
   const info = await transporter.sendMail({
-    from: `"${config.fromName}" <${config.fromEmail}>`,
+    from: `"${from.name}" <${from.email}>`,
     to: args.to,
     subject: args.subject,
     text: args.text,
     html: args.html,
     replyTo: args.replyTo,
     attachments: args.attachments,
+    headers: args.headers,
   });
   await logEmail(args, "smtp", info.messageId, "sent", {
-    from: config.fromEmail,
+    from: from.email,
     response: info.response,
     accepted: info.accepted.map(String),
     rejected: info.rejected.map(String),
@@ -115,7 +126,7 @@ async function sendViaSmtp(args: SendEmailArgs): Promise<SendResult> {
   return {
     messageId: info.messageId,
     provider: "smtp",
-    from: { name: config.fromName, email: config.fromEmail },
+    from,
   };
 }
 

@@ -1,0 +1,4 @@
+# Holds micah-social's ACT MCP token (static_bearer for https://actsto.org/api/mcp).
+# This file only creates the vault; add the credential with the command in docs/ai-agents/README.md.
+type: vault
+display_name: act-micah-social

@@ -1,0 +1,13 @@
+# Environment for ACT's writing and inbox agents (Grace, Micah, Ruth). Sync with:
+#   ant apply environments/act-workers.yaml
+#
+# No web access at all: these agents work only through the ACT MCP server
+# (leads, campaigns, drafts, replies). Everything they write waits for a
+# Super Admin in Dashboard > AI Agents.
+name: act-workers
+description: ACT outreach, social and inbox agents - ACT MCP server only
+config:
+  type: cloud
+  networking:
+    type: limited
+    allow_mcp_servers: true
