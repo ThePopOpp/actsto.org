@@ -5,6 +5,7 @@
 --   mcp_oauth_*        OAuth 2.1 clients, codes and tokens for chat connectors
 --   mcp_audit_logs     every MCP tool call, who made it, and whether it worked
 --   outbound_drafts    agent-written emails waiting for a Super Admin to approve
+--   agent_runs         each Managed Agents session (from Paperclip or the dashboard)
 --   contacts           + segment, owner_agent_id, lead_score, source_url
 --
 -- Re-runnable: every step checks before it changes anything.
@@ -22,6 +23,10 @@ CREATE TABLE IF NOT EXISTS "agent_identities" (
     "enabled" BOOLEAN NOT NULL DEFAULT false,
     "daily_send_cap" INTEGER NOT NULL DEFAULT 25,
     "managed_agent_id" TEXT,
+    "environment_id" TEXT,
+    "vault_id" TEXT,
+    "memory_store_id" TEXT,
+    "session_budget_cents" INTEGER NOT NULL DEFAULT 300,
     "paperclip_agent_id" TEXT,
     "last_used_at" TIMESTAMPTZ(6),
     "created_by_email" TEXT,
@@ -31,6 +36,7 @@ CREATE TABLE IF NOT EXISTS "agent_identities" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_identities_slug_key" ON "agent_identities"("slug");
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_identities_token_hash_key" ON "agent_identities"("token_hash");
+CREATE UNIQUE INDEX IF NOT EXISTS "agent_identities_paperclip_agent_id_key" ON "agent_identities"("paperclip_agent_id");
 
 CREATE TABLE IF NOT EXISTS "mcp_oauth_clients" (
     "id" TEXT NOT NULL,
@@ -123,6 +129,41 @@ BEGIN
   END IF;
 END $$;
 
+-- One Claude Managed Agents session started for an agent, by Paperclip or from
+-- the dashboard. paperclip_run_id is unique so a retried webhook never starts
+-- a second session.
+CREATE TABLE IF NOT EXISTS "agent_runs" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "agent_id" UUID NOT NULL,
+    "source" TEXT NOT NULL,
+    "paperclip_run_id" TEXT,
+    "paperclip_issue_id" TEXT,
+    "task" TEXT NOT NULL,
+    "session_id" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'queued',
+    "summary" TEXT,
+    "error" TEXT,
+    "cost_cents" INTEGER,
+    "started_by" TEXT,
+    "started_at" TIMESTAMPTZ(6),
+    "finished_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    CONSTRAINT "agent_runs_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "agent_runs_paperclip_run_id_key" ON "agent_runs"("paperclip_run_id");
+CREATE INDEX IF NOT EXISTS "agent_runs_agent_id_created_at_idx" ON "agent_runs"("agent_id", "created_at");
+CREATE INDEX IF NOT EXISTS "agent_runs_status_idx" ON "agent_runs"("status");
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_runs_agent_id_fkey') THEN
+    ALTER TABLE "agent_runs"
+      ADD CONSTRAINT "agent_runs_agent_id_fkey"
+      FOREIGN KEY ("agent_id") REFERENCES "agent_identities"("id") ON DELETE CASCADE;
+  END IF;
+END $$;
+
 -- Leads live in contacts. segment: taxpayer | business | school | family.
 ALTER TABLE "contacts" ADD COLUMN IF NOT EXISTS "segment" TEXT;
 ALTER TABLE "contacts" ADD COLUMN IF NOT EXISTS "owner_agent_id" UUID;
@@ -139,3 +180,4 @@ ALTER TABLE "mcp_oauth_codes" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "mcp_oauth_tokens" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "mcp_audit_logs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "outbound_drafts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "agent_runs" ENABLE ROW LEVEL SECURITY;

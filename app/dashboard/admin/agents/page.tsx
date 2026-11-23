@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/dashboard/admin-page-header";
 import { CopyButton } from "@/components/proposals/admin/copy-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROLE_LABEL, type AgentRole } from "@/lib/agents/identities";
+import { resolveManagedIds } from "@/lib/agents/managed";
 import { siteOrigin } from "@/lib/agents/outbound";
 import { getActSession } from "@/lib/auth/session-server";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +51,10 @@ export default async function AgentsAdminPage({ searchParams }: { searchParams?:
 async function AgentsTab() {
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
-  const agents = await prisma.agentIdentity.findMany({ orderBy: { createdAt: "asc" } });
+  const agents = await prisma.agentIdentity.findMany({
+    orderBy: { createdAt: "asc" },
+    include: { runs: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
   const [sent, pending, owned] = await Promise.all([
     prisma.outboundDraft.groupBy({ by: ["agentId"], where: { status: "sent", sentAt: { gte: start } }, _count: true }),
     prisma.outboundDraft.groupBy({ by: ["agentId"], where: { status: "pending" }, _count: true }),
@@ -60,15 +64,20 @@ async function AgentsTab() {
   const pendingBy = new Map(pending.map((r) => [r.agentId, r._count]));
   const ownedBy = new Map(owned.map((r) => [r.ownerAgentId, r._count]));
 
-  const rows: AgentRow[] = agents.map((a) => ({
+  const rows: AgentRow[] = await Promise.all(agents.map(async (a) => ({
     id: a.id, slug: a.slug, personaName: a.personaName, role: a.role, roleLabel: ROLE_LABEL[a.role as AgentRole] ?? a.role,
     description: a.description, mailbox: a.mailbox, scopes: a.scopes, enabled: a.enabled, dailySendCap: a.dailySendCap,
     hasToken: !!a.tokenHash, tokenHint: a.tokenHint, managedAgentId: a.managedAgentId, paperclipAgentId: a.paperclipAgentId,
+    environmentId: a.environmentId, vaultId: a.vaultId, memoryStoreId: a.memoryStoreId, sessionBudgetCents: a.sessionBudgetCents,
+    fromLock: await resolveManagedIds({ ...a, managedAgentId: null, environmentId: null, vaultId: null, memoryStoreId: null }),
+    lastRun: a.runs[0]
+      ? { status: a.runs[0].status, task: a.runs[0].task, summary: a.runs[0].summary, error: a.runs[0].error, createdAt: a.runs[0].createdAt.toISOString(), costCents: a.runs[0].costCents, source: a.runs[0].source }
+      : null,
     lastUsedAt: a.lastUsedAt?.toISOString() ?? null,
     sentToday: sentBy.get(a.id) ?? 0,
     pendingDrafts: pendingBy.get(a.id) ?? 0,
     leadsOwned: ownedBy.get(a.id) ?? 0,
-  }));
+  })));
   return <AgentsPanel agents={rows} />;
 }
 
@@ -90,9 +99,14 @@ async function ReviewTab() {
 }
 
 async function ActivityTab() {
-  const rows = await prisma.mcpAuditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  const [rows, runs] = await Promise.all([
+    prisma.mcpAuditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.agentRun.findMany({ orderBy: { createdAt: "desc" }, take: 25, include: { agent: { select: { personaName: true } } } }),
+  ]);
   return (
-    <Card className="border-border/80">
+    <div className="space-y-6">
+      <RunsCard runs={runs} />
+      <Card className="border-border/80">
       <CardHeader>
         <CardTitle className="font-heading text-primary">Every AI action</CardTitle>
         <CardDescription>The latest 100 tool calls from agents and connected AI apps.</CardDescription>
@@ -121,6 +135,56 @@ async function ActivityTab() {
           </table>
         ) : (
           <p className="text-sm text-muted-foreground">No activity yet.</p>
+        )}
+      </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+type RunRow = {
+  id: string;
+  status: string;
+  source: string;
+  task: string;
+  summary: string | null;
+  error: string | null;
+  costCents: number | null;
+  sessionId: string | null;
+  createdAt: Date;
+  agent: { personaName: string };
+};
+
+function RunsCard({ runs }: { runs: RunRow[] }) {
+  return (
+    <Card className="border-border/80">
+      <CardHeader>
+        <CardTitle className="font-heading text-primary">Agent runs</CardTitle>
+        <CardDescription>Each task an agent worked on, from Paperclip or Run now, with what it cost.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {runs.length ? (
+          runs.map((r) => (
+            <div key={r.id} className="rounded-md border border-border/60 p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{r.agent.personaName}</span>
+                <span>· {r.status}</span>
+                <span>· {r.source}</span>
+                {r.costCents != null ? <span>· ${(r.costCents / 100).toFixed(2)}</span> : null}
+                <span>· {r.createdAt.toLocaleString()}</span>
+                {r.sessionId ? (
+                  <a className="underline" href={`https://platform.claude.com/workspaces/default/sessions/${r.sessionId}`} target="_blank" rel="noreferrer noopener">
+                    session
+                  </a>
+                ) : null}
+              </div>
+              <p className="mt-1 line-clamp-2">{r.task}</p>
+              {r.summary ? <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{r.summary.slice(0, 800)}</p> : null}
+              {r.error ? <p className="mt-1 text-destructive">{r.error}</p> : null}
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No runs yet.</p>
         )}
       </CardContent>
     </Card>

@@ -23,14 +23,19 @@ const { newAgentToken, cleanScopes, STARTER_AGENTS } = await import("@/lib/agent
 
 let passed = 0;
 let failed = 0;
-function test(name: string, fn: () => void) {
-  try {
-    fn();
-    passed += 1;
-  } catch (error) {
+const pending: Promise<void>[] = [];
+function test(name: string, fn: () => void | Promise<void>) {
+  const fail = (error: unknown) => {
     failed += 1;
     console.error(`  ✗ ${name}`);
     console.error(`    ${error instanceof Error ? error.message : String(error)}`);
+  };
+  try {
+    const out = fn();
+    if (out instanceof Promise) pending.push(out.then(() => void (passed += 1), fail));
+    else passed += 1;
+  } catch (error) {
+    fail(error);
   }
 }
 
@@ -112,5 +117,89 @@ test("starter agents: none can send, each has read", () => {
   assert.equal(new Set(STARTER_AGENTS.map((a) => a.slug)).size, STARTER_AGENTS.length);
 });
 
+// ── Phase 3/4: Paperclip webhook, lock-file lookup, agent definitions ──────
+const { parseWake, verifyWebhook } = await import("@/lib/agents/paperclip");
+const { resolveManagedIds } = await import("@/lib/agents/lock");
+const { readFileSync, writeFileSync, mkdtempSync, readdirSync } = await import("node:fs");
+const { tmpdir } = await import("node:os");
+const path = await import("node:path");
+const yaml = await import("js-yaml");
+
+const SECRET = "x".repeat(40);
+process.env.PAPERCLIP_WEBHOOK_SECRET = SECRET;
+const req = (auth?: string) => new Request("https://actsto.org/api/agents/paperclip", { method: "POST", headers: auth ? { authorization: auth } : {} });
+
+test("paperclip webhook: only the exact shared secret passes", () => {
+  assert.ok(verifyWebhook(req(`Bearer ${SECRET}`)));
+  assert.ok(!verifyWebhook(req(`Bearer ${SECRET}x`)));
+  assert.ok(!verifyWebhook(req("Bearer short")));
+  assert.ok(!verifyWebhook(req()));
+  process.env.PAPERCLIP_WEBHOOK_SECRET = "too-short";
+  assert.ok(!verifyWebhook(req("Bearer too-short")), "a short configured secret is refused outright");
+  process.env.PAPERCLIP_WEBHOOK_SECRET = SECRET;
+});
+
+test("paperclip wake: parses the documented body, rejects incomplete ones", () => {
+  assert.deepEqual(parseWake({ runId: "run-123", agentId: "agent-123", context: { taskId: "ACT-7", wakeReason: "scheduled", commentId: null }, customField: 1 }), {
+    agentId: "agent-123", runId: "run-123", taskId: "ACT-7", wakeReason: "scheduled", commentId: null,
+  });
+  assert.equal(parseWake({ agentId: "a" }), null);
+  assert.equal(parseWake(null), null);
+  assert.equal(parseWake({ agentId: "a", runId: "r" })?.taskId, null, "heartbeat without a task");
+});
+
+test("lock file: IDs by slug and role; typed IDs win; missing file is empty", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "actlock-"));
+  const file = path.join(dir, "claude-lock.json");
+  writeFileSync(file, JSON.stringify({ resources: {
+    "./agents/ava-research/agent.md": { id: "agent_ava" },
+    "./agents/ava-research/vault.yaml": { id: "vlt_ava" },
+    "./agents/ava-research/memory_store-playbook.yaml": { id: "memstore_ava" },
+    "./environments/act-research.yaml": { id: "env_research" },
+    "./environments/act-workers.yaml": { id: "env_workers" },
+  } }));
+  const base = { managedAgentId: null, environmentId: null, vaultId: null, memoryStoreId: null };
+  assert.deepEqual(await resolveManagedIds({ slug: "ava-research", role: "researcher", ...base }, file), {
+    agentId: "agent_ava", environmentId: "env_research", vaultId: "vlt_ava", memoryStoreId: "memstore_ava",
+  });
+  assert.equal((await resolveManagedIds({ slug: "grace-outreach", role: "outreach", ...base }, file)).environmentId, "env_workers");
+  assert.equal((await resolveManagedIds({ slug: "ava-research", role: "researcher", ...base, managedAgentId: "agent_typed" }, file)).agentId, "agent_typed");
+  assert.deepEqual(await resolveManagedIds({ slug: "ava-research", role: "researcher", ...base }, path.join(dir, "missing.json")), {
+    agentId: undefined, environmentId: undefined, vaultId: undefined, memoryStoreId: undefined,
+  });
+});
+
+test("agent definitions: ACT MCP only, no bash, social networks never reachable", () => {
+  const banned = ["linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "tiktok.com"];
+  const slugs = readdirSync("agents");
+  assert.deepEqual(slugs.sort(), STARTER_AGENTS.map((a) => a.slug).sort(), "one folder per starter agent");
+  for (const slug of slugs) {
+    const fm = yaml.load(readFileSync(`agents/${slug}/agent.md`, "utf8").split(/^---$/m)[1]) as {
+      name: string; model: string; mcp_servers: { url: string }[]; tools: { type: string; default_config?: { enabled?: boolean }; configs?: { name: string; enabled?: boolean; allowed_domains?: string[] }[] }[];
+    };
+    assert.equal(fm.name, slug);
+    assert.equal(fm.model, "claude-opus-5-5");
+    assert.deepEqual(fm.mcp_servers.map((m) => m.url), ["https://actsto.org/api/mcp"]);
+    const toolset = fm.tools.find((t) => t.type === "agent_toolset_20260401")!;
+    assert.equal(toolset.default_config?.enabled, false, `${slug}: built-in tools off by default`);
+    assert.ok(!toolset.configs?.some((c) => c.name === "bash" && c.enabled), `${slug}: no bash`);
+    for (const c of toolset.configs ?? []) {
+      if (c.enabled && (c.name === "web_search" || c.name === "web_fetch")) {
+        assert.ok(c.allowed_domains?.length, `${slug}: web tools need an allow-list`);
+        for (const d of c.allowed_domains!) assert.ok(!banned.some((b) => d === b || d.endsWith(`.${b}`)), `${slug}: ${d}`);
+      }
+    }
+    const vault = yaml.load(readFileSync(`agents/${slug}/vault.yaml`, "utf8")) as { type: string };
+    assert.equal(vault.type, "vault");
+  }
+  for (const env of ["act-research", "act-workers"]) {
+    const e = yaml.load(readFileSync(`environments/${env}.yaml`, "utf8")) as { config: { networking: { type: string; allow_mcp_servers: boolean; allowed_hosts?: string[] } } };
+    assert.equal(e.config.networking.type, "limited");
+    assert.equal(e.config.networking.allow_mcp_servers, true);
+    for (const h of e.config.networking.allowed_hosts ?? []) assert.ok(!banned.some((b) => h.replace(/^\*\./, "") === b), `${env}: ${h}`);
+  }
+});
+
+await Promise.all(pending);
 console.log(`agent platform: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

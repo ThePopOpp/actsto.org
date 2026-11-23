@@ -2955,14 +2955,21 @@ model AgentIdentity {
   scopes           String[]  @default([])
   enabled          Boolean   @default(false)
   dailySendCap     Int       @default(25) @map("daily_send_cap")
+  /// Claude Managed Agents IDs. Empty = read from claude-lock.json by slug.
   managedAgentId   String?   @map("managed_agent_id")
-  paperclipAgentId String?   @map("paperclip_agent_id")
+  environmentId    String?   @map("environment_id")
+  vaultId          String?   @map("vault_id")
+  memoryStoreId    String?   @map("memory_store_id")
+  /// Hard spend cap per session, in US cents.
+  sessionBudgetCents Int     @default(300) @map("session_budget_cents")
+  paperclipAgentId String?   @unique @map("paperclip_agent_id")
   lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(6)
   createdByEmail   String?   @map("created_by_email")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   drafts OutboundDraft[]
+  runs   AgentRun[]
 
   @@map("agent_identities")
 }
@@ -3054,4 +3061,33 @@ model OutboundDraft {
   @@index([status], map: "outbound_drafts_status_idx")
   @@index([agentId, sentAt], map: "outbound_drafts_agent_idx")
   @@map("outbound_drafts")
+}
+
+/// One Claude Managed Agents session for an agent. paperclipRunId is unique so a
+/// retried Paperclip webhook never starts a second session.
+model AgentRun {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentId          String    @map("agent_id") @db.Uuid
+  /// paperclip | dashboard
+  source           String
+  paperclipRunId   String?   @unique @map("paperclip_run_id")
+  paperclipIssueId String?   @map("paperclip_issue_id")
+  task             String
+  sessionId        String?   @map("session_id")
+  /// queued | running | done | blocked | failed
+  status           String    @default("queued")
+  summary          String?
+  error            String?
+  costCents        Int?      @map("cost_cents")
+  startedBy        String?   @map("started_by")
+  startedAt        DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt       DateTime? @map("finished_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  agent AgentIdentity @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, createdAt])
+  @@index([status])
+  @@map("agent_runs")
 }

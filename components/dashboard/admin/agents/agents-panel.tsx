@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export type AgentRow = {
   id: string;
@@ -25,8 +26,15 @@ export type AgentRow = {
   hasToken: boolean;
   tokenHint: string | null;
   managedAgentId: string | null;
+  environmentId: string | null;
+  vaultId: string | null;
+  memoryStoreId: string | null;
+  /** IDs found in claude-lock.json, used when a field above is empty. */
+  fromLock: { agentId?: string; environmentId?: string; vaultId?: string; memoryStoreId?: string };
+  sessionBudgetCents: number;
   paperclipAgentId: string | null;
   lastUsedAt: string | null;
+  lastRun: { status: string; task: string; summary: string | null; error: string | null; createdAt: string; costCents: number | null; source: string } | null;
   sentToday: number;
   pendingDrafts: number;
   leadsOwned: number;
@@ -55,8 +63,13 @@ function AgentCard({ agent }: { agent: AgentRow }) {
     dailySendCap: String(agent.dailySendCap),
     scopes: agent.scopes,
     managedAgentId: agent.managedAgentId ?? "",
+    environmentId: agent.environmentId ?? "",
+    vaultId: agent.vaultId ?? "",
+    memoryStoreId: agent.memoryStoreId ?? "",
+    budget: (agent.sessionBudgetCents / 100).toFixed(2),
     paperclipAgentId: agent.paperclipAgentId ?? "",
   });
+  const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -120,14 +133,36 @@ function AgentCard({ agent }: { agent: AgentRow }) {
             <Input id={`${agent.id}-cap`} inputMode="numeric" value={form.dailySendCap} onChange={(e) => setForm({ ...form, dailySendCap: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={`${agent.id}-ma`}>Claude Managed Agent ID</Label>
-            <Input id={`${agent.id}-ma`} placeholder="agent_…" value={form.managedAgentId} onChange={(e) => setForm({ ...form, managedAgentId: e.target.value })} />
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor={`${agent.id}-pc`}>Paperclip agent ID</Label>
-            <Input id={`${agent.id}-pc`} value={form.paperclipAgentId} onChange={(e) => setForm({ ...form, paperclipAgentId: e.target.value })} />
+            <Label htmlFor={`${agent.id}-budget`}>Spending cap per run (USD)</Label>
+            <Input id={`${agent.id}-budget`} inputMode="decimal" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </div>
         </div>
+
+        <details className="rounded-md border border-border/70 p-3">
+          <summary className="cursor-pointer text-sm font-medium">Connections (Claude Managed Agents &amp; Paperclip)</summary>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Leave the Claude fields empty to use the IDs <code>ant apply</code> wrote to claude-lock.json (shown in grey).
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["managedAgentId", "Agent ID", agent.fromLock.agentId, "agent_…"],
+                ["environmentId", "Environment ID", agent.fromLock.environmentId, "env_…"],
+                ["vaultId", "Vault ID", agent.fromLock.vaultId, "vlt_…"],
+                ["memoryStoreId", "Memory store ID", agent.fromLock.memoryStoreId, "memstore_…"],
+              ] as const
+            ).map(([key, label, locked, hint]) => (
+              <div key={key} className="space-y-1">
+                <Label htmlFor={`${agent.id}-${key}`}>{label}</Label>
+                <Input id={`${agent.id}-${key}`} placeholder={locked ?? hint} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+              </div>
+            ))}
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor={`${agent.id}-pc`}>Paperclip agent ID</Label>
+              <Input id={`${agent.id}-pc`} value={form.paperclipAgentId} onChange={(e) => setForm({ ...form, paperclipAgentId: e.target.value })} />
+            </div>
+          </div>
+        </details>
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">What it may do</legend>
@@ -154,7 +189,9 @@ function AgentCard({ agent }: { agent: AgentRow }) {
             size="sm"
             disabled={busy}
             onClick={async () => {
-              if (await run(() => call(url, "PATCH", { ...form, dailySendCap: Number(form.dailySendCap) }))) setSaved(true);
+              const { budget, ...rest } = form;
+              const cents = Math.round(Number(budget) * 100);
+              if (await run(() => call(url, "PATCH", { ...rest, dailySendCap: Number(form.dailySendCap), sessionBudgetCents: cents }))) setSaved(true);
             }}
           >
             Save
@@ -197,6 +234,46 @@ function AgentCard({ agent }: { agent: AgentRow }) {
             </AlertDescription>
           </Alert>
         ) : null}
+        <div className="space-y-2 rounded-md border border-border/70 p-3">
+          <Label htmlFor={`${agent.id}-task`}>Give {agent.personaName} a task now</Label>
+          <Textarea
+            id={`${agent.id}-task`}
+            rows={2}
+            placeholder={agent.role === "researcher" ? "Find 15 Christian schools and churches with schools in Mesa and Gilbert." : "Describe what to do in a sentence or two."}
+            value={task}
+            onChange={(e) => setTask(e.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || !agent.enabled || task.trim().length < 10}
+              onClick={async () => {
+                if (await run(() => call(url, "PATCH", { action: "run", task }))) setTask("");
+              }}
+            >
+              Run now
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Capped at ${(agent.sessionBudgetCents / 100).toFixed(2)}. Results show here and on the Activity tab.
+            </span>
+          </div>
+          {agent.lastRun ? (
+            <div className="rounded bg-muted/50 p-2 text-xs">
+              <div className="font-medium">
+                Last run · {agent.lastRun.status}
+                {agent.lastRun.costCents != null ? ` · $${(agent.lastRun.costCents / 100).toFixed(2)}` : ""}
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · {new Date(agent.lastRun.createdAt).toLocaleString()} · {agent.lastRun.source}
+                </span>
+              </div>
+              {agent.lastRun.summary ? <p className="mt-1 whitespace-pre-wrap">{agent.lastRun.summary.slice(0, 600)}</p> : null}
+              {agent.lastRun.error ? <p className="mt-1 text-destructive">{agent.lastRun.error}</p> : null}
+            </div>
+          ) : null}
+        </div>
+
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>
