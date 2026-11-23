@@ -17,7 +17,8 @@
     "test:email": "tsx scripts/test-email-catalog.mts",
     "test:allocation": "tsx scripts/test-allocation-rules.mts",
     "test:proposal": "tsx scripts/test-proposal-content.mts",
-    "test": "npm run test:income && npm run test:select && npm run test:marketing && npm run test:email && npm run test:allocation && npm run test:proposal"
+    "test:checks": "tsx scripts/test-manual-check-rules.mts",
+    "test": "npm run test:income && npm run test:select && npm run test:marketing && npm run test:email && npm run test:allocation && npm run test:proposal && npm run test:checks"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

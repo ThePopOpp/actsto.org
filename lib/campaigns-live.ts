@@ -45,7 +45,11 @@ export async function getLiveCampaignDonationTotalsBySlug(slugs: string[]) {
         left join public.campaigns c on c.id = d.campaign_id
         left join public.donation_details dd on dd.donation_id = d.id
         where d.status = 'paid'
-          and coalesce(d.metadata->>'paypalEnvironment', 'sandbox') <> 'sandbox'
+          -- A recorded check has no PayPal environment; only PayPal rows can be sandbox.
+          and (
+            d.payment_provider <> 'paypal'
+            or coalesce(d.metadata->>'paypalEnvironment', 'sandbox') <> 'sandbox'
+          )
           and coalesce(c.slug, d.metadata->>'campaignSlug') = any($1::text[])
         group by 1
       `,

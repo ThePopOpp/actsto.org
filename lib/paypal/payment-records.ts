@@ -45,39 +45,8 @@ export async function finalizePaidDonation({
     },
   });
 
-  if (paidUpdate.count > 0 && donation.campaignId) {
-    await prisma.$transaction([
-      prisma.campaign.update({
-        where: { id: donation.campaignId },
-        data: {
-          raisedAmount: { increment: amountUsd },
-          donorCount: { increment: 1 },
-        },
-      }),
-      prisma.donationAllocation.create({
-        data: {
-          donationId,
-          campaignId: donation.campaignId,
-          amount: amountUsd,
-          allocationType: "campaign",
-        },
-      }),
-      prisma.campaignBacker.create({
-        data: {
-          campaignId: donation.campaignId,
-          donationId,
-          userId: donation.userId,
-          displayName: backerDisplay.displayName,
-          avatarUrl: backerDisplay.avatarUrl,
-          amount: amountUsd,
-          message: donation.donorMessage,
-          isAnonymous: donation.anonymous,
-          showAmount: false,
-          showMessage: Boolean(donation.donorMessage),
-          status: "visible",
-        },
-      }),
-    ]);
+  if (paidUpdate.count > 0) {
+    await creditPaidDonationToCampaign(donation, amountUsd, backerDisplay);
   }
 
   const receipt = await ensureTaxReceiptForDonation(donationId, amountUsd);
@@ -100,69 +69,133 @@ export async function finalizePaidDonation({
   });
 
   if (paidUpdate.count > 0) {
-    try {
-      const detail = await prisma.donationDetail.findUnique({ where: { donationId } }).catch(() => null);
-      const campaign = donation.campaignId
-        ? await prisma.campaign
-            .findUnique({ where: { id: donation.campaignId }, select: { title: true, slug: true, goalAmount: true, raisedAmount: true, createdByUserId: true } })
-            .catch(() => null)
-        : null;
-      const site = siteBase();
-
-      // Campaign goal reached — fire once, when this donation crosses the goal.
-      if (campaign && Number(campaign.goalAmount) > 0) {
-        const goal = Number(campaign.goalAmount);
-        const raised = Number(campaign.raisedAmount);
-        if (raised >= goal && raised - Number(amountUsd) < goal) {
-          const creator = await prisma.profile
-            .findUnique({ where: { id: campaign.createdByUserId }, select: { firstName: true, fullName: true, displayName: true, email: true } })
-            .catch(() => null);
-          if (creator?.email) {
-            await fireAutomationEvent("goal_reached", {
-              userId: campaign.createdByUserId,
-              email: creator.email,
-              campaignId: donation.campaignId,
-              fields: {
-                first_name: creator.firstName ?? "",
-                full_name: creator.fullName ?? creator.displayName ?? "",
-                email: creator.email,
-                campaign_title: campaign.title,
-                campaign_url: campaign.slug ? `${site}/campaigns/${campaign.slug}` : site,
-                goal_amount: usd(goal),
-                raised_amount: usd(raised),
-              },
-            });
-          }
-        }
-      }
-
-      const email = receipt.issuedToEmail ?? detail?.donorEmail ?? null;
-      const firstName = detail?.donorFirstName ?? receipt.issuedToName?.split(" ")[0] ?? "";
-      await fireAutomationEvent("donation_paid", {
-        userId: donation.userId,
-        email,
-        phone: detail?.donorPhone ?? null,
-        campaignId: donation.campaignId,
-        amount: Number(amountUsd),
-        fields: {
-          first_name: firstName,
-          last_name: detail?.donorLastName ?? "",
-          full_name: receipt.issuedToName ?? "",
-          email: email ?? "",
-          phone: detail?.donorPhone ?? "",
-          donation_amount: usd(amountUsd),
-          campaign_title: campaign?.title ?? "General fund",
-          campaign_url: campaign?.slug ? `${site}/campaigns/${campaign.slug}` : site,
-          receipt_number: receipt.receiptNumber,
-          tax_year: String(receipt.taxYear),
-        },
-      });
-    } catch {
-      /* automations must not block payment finalization */
-    }
+    await firePaidDonationAutomations(donation, receipt, amountUsd);
   }
 
   return { receipt, newlyPaid: paidUpdate.count > 0 };
+}
+
+type PaidDonation = {
+  id: string;
+  userId: string | null;
+  campaignId: string | null;
+  anonymous: boolean;
+  donorMessage: string | null;
+};
+
+/**
+ * What a newly paid gift does to its campaign: the raised counter and donor
+ * count, the campaign allocation row, and the backer entry. Shared by PayPal
+ * captures and checks recorded by a Super Admin, so both behave the same.
+ * Call once, on the transition to paid.
+ */
+export async function creditPaidDonationToCampaign(
+  donation: PaidDonation,
+  amountUsd: string,
+  backerDisplay: { displayName: string; avatarUrl: string | null },
+) {
+  if (!donation.campaignId) return;
+  await prisma.$transaction([
+    prisma.campaign.update({
+      where: { id: donation.campaignId },
+      data: {
+        raisedAmount: { increment: amountUsd },
+        donorCount: { increment: 1 },
+      },
+    }),
+    prisma.donationAllocation.create({
+      data: {
+        donationId: donation.id,
+        campaignId: donation.campaignId,
+        amount: amountUsd,
+        allocationType: "campaign",
+      },
+    }),
+    prisma.campaignBacker.create({
+      data: {
+        campaignId: donation.campaignId,
+        donationId: donation.id,
+        userId: donation.userId,
+        displayName: backerDisplay.displayName,
+        avatarUrl: backerDisplay.avatarUrl,
+        amount: amountUsd,
+        message: donation.donorMessage,
+        isAnonymous: donation.anonymous,
+        showAmount: false,
+        showMessage: Boolean(donation.donorMessage),
+        status: "visible",
+      },
+    }),
+  ]);
+}
+
+/** goal_reached and donation_paid automations for a newly paid gift. Never throws. */
+export async function firePaidDonationAutomations(
+  donation: PaidDonation,
+  receipt: { issuedToEmail: string | null; issuedToName: string | null; receiptNumber: string; taxYear: number | null },
+  amountUsd: string,
+) {
+  const donationId = donation.id;
+  try {
+    const detail = await prisma.donationDetail.findUnique({ where: { donationId } }).catch(() => null);
+    const campaign = donation.campaignId
+      ? await prisma.campaign
+          .findUnique({ where: { id: donation.campaignId }, select: { title: true, slug: true, goalAmount: true, raisedAmount: true, createdByUserId: true } })
+          .catch(() => null)
+      : null;
+    const site = siteBase();
+
+    // Campaign goal reached — fire once, when this donation crosses the goal.
+    if (campaign && Number(campaign.goalAmount) > 0) {
+      const goal = Number(campaign.goalAmount);
+      const raised = Number(campaign.raisedAmount);
+      if (raised >= goal && raised - Number(amountUsd) < goal) {
+        const creator = await prisma.profile
+          .findUnique({ where: { id: campaign.createdByUserId }, select: { firstName: true, fullName: true, displayName: true, email: true } })
+          .catch(() => null);
+        if (creator?.email) {
+          await fireAutomationEvent("goal_reached", {
+            userId: campaign.createdByUserId,
+            email: creator.email,
+            campaignId: donation.campaignId,
+            fields: {
+              first_name: creator.firstName ?? "",
+              full_name: creator.fullName ?? creator.displayName ?? "",
+              email: creator.email,
+              campaign_title: campaign.title,
+              campaign_url: campaign.slug ? `${site}/campaigns/${campaign.slug}` : site,
+              goal_amount: usd(goal),
+              raised_amount: usd(raised),
+            },
+          });
+        }
+      }
+    }
+
+    const email = receipt.issuedToEmail ?? detail?.donorEmail ?? null;
+    const firstName = detail?.donorFirstName ?? receipt.issuedToName?.split(" ")[0] ?? "";
+    await fireAutomationEvent("donation_paid", {
+      userId: donation.userId,
+      email,
+      phone: detail?.donorPhone ?? null,
+      campaignId: donation.campaignId,
+      amount: Number(amountUsd),
+      fields: {
+        first_name: firstName,
+        last_name: detail?.donorLastName ?? "",
+        full_name: receipt.issuedToName ?? "",
+        email: email ?? "",
+        phone: detail?.donorPhone ?? "",
+        donation_amount: usd(amountUsd),
+        campaign_title: campaign?.title ?? "General fund",
+        campaign_url: campaign?.slug ? `${site}/campaigns/${campaign.slug}` : site,
+        receipt_number: receipt.receiptNumber,
+        tax_year: String(receipt.taxYear),
+      },
+    });
+  } catch {
+    /* automations must not block payment finalization */
+  }
 }
 
 /**
@@ -211,7 +244,7 @@ async function recordPayerOnDonation(
   }
 }
 
-async function getBackerDisplayForDonation(donationId: string) {
+export async function getBackerDisplayForDonation(donationId: string) {
   const donation = await prisma.donation.findUnique({
     where: { id: donationId },
     include: { donationDetail: true },
@@ -249,9 +282,15 @@ async function getBackerDisplayForDonation(donationId: string) {
   return { displayName: "Supporter", avatarUrl: null as string | null };
 }
 
+/**
+ * The donation's live receipt, issuing one if it has none. A voided receipt
+ * doesn't count: a re-issue gets the next number in the same sequence
+ * (ACT-YYYY-XXXXXXXX, then -2, -3, …) so receipt numbers stay unique.
+ */
 export async function ensureTaxReceiptForDonation(donationId: string, amountUsd?: string) {
-  const existing = await prisma.taxReceipt.findFirst({ where: { donationId } });
+  const existing = await prisma.taxReceipt.findFirst({ where: { donationId, status: { not: "void" } } });
   if (existing) return existing;
+  const priorCount = await prisma.taxReceipt.count({ where: { donationId } });
 
   const donation = await prisma.donation.findUnique({
     where: { id: donationId },
@@ -260,7 +299,11 @@ export async function ensureTaxReceiptForDonation(donationId: string, amountUsd?
   if (!donation) throw new Error("Donation not found.");
 
   const taxYear = donation.taxYear ?? donation.createdAt.getFullYear();
-  const receiptNumber = `ACT-${taxYear}-${donation.id.slice(0, 8).toUpperCase()}`;
+  const baseNumber = `ACT-${taxYear}-${donation.id.slice(0, 8).toUpperCase()}`;
+  let receiptNumber = priorCount === 0 ? baseNumber : `${baseNumber}-${priorCount + 1}`;
+  for (let n = priorCount + 2; await prisma.taxReceipt.findUnique({ where: { receiptNumber }, select: { id: true } }); n++) {
+    receiptNumber = `${baseNumber}-${n}`;
+  }
   // A corporate gift is receipted to the business, not the person who paid.
   const issuedToName = donation.donationDetail
     ? donation.donationDetail.businessName ||

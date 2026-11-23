@@ -57,12 +57,13 @@ async function getData() {
       prisma.donation.aggregate({ where: { status: "pending" }, _sum: { totalAmount: true, amount: true }, _count: { _all: true } }),
       prisma.donation.aggregate({ where: { status: { contains: "refund" } }, _sum: { totalAmount: true, amount: true }, _count: { _all: true } }),
       prisma.taxReceipt.count({ where: { status: { in: ["generated", "emailed"] } } }),
-      prisma.donation.count({ where: { status: "paid", paymentProvider: "paypal", taxReceipts: { none: {} } } }),
+      prisma.donation.count({ where: { status: "paid", taxReceipts: { none: { status: { not: "void" } } } } }),
       prisma.invoice.aggregate({ where: { status: { in: ["sent", "overdue"] } }, _sum: { total: true }, _count: { _all: true } }),
       prisma.invoice.count(),
       prisma.paymentEvent.count({ where: { provider: "paypal", processed: false, eventType: { contains: "FAILED" } } }),
       prisma.donation.findMany({
-        where: { paymentProvider: "paypal" },
+        // Every payment method: PayPal and recorded checks.
+        where: {},
         orderBy: { createdAt: "desc" },
         take: 8,
         include: { campaign: { select: { title: true } }, taxReceipts: { orderBy: { createdAt: "desc" }, take: 1 } },

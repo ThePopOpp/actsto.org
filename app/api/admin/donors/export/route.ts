@@ -3,7 +3,7 @@ import { buildDonorWhere, fetchDonorRows } from "@/lib/donors/server";
 
 export const dynamic = "force-dynamic";
 
-const COLUMNS = ["createdAt", "donorName", "donorEmail", "donorPhone", "campaignTitle", "status", "donationType", "amount", "orderId", "receiptNumber", "taxYear"] as const;
+const COLUMNS = ["createdAt", "donorName", "donorEmail", "donorPhone", "campaignTitle", "status", "donationType", "amount", "paymentMethod", "orderId", "receiptNumber", "taxYear"] as const;
 
 function cell(value: unknown): string {
   const s = value == null ? "" : String(value);
@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     campaignId: url.searchParams.get("campaignId") ?? undefined,
     from: url.searchParams.get("from") ?? undefined,
     to: url.searchParams.get("to") ?? undefined,
+    method: url.searchParams.get("method") ?? undefined,
   });
 
   const rows = await fetchDonorRows(where, { take: 10000 });

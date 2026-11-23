@@ -1,8 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminPaypalReceiptBackfillButton } from "@/components/dashboard/admin/admin-paypal-receipt-backfill-button";
+import { ManualCheckActions } from "@/components/dashboard/admin/manual-check/manual-check-actions";
+import { RecordCheckButton } from "@/components/dashboard/admin/manual-check/record-check-dialog";
 import { ExpirePendingButton, FundingSourceCell } from "@/components/dashboard/admin/funding-source-cell";
 import { RemoveTestDonationButton } from "@/components/dashboard/admin/remove-test-donation";
+import { paymentMethodLabel, paymentReference } from "@/lib/donations/payment-methods";
 import { ARCHIVED_TESTS_ONLY } from "@/lib/donations/remove-test";
 import { EXCLUDE_ARCHIVED_TESTS } from "@/lib/donors/server";
 import { prisma } from "@/lib/prisma";
@@ -37,6 +40,8 @@ function statusBadge(status: string) {
     return <Badge className="bg-amber-600 hover:bg-amber-600">{status.replace("_", " ")}</Badge>;
   }
   if (status === "failed") return <Badge variant="destructive">Failed</Badge>;
+  if (status === "returned") return <Badge variant="destructive">Returned</Badge>;
+  if (status === "void") return <Badge variant="outline" className="line-through">Void</Badge>;
   return <Badge variant="outline">{status}</Badge>;
 }
 
@@ -46,7 +51,7 @@ type PaypalActivityView = "all" | "payments" | "receipts" | "webhooks";
 export const PAYMENT_STATUS_FILTERS = [
   { id: "paid", label: "Paid", statuses: ["paid"] },
   { id: "pending", label: "Pending", statuses: ["pending"] },
-  { id: "failed", label: "Failed / cancelled", statuses: ["failed", "cancelled"] },
+  { id: "failed", label: "Failed / cancelled / returned", statuses: ["failed", "cancelled", "returned", "void"] },
   { id: "all", label: "All", statuses: null },
 ] as const;
 export type PaymentStatusFilter = (typeof PAYMENT_STATUS_FILTERS)[number]["id"];
@@ -55,12 +60,34 @@ export function parsePaymentStatusFilter(value: unknown): PaymentStatusFilter {
   return PAYMENT_STATUS_FILTERS.some((f) => f.id === value) ? (value as PaymentStatusFilter) : "all";
 }
 
+/** Payment method filter: everything, PayPal only, or checks and other offline payments. */
+export const PAYMENT_METHOD_FILTERS = [
+  { id: "all", label: "All methods" },
+  { id: "paypal", label: "PayPal" },
+  { id: "offline", label: "Checks" },
+] as const;
+export type PaymentMethodFilter = (typeof PAYMENT_METHOD_FILTERS)[number]["id"];
+
+export function parsePaymentMethodFilter(value: unknown): PaymentMethodFilter {
+  return PAYMENT_METHOD_FILTERS.some((f) => f.id === value) ? (value as PaymentMethodFilter) : "all";
+}
+
+function filterHref(status: string, method: string) {
+  const p = new URLSearchParams();
+  if (status !== "all") p.set("status", status);
+  if (method !== "all") p.set("method", method);
+  const qs = p.toString();
+  return `/dashboard/admin/billing${qs ? `?${qs}` : ""}`;
+}
+
 export async function AdminPaypalActivityPanel({
   view = "all",
   status = "all",
+  method = "all",
 }: {
   view?: PaypalActivityView;
   status?: PaymentStatusFilter;
+  method?: PaymentMethodFilter;
 }) {
   const statuses = PAYMENT_STATUS_FILTERS.find((f) => f.id === status)?.statuses ?? null;
   const [summary, recentDonations, recentEvents, recentReceipts, missingReceiptCount, archived] = await Promise.all([
@@ -69,8 +96,8 @@ export async function AdminPaypalActivityPanel({
       // Archived sandbox tests are left out here exactly as on the Dashboard
       // and Allocation, so all three show the same paid total.
       where: {
-        paymentProvider: "paypal",
         AND: [EXCLUDE_ARCHIVED_TESTS],
+        ...(method === "paypal" ? { paymentProvider: "paypal" } : method === "offline" ? { paymentProvider: { not: "paypal" } } : {}),
         ...(statuses ? { status: { in: [...statuses] } } : {}),
       },
       orderBy: { createdAt: "desc" },
@@ -79,6 +106,7 @@ export async function AdminPaypalActivityPanel({
         campaign: { select: { title: true, slug: true } },
         taxReceipts: { orderBy: { createdAt: "desc" }, take: 1 },
         fundSplits: { select: { fundingSource: true, amount: true, status: true } },
+        offlinePayment: { select: { checkNumber: true, attachmentName: true, attachmentHold: true, recordedByEmail: true } },
       },
     }),
     prisma.paymentEvent.findMany({
@@ -90,13 +118,21 @@ export async function AdminPaypalActivityPanel({
       where: { donation: EXCLUDE_ARCHIVED_TESTS },
       orderBy: { createdAt: "desc" },
       take: 8,
-      include: { donation: { select: { status: true, paymentProviderOrderId: true } } },
+      include: {
+        donation: {
+          select: {
+            status: true,
+            paymentProvider: true,
+            paymentProviderOrderId: true,
+            offlinePayment: { select: { checkNumber: true } },
+          },
+        },
+      },
     }),
     prisma.donation.count({
       where: {
-        paymentProvider: "paypal",
         status: "paid",
-        taxReceipts: { none: {} },
+        taxReceipts: { none: { status: { not: "void" } } },
         AND: [EXCLUDE_ARCHIVED_TESTS],
       },
     }),
@@ -143,9 +179,13 @@ export async function AdminPaypalActivityPanel({
       {view === "all" || view === "payments" ? (
       <Card className="border-border/80">
         <CardHeader>
-          <CardTitle className="font-heading text-primary">Recent PayPal donations</CardTitle>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <CardTitle className="font-heading text-primary">Recent donations</CardTitle>
+            <RecordCheckButton />
+          </div>
           <CardDescription>
-            Capture status, funding source, receipt and campaign for the latest 100 checkouts. Gifts marked Review were
+            Status, payment method, funding source, receipt and campaign for the latest 100 donations, PayPal and
+            recorded checks together. Checks are entered with Record check donation and marked Manual. Gifts marked Review were
             recorded before funding sources existed, or are quick gifts with an Overflow part; confirm or correct them.
             Paid volume here counts the same gifts as the Dashboard and Allocation: archived sandbox tests are left out
             everywhere.
@@ -154,7 +194,7 @@ export async function AdminPaypalActivityPanel({
             {PAYMENT_STATUS_FILTERS.map((f) => (
               <a
                 key={f.id}
-                href={`/dashboard/admin/billing${f.id === "all" ? "" : `?status=${f.id}`}`}
+                href={filterHref(f.id, method)}
                 aria-current={f.id === status ? "page" : undefined}
                 className={cn(
                   "rounded-full border px-3 py-1 text-xs font-medium",
@@ -165,8 +205,24 @@ export async function AdminPaypalActivityPanel({
               </a>
             ))}
           </nav>
+          <nav className="flex flex-wrap gap-1.5" aria-label="Payment method">
+            {PAYMENT_METHOD_FILTERS.map((f) => (
+              <a
+                key={f.id}
+                href={filterHref(status, f.id)}
+                aria-current={f.id === method ? "page" : undefined}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium",
+                  f.id === method ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {f.label}
+              </a>
+            ))}
+          </nav>
           <div className="flex flex-wrap items-center gap-2 pt-2">
-            <ExpirePendingButton pendingCount={summary.pendingCount} />
+            {/* Abandoned checkouts are a PayPal thing; a check is never pending. */}
+            {method !== "offline" ? <ExpirePendingButton pendingCount={summary.pendingCount} /> : null}
             <RemoveTestDonationButton mode="archived" count={archivedCount} amount={archivedAmount} />
           </div>
           {archivedCount > 0 ? (
@@ -177,26 +233,39 @@ export async function AdminPaypalActivityPanel({
           ) : null}
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-sm">
+          <table className="w-full min-w-[1180px] text-sm">
             <thead className="border-b border-border text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="py-2 pr-4">Created</th>
                 <th className="py-2 pr-4">Status</th>
                 <th className="py-2 pr-4 text-right">Amount</th>
+                <th className="py-2 pr-4">Method</th>
                 <th className="py-2 pr-4">Funding source</th>
                 <th className="py-2 pr-4">Campaign</th>
                 <th className="py-2 pr-4">Receipt</th>
-                <th className="py-2 pr-4">PayPal order</th>
+                <th className="py-2 pr-4">PayPal order / check</th>
                 <th className="py-2 pr-4">Capture</th>
                 <th className="py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70">
               {recentDonations.map((donation) => (
-                <tr key={donation.id}>
+                <tr key={donation.id} id={`donation-${donation.id}`} className="target:bg-primary/5">
                   <td className="py-3 pr-4 text-muted-foreground">{dt(donation.createdAt)}</td>
                   <td className="py-3 pr-4">{statusBadge(donation.status)}</td>
                   <td className="py-3 pr-4 text-right tabular-nums">{money(donation.totalAmount ?? donation.amount)}</td>
+                  <td className="py-3 pr-4">
+                    <span className="text-xs">{paymentMethodLabel(donation.paymentProvider)}</span>
+                    {donation.offlinePayment ? (
+                      <Badge
+                        variant="outline"
+                        className="ml-1.5 px-1.5 py-0 text-[10px]"
+                        title={`Recorded by ${donation.offlinePayment.recordedByEmail ?? "staff"}`}
+                      >
+                        Manual
+                      </Badge>
+                    ) : null}
+                  </td>
                   <td className="py-3 pr-4">
                     <FundingSourceCell
                       donationId={donation.id}
@@ -219,9 +288,22 @@ export async function AdminPaypalActivityPanel({
                   <td className="py-3 pr-4 font-mono text-xs">
                     {donation.taxReceipts[0]?.receiptNumber ?? "-"}
                   </td>
-                  <td className="py-3 pr-4 font-mono text-xs">{donation.paymentProviderOrderId ?? "-"}</td>
+                  <td className="py-3 pr-4 font-mono text-xs">
+                    {donation.offlinePayment
+                      ? paymentReference({ paymentProvider: donation.paymentProvider, checkNumber: donation.offlinePayment.checkNumber })
+                      : donation.paymentProviderOrderId ?? "-"}
+                  </td>
                   <td className="py-3 pr-4 font-mono text-xs">{donation.paymentProviderCaptureId ?? "-"}</td>
-                  <td className="py-3">
+                  <td className="space-y-1 py-3">
+                    {donation.offlinePayment ? (
+                      <ManualCheckActions
+                        donationId={donation.id}
+                        status={donation.status}
+                        amountLabel={money(donation.totalAmount ?? donation.amount)}
+                        attachmentName={donation.offlinePayment.attachmentName}
+                        attachmentHold={donation.offlinePayment.attachmentHold}
+                      />
+                    ) : null}
                     <RemoveTestDonationButton
                       mode="one"
                       donationId={donation.id}
@@ -233,7 +315,7 @@ export async function AdminPaypalActivityPanel({
               ))}
               {recentDonations.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-6 text-center text-muted-foreground">
                     No donations with this status.
                   </td>
                 </tr>
@@ -291,8 +373,15 @@ export async function AdminPaypalActivityPanel({
                   {money(receipt.amount)} · issued {dt(receipt.issuedAt)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  donation {receipt.donation.status} · order{" "}
-                  <span className="font-mono">{receipt.donation.paymentProviderOrderId ?? "-"}</span>
+                  donation {receipt.donation.status} ·{" "}
+                  <span className="font-mono">
+                    {receipt.donation.paymentProvider === "paypal"
+                      ? `order ${receipt.donation.paymentProviderOrderId ?? "-"}`
+                      : paymentReference({
+                          paymentProvider: receipt.donation.paymentProvider,
+                          checkNumber: receipt.donation.offlinePayment?.checkNumber,
+                        })}
+                  </span>
                 </p>
               </div>
             ))}
@@ -307,7 +396,8 @@ export async function AdminPaypalActivityPanel({
 async function getPaymentSummary() {
   const rows = await prisma.donation.groupBy({
     by: ["status"],
-    where: { paymentProvider: "paypal", AND: [EXCLUDE_ARCHIVED_TESTS] },
+    // Every payment method, so Paid volume here matches the Dashboard and Allocation.
+    where: { AND: [EXCLUDE_ARCHIVED_TESTS] },
     _count: { _all: true },
     _sum: { totalAmount: true, amount: true },
   });
@@ -315,7 +405,7 @@ async function getPaymentSummary() {
   const paid = rows.find((row) => row.status === "paid");
   const pending = rows.find((row) => row.status === "pending");
   const exceptionCount = rows
-    .filter((row) => ["cancelled", "failed", "refunded", "partially_refunded"].includes(row.status))
+    .filter((row) => ["cancelled", "failed", "refunded", "partially_refunded", "returned", "void"].includes(row.status))
     .reduce((sum, row) => sum + row._count._all, 0);
 
   return {

@@ -1,6 +1,7 @@
 import { AdminPaypalSettingsForm } from "@/components/dashboard/admin/admin-paypal-settings-form";
 import {
   AdminPaypalActivityPanel,
+  parsePaymentMethodFilter,
   parsePaymentStatusFilter,
 } from "@/components/dashboard/admin/admin-paypal-activity-panel";
 import { AdminPageTabLinks, type AdminPageTabLink } from "@/components/dashboard/admin/admin-page-tab-links";
@@ -23,21 +24,22 @@ function parseTab(value: unknown): PaymentsTab {
 export default async function AdminBillingPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string; status?: string }>;
+  searchParams?: Promise<{ tab?: string; status?: string; method?: string }>;
 }) {
   const params = searchParams ? await searchParams : {};
   const activeTab = parseTab(params.tab);
   const status = parsePaymentStatusFilter(params.status);
+  const method = parsePaymentMethodFilter(params.method);
 
   return (
     <>
       <AdminPageHeader
         title="Payments"
-        description="Donation capture, settlement reports, fee summaries, and reconciliation exports."
+        description="Every donation, online (PayPal) and recorded by hand (checks), with capture status, funds and receipts."
       />
       <div className="space-y-6">
         <AdminPageTabLinks tabs={tabs} activeTab={activeTab} baseHref="/dashboard/admin/billing" />
-        {activeTab === "payments" ? <AdminPaypalActivityPanel view="payments" status={status} /> : null}
+        {activeTab === "payments" ? <AdminPaypalActivityPanel view="payments" status={status} method={method} /> : null}
         {activeTab === "receipts" ? <AdminPaypalActivityPanel view="receipts" /> : null}
         {activeTab === "webhooks" ? (
           <>

@@ -46,10 +46,12 @@ export async function sendDonationReceiptEmail(donationId: string): Promise<bool
       include: {
         donationDetail: true,
         campaign: { select: { title: true, slug: true } },
-        taxReceipts: { orderBy: { createdAt: "desc" }, take: 1 },
+        // A voided receipt is never sent; a re-issue is the newest live one.
+        taxReceipts: { where: { status: { not: "void" } }, orderBy: { createdAt: "desc" }, take: 1 },
       },
     });
-    if (!donation) return false;
+    // Only a paid gift gets a receipt: never a returned or voided check.
+    if (!donation || donation.status !== "paid") return false;
 
     const receipt = donation.taxReceipts[0] ?? null;
     const to =

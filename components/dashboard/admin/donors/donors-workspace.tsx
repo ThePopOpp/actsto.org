@@ -8,11 +8,13 @@ import {
   FileText, List, Mail, MessageSquare, Phone, ReceiptText, Search, Star, Table as TableIcon, Trophy, X,
 } from "lucide-react";
 
+import { RecordCheckButton } from "@/components/dashboard/admin/manual-check/record-check-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PAYMENT_METHOD_LABEL, paymentMethodLabel } from "@/lib/donations/payment-methods";
 import { cn } from "@/lib/utils";
 
 type DonorRow = {
@@ -20,6 +22,7 @@ type DonorRow = {
   anonymous: boolean; message: string | null; campaignId: string | null; campaignTitle: string;
   campaignSlug: string | null; status: string; donationType: string; amount: number;
   orderId: string | null; receiptNumber: string | null; taxYear: number | null; userId: string | null;
+  paymentMethod: string; manual: boolean;
 };
 type LeaderRow = { key: string; donorName: string; email: string | null; phone: string | null; userId: string | null; total: number; count: number; firstAt: string; lastAt: string };
 type Stats = { total: number; paidSum: number; paidCount: number; pending: number; avgGift: number };
@@ -35,6 +38,8 @@ const STATUSES: { id: string; label: string; color: string }[] = [
   { id: "failed", label: "Failed", color: "#dc2626" },
   { id: "cancelled", label: "Cancelled", color: "#9ca3af" },
   { id: "refunded", label: "Refunded", color: "#d97706" },
+  { id: "returned", label: "Returned check", color: "#b91c1c" },
+  { id: "void", label: "Void", color: "#6b7280" },
 ];
 function statusColor(s: string) { return STATUSES.find((x) => x.id === s)?.color ?? "#64748b"; }
 function statusLabel(s: string) { return STATUSES.find((x) => x.id === s)?.label ?? s; }
@@ -80,6 +85,7 @@ export function DonorsWorkspace() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [missingReceipt, setMissingReceipt] = useState(false);
+  const [method, setMethod] = useState("");
   const [sortField, setSortField] = useState<"createdAt" | "amount">("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
@@ -104,8 +110,9 @@ export function DonorsWorkspace() {
     if (campaignId) p.set("campaignId", campaignId);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
+    if (method) p.set("method", method);
     return p;
-  }, [q, status, campaignId, from, to, missingReceipt]);
+  }, [q, status, campaignId, from, to, missingReceipt, method]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -233,6 +240,14 @@ export function DonorsWorkspace() {
           <SelectTrigger className="w-40"><SelectValue placeholder="Campaign" /></SelectTrigger>
           <SelectContent><SelectItem value={NONE}>All campaigns</SelectItem>{campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}</SelectContent>
         </Select>
+        <Select value={method || NONE} onValueChange={(v) => { setMethod(v === NONE ? "" : (v ?? "")); resetPage(); }}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Payment" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>All payments</SelectItem>
+            <SelectItem value="offline">All checks / offline</SelectItem>
+            {Object.entries(PAYMENT_METHOD_LABEL).map(([id, label]) => <SelectItem key={id} value={id}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <div className="w-36"><DatePicker value={from} onChange={(v) => { setFrom(v); resetPage(); }} placeholder="From date" className="mt-0 h-9" /></div>
         <div className="w-36"><DatePicker value={to} onChange={(v) => { setTo(v); resetPage(); }} placeholder="To date" className="mt-0 h-9" /></div>
         <button type="button" onClick={() => { setMissingReceipt((v) => !v); resetPage(); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium", missingReceipt ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400" : "border-border text-muted-foreground hover:bg-muted")}><ReceiptText className="size-3.5" /> Missing receipt</button>
@@ -243,6 +258,7 @@ export function DonorsWorkspace() {
           </Select>
         ) : null}
         <Button type="button" variant="outline" size="sm" onClick={savePreset}><Star className="mr-1.5 size-4" /> Save view</Button>
+        <RecordCheckButton size="sm" onRecorded={() => void load()} />
         <div className="flex rounded-lg border border-border p-0.5">
           {([["list", List], ["table", TableIcon], ["kanban", Columns3], ["calendar", CalendarIcon], ["leaderboard", Trophy]] as const).map(([v, Icon]) => (
             <button key={v} type="button" onClick={() => { setView(v); resetPage(); }} className={cn("rounded-md p-1.5", view === v ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")} aria-label={v}><Icon className="size-4" /></button>
@@ -305,7 +321,7 @@ function ListView({ rows, onOpen, onCall, onSms, onEmail, checked, onCheck }: { 
           <Check on={checked.has(r.id)} onChange={() => onCheck(r.id)} />
           <button type="button" onClick={() => onOpen(r)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2"><span className="truncate font-medium text-foreground">{r.donorName}</span><StatusBadge status={r.status} />{!r.receiptNumber && r.status === "paid" ? <span className="text-[10px] text-amber-600">no receipt</span> : null}</div>
+              <div className="flex items-center gap-2"><span className="truncate font-medium text-foreground">{r.donorName}</span><StatusBadge status={r.status} />{r.manual ? <span className="rounded border border-border px-1 text-[10px] text-muted-foreground">{paymentMethodLabel(r.paymentMethod)} · Manual</span> : null}{!r.receiptNumber && r.status === "paid" ? <span className="text-[10px] text-amber-600">no receipt</span> : null}</div>
               <p className="truncate text-xs text-muted-foreground">{r.campaignTitle} · {dt(r.createdAt)}</p>
             </div>
             <span className="shrink-0 font-medium tabular-nums text-foreground">{money(r.amount)}</span>
@@ -477,14 +493,15 @@ function DonorModal({ row, onClose, onCall, onSms, onEmail, onMark, onGenReceipt
             <Row label="Campaign" value={row.campaignSlug ? <Link href={`/campaigns/${row.campaignSlug}`} className="text-primary hover:underline">{row.campaignTitle}</Link> : row.campaignTitle} />
             <Row label="Type" value={row.donationType} />
             <Row label="Tax year" value={row.taxYear ? String(row.taxYear) : null} />
-            <Row label="PayPal order" value={row.orderId} mono />
+            <Row label="Payment" value={row.manual ? `${row.orderId ?? paymentMethodLabel(row.paymentMethod)} (recorded by staff)` : paymentMethodLabel(row.paymentMethod)} />
+            {!row.manual ? <Row label="PayPal order" value={row.orderId} mono /> : null}
             <Row label="Receipt #" value={row.receiptNumber} mono />
             <Row label="Date" value={dt(row.createdAt)} />
             {row.message ? <div><dt className="text-xs text-muted-foreground">Message</dt><dd className="mt-0.5 whitespace-pre-wrap text-foreground">{row.message}</dd></div> : null}
           </dl>
           <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
             {row.status === "paid" && !row.receiptNumber ? <Button type="button" size="sm" variant="outline" onClick={() => onGenReceipt(row.id)}><ReceiptText className="mr-1.5 size-3.5" /> Generate receipt</Button> : null}
-            {row.status !== "refunded" ? <Button type="button" size="sm" variant="outline" className="text-amber-600" onClick={() => onMark(row.id, "refunded")}>Mark refunded</Button> : <Button type="button" size="sm" variant="outline" onClick={() => onMark(row.id, "paid")}>Mark paid</Button>}
+            {row.manual ? <Link href="/dashboard/admin/billing?method=offline" className="inline-flex items-center text-sm font-medium text-primary hover:underline">Edit, return or void on Payments →</Link> : row.status !== "refunded" ? <Button type="button" size="sm" variant="outline" className="text-amber-600" onClick={() => onMark(row.id, "refunded")}>Mark refunded</Button> : <Button type="button" size="sm" variant="outline" onClick={() => onMark(row.id, "paid")}>Mark paid</Button>}
             {crmHref ? <Link href={crmHref} className="ml-auto inline-flex items-center text-sm font-medium text-primary hover:underline">CRM profile →</Link> : null}
           </div>
         </div>
