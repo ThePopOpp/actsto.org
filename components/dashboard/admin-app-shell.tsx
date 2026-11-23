@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  Bot,
   BookUser,
   CalendarClock,
   ChevronDown,
@@ -121,6 +122,7 @@ const nav: NavEntry[] = [
       { href: "/dashboard/admin/notifications", label: "Notifications", icon: Bell },
     ],
   },
+  { href: "/dashboard/admin/agents", label: "AI Agents", icon: Bot },
   { href: "/dashboard/admin/automations", label: "Automations", icon: Zap },
   {
     label: "Site Content",

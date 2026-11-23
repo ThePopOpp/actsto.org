@@ -31,6 +31,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // OAuth discovery for the ACT MCP connector (see app/api/oauth/metadata/*).
+  async rewrites() {
+    return [
+      { source: "/.well-known/oauth-protected-resource", destination: "/api/oauth/metadata/resource" },
+      { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/oauth/metadata/resource" },
+      { source: "/.well-known/oauth-authorization-server", destination: "/api/oauth/metadata/server" },
+      { source: "/.well-known/oauth-authorization-server/:path*", destination: "/api/oauth/metadata/server" },
+      { source: "/.well-known/openid-configuration", destination: "/api/oauth/metadata/server" },
+    ];
+  },
   async redirects() {
     return [
       ...["individual", "individual-donor", "donor-individual", "donor_individual"].map((alias) => ({

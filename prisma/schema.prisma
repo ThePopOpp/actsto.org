@@ -1920,14 +1920,25 @@ model Contact {
   city            String?
   state           String?
   lastContactedAt DateTime? @map("last_contacted_at")
+  /// Lead segment: taxpayer | business | school | family
+  segment         String?
+  /// The AI agent that found or owns this lead (agent_identities.id).
+  ownerAgentId    String?   @map("owner_agent_id") @db.Uuid
+  leadScore       Int?      @map("lead_score")
+  /// Where an agent found this lead (public page URL).
+  sourceUrl       String?   @map("source_url")
   createdBy       String?   @map("created_by")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  outboundDrafts OutboundDraft[]
 
   @@index([status])
   @@index([stage])
   @@index([emailNormalized])
   @@index([phoneNormalized])
+  @@index([segment])
+  @@index([ownerAgentId])
   @@map("contacts")
 }
 
@@ -2924,4 +2935,123 @@ model DonorProposalView {
   @@unique([proposalId, viewedOn, visitorHash], map: "donor_proposal_views_unique_daily")
   @@index([proposalId, viewedOn], map: "donor_proposal_views_day_idx")
   @@map("donor_proposal_views")
+}
+
+/// One AI agent (a Claude Managed Agent driven by Paperclip). Its MCP bearer
+/// token is stored as a SHA-256 hash; the raw token is shown once.
+model AgentIdentity {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String    @unique
+  /// Display name, always presented as an AI assistant ("Grace, ACT's AI assistant").
+  personaName      String    @map("persona_name")
+  /// researcher | qualifier | outreach | social | inbox
+  role             String
+  description      String?
+  /// The agent's own sending address on the ACT domain.
+  mailbox          String?
+  tokenHash        String?   @unique @map("token_hash")
+  /// Last 4 characters of the token, so staff can tell tokens apart.
+  tokenHint        String?   @map("token_hint")
+  scopes           String[]  @default([])
+  enabled          Boolean   @default(false)
+  dailySendCap     Int       @default(25) @map("daily_send_cap")
+  managedAgentId   String?   @map("managed_agent_id")
+  paperclipAgentId String?   @map("paperclip_agent_id")
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(6)
+  createdByEmail   String?   @map("created_by_email")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  drafts OutboundDraft[]
+
+  @@map("agent_identities")
+}
+
+model McpOAuthClient {
+  id           String   @id
+  clientName   String   @map("client_name")
+  redirectUris String[] @default([]) @map("redirect_uris")
+  secretHash   String?  @map("secret_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("mcp_oauth_clients")
+}
+
+model McpOAuthCode {
+  codeHash      String   @id @map("code_hash")
+  clientId      String   @map("client_id")
+  redirectUri   String   @map("redirect_uri")
+  codeChallenge String   @map("code_challenge")
+  email         String
+  resource      String
+  scope         String
+  expiresAt     DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@map("mcp_oauth_codes")
+}
+
+model McpOAuthToken {
+  tokenHash String   @id @map("token_hash")
+  /// access | refresh
+  kind      String
+  clientId  String   @map("client_id")
+  email     String
+  resource  String
+  scope     String
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([expiresAt], map: "mcp_oauth_tokens_expires_idx")
+  @@map("mcp_oauth_tokens")
+}
+
+model McpAuditLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tool      String
+  caller    String
+  /// oauth | agent
+  via       String
+  clientId  String   @map("client_id")
+  agentId   String?  @map("agent_id") @db.Uuid
+  args      Json     @default("{}")
+  ok        Boolean
+  error     String?
+  ms        Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt], map: "mcp_audit_logs_created_idx")
+  @@index([tool], map: "mcp_audit_logs_tool_idx")
+  @@index([agentId], map: "mcp_audit_logs_agent_idx")
+  @@map("mcp_audit_logs")
+}
+
+/// An email an agent wants to send. Nothing reaches a lead until a Super Admin
+/// approves it (status pending -> approved -> sent, or rejected).
+model OutboundDraft {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentId           String?   @map("agent_id") @db.Uuid
+  contactId         String?   @map("contact_id") @db.Uuid
+  channel           String    @default("email")
+  toEmail           String    @map("to_email")
+  subject           String
+  bodyText          String    @map("body_text")
+  segment           String?
+  /// pending | approved | rejected | sent | failed
+  status            String    @default("pending")
+  reviewNote        String?   @map("review_note")
+  reviewedByEmail   String?   @map("reviewed_by_email")
+  reviewedAt        DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  sentAt            DateTime? @map("sent_at") @db.Timestamptz(6)
+  providerMessageId String?   @map("provider_message_id")
+  error             String?
+  createdBy         String?   @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  agent   AgentIdentity? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  contact Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([status], map: "outbound_drafts_status_idx")
+  @@index([agentId, sentAt], map: "outbound_drafts_agent_idx")
+  @@map("outbound_drafts")
 }
